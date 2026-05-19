@@ -2557,12 +2557,11 @@ function Home({ messages, sendMessage, isTyping, startFreshChat, setShowAdvanced
   // Default to enabled. Only disable if user's OS explicitly prefers reduced motion.
   const [videoEnabled, setVideoEnabled] = React.useState(true);
   const [activeVidIdx, setActiveVidIdx] = React.useState(0);
-  const [standbyVidIdx, setStandbyVidIdx] = React.useState(1);
   const [activeLayer, setActiveLayer] = React.useState("A"); // "A" or "B"
   const [videoError, setVideoError] = React.useState(false);
   const vidRefA = React.useRef(null);
   const vidRefB = React.useRef(null);
-  const rotationTimer = React.useRef(null);
+  const standbyVidIdx = (activeVidIdx + 1) % HERO_VIDEOS.length;
 
   // Check prefers-reduced-motion on mount (client-side only)
   React.useEffect(() => {
@@ -2574,35 +2573,24 @@ function Home({ messages, sendMessage, isTyping, startFreshChat, setShowAdvanced
   }, []);
 
   // Crossfade rotation: every 10s, swap active/standby layers
-  React.useEffect(() => {
-    if (!videoEnabled || videoError) {
-      clearTimeout(rotationTimer.current);
-      return;
-    }
-
-    rotationTimer.current = setTimeout(() => {
-      setActiveLayer(prev => prev === "A" ? "B" : "A");
-      setActiveVidIdx(prev => {
-        const next = (prev + 1) % HERO_VIDEOS.length;
-        // Queue the NEXT video onto standby after crossfade completes
-        setTimeout(() => setStandbyVidIdx((next + 1) % HERO_VIDEOS.length), 2200);
-        return next;
-      });
-    }, 10000);
-
-    return () => clearTimeout(rotationTimer.current);
-  }, [videoEnabled, videoError, activeVidIdx]);
-
-  // Play the active layer, pause standby after crossfade
+  // Switch to the next video only when the current one ends.
   React.useEffect(() => {
     if (!videoEnabled || videoError) return;
     const activeRef = activeLayer === "A" ? vidRefA : vidRefB;
     const standbyRef = activeLayer === "A" ? vidRefB : vidRefA;
+
+try {
+  standbyRef.current?.pause?.();
+  if (standbyRef.current) {
+    standbyRef.current.currentTime = 0;
+  }
+  standbyRef.current?.load?.();
+} catch {}
+
     try {
-      activeRef.current?.play()?.catch(() => {});
-      setTimeout(() => { try { standbyRef.current?.pause(); } catch {} }, 2200);
+      activeRef.current?.play?.().catch(() => {});
     } catch {}
-  }, [activeLayer, videoEnabled, videoError]);
+  }, [activeLayer, activeVidIdx, videoEnabled, videoError]);
 
   // Video error handler — log the exact path that failed
   const handleVideoError = React.useCallback((e) => {
@@ -2612,6 +2600,12 @@ function Home({ messages, sendMessage, isTyping, startFreshChat, setShowAdvanced
     console.error("[FindMyCar] File paths are case-sensitive on Linux/Vercel. Verify casing matches exactly.");
     setVideoError(true);
   }, []);
+
+  const handleVideoEnded = React.useCallback(() => {
+    const next = (activeVidIdx + 1) % HERO_VIDEOS.length;
+    setActiveLayer(prev => prev === "A" ? "B" : "A");
+    setActiveVidIdx(next);
+  }, [activeVidIdx]);
 
   // Log active video on every swap
   React.useEffect(() => {
@@ -2663,12 +2657,12 @@ function Home({ messages, sendMessage, isTyping, startFreshChat, setShowAdvanced
               ref={vidRefA}
               key={"vidA-" + (activeLayer === "A" ? activeVidIdx : standbyVidIdx)}
               src={HERO_VIDEOS[activeLayer === "A" ? activeVidIdx : standbyVidIdx]}
-              autoPlay
+              autoPlay={activeLayer === "A"}
               muted
               playsInline
               preload="auto"
               aria-hidden="true"
-              onEnded={() => { if (activeLayer === "A") setActiveLayer("B"); }}
+              onEnded={handleVideoEnded}
               onError={handleVideoError}
               onLoadedData={() => console.log("[FindMyCar] ✅ Video A loaded:", HERO_VIDEOS[activeLayer === "A" ? activeVidIdx : standbyVidIdx])}
               style={{
@@ -2688,12 +2682,12 @@ function Home({ messages, sendMessage, isTyping, startFreshChat, setShowAdvanced
               ref={vidRefB}
               key={"vidB-" + (activeLayer === "B" ? activeVidIdx : standbyVidIdx)}
               src={HERO_VIDEOS[activeLayer === "B" ? activeVidIdx : standbyVidIdx]}
-              autoPlay
+              autoPlay={activeLayer === "B"}
               muted
               playsInline
               preload="auto"
               aria-hidden="true"
-              onEnded={() => { if (activeLayer === "B") setActiveLayer("A"); }}
+              onEnded={handleVideoEnded}
               onError={handleVideoError}
               onLoadedData={() => console.log("[FindMyCar] ✅ Video B loaded:", HERO_VIDEOS[activeLayer === "B" ? activeVidIdx : standbyVidIdx])}
               style={{
@@ -2742,7 +2736,6 @@ function Home({ messages, sendMessage, isTyping, startFreshChat, setShowAdvanced
             if (videoError) {
               setVideoError(false);
               setActiveVidIdx(0);
-              setStandbyVidIdx(1);
               setActiveLayer("A");
             }
             setVideoEnabled(v => !v);
