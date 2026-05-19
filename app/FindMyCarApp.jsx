@@ -2542,12 +2542,17 @@ function Home({ messages, sendMessage, isTyping, startFreshChat, setShowAdvanced
 
   // ── Rotating hero video background ─────────────────────────
   const HERO_VIDEOS = [
-    "/media/Hero/Hero-01.mp4",
-    "/media/Hero/Hero-02.mp4",
-    "/media/Hero/Hero-03.mp4",
-    "/media/Hero/Hero-04.mp4",
-    "/media/Hero/Hero-05.mp4",
+    "https://res.cloudinary.com/df4m9e0ob/video/upload/v1779230148/Hero-06_rosiqi.mp4",
+    "https://res.cloudinary.com/df4m9e0ob/video/upload/v1779230150/Hero-01_nwecg8.mp4",
+    "https://res.cloudinary.com/df4m9e0ob/video/upload/v1779230153/Hero-03_xniqnn.mp4",
+    "https://res.cloudinary.com/df4m9e0ob/video/upload/v1779230150/Hero-07_gswtag.mp4",
+    "https://res.cloudinary.com/df4m9e0ob/video/upload/v1779230147/Hero-02_w9jaow.mp4",
+    "https://res.cloudinary.com/df4m9e0ob/video/upload/v1779230163/Hero-04_nlp39h.mp4",
+    "https://res.cloudinary.com/df4m9e0ob/video/upload/v1779230163/Hero-04_nlp39h.mp4",
+    "https://res.cloudinary.com/df4m9e0ob/video/upload/v1779230159/Hero-05_tbc7ym.mp4",
   ];
+ 
+  
 
   // Default to enabled. Only disable if user's OS explicitly prefers reduced motion.
   const [videoEnabled, setVideoEnabled] = React.useState(true);
