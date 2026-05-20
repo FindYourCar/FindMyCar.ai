@@ -1474,25 +1474,19 @@ export default function App() {
   const [language, setLanguage] = useState("EN");
   const t = useT(language);
 const normalizeExternalListing = (raw) => {
-  const brand = raw.brand || raw.make || raw.manufacturer || "";
-  const model = raw.model || raw.name || "";
-  const year = raw.year || raw.manufactureYear || raw.productionYear || null;
-  const price = raw.price || raw.amount || 0;
-  const mileage = raw.mileage ?? raw.mileageKm ?? raw.mileage_km ?? 0;
   return {
-    id: raw.id?.toString() || raw.listingId?.toString() || `${brand}-${model}-${year}`,
-    title: raw.title || raw.name || `${brand} ${model}`.trim(),
-    price,
-    year,
-    mileage,
-    mileageKm: mileage,
-    location: raw.location || raw.address || "",
-    make: brand,
-    brand,
-    model,
+    id: raw.id?.toString() || crypto.randomUUID(),
+    title: raw.title || "",
+    subtitle: raw.subtitle || "",
+    priceLabel: raw.priceLabel || "",
+    fuel: raw.fuel || "",
+    transmission: raw.transmission || "",
+    country: raw.country || "",
+    imageUrl: raw.imageUrl || "",
+    listingUrl: raw.listingUrl || "",
+    source: raw.source || "AutoScout24",
   };
 };
-
 const fetchExternalListings = async () => {
   const liveUrl = process.env.NEXT_PUBLIC_LISTINGS_URL || "/api/live-listings";
   const res = await fetch(liveUrl);
@@ -1573,32 +1567,113 @@ useEffect(() => {
     || /(?:^|[^A-Za-z0-9€])(?:under\s*)?(?:€\s*)?\d+(?:[.,]\d{3})*k\b/i.test(text);
   const parseListingFilters = (query) => {
     const normalizedQuery = (query || "").toLowerCase();
-    const brand = /\b330i?\b/.test(normalizedQuery) || /\bbmw\b/.test(normalizedQuery)
-      ? "bmw"
-      : /\ba4\b/.test(normalizedQuery) || /\baudi\b/.test(normalizedQuery)
-      ? "audi"
-      : "all";
-    const model = /\b330i?\b/.test(normalizedQuery)
-      ? "330"
-      : /\ba4\b/.test(normalizedQuery)
-      ? "a4"
-      : "";
-    const location = /\bamsterdam\b/.test(normalizedQuery)
-      ? "amsterdam"
-      : /\brotterdam\b/.test(normalizedQuery)
-      ? "rotterdam"
-      : "";
-    const budgetMatch = normalizedQuery.match(/(?:^|[^A-Za-z0-9€])(?:under\s*)?(?:€\s*)?(\d{4,}(?:[.,]\d{3})*)(k)?\b/i)
-      || normalizedQuery.match(/(?:^|[^A-Za-z0-9€])(?:under\s*)?(?:€\s*)?(\d+(?:[.,]\d{3})*)k\b/i);
-    let maxPrice = null;
-    if (budgetMatch) {
-      maxPrice = parseInt(budgetMatch[1].replace(/[.,]/g, ""), 10);
-      if (budgetMatch[2]) maxPrice *= 1000;
+    const brandMap = {
+      "land rover": "Land Rover",
+      "range rover": "Land Rover",
+      "mercedes-benz": "Mercedes-Benz",
+      "mercedes": "Mercedes-Benz",
+      "volkswagen": "Volkswagen",
+      "vw": "Volkswagen",
+      "bmw": "BMW",
+      "audi": "Audi",
+      "toyota": "Toyota",
+      "volvo": "Volvo",
+      "ford": "Ford",
+      "skoda": "Škoda",
+      "seat": "Seat",
+      "peugeot": "Peugeot",
+      "renault": "Renault",
+      "nissan": "Nissan",
+      "kia": "Kia",
+      "hyundai": "Hyundai",
+      "mazda": "Mazda",
+      "tesla": "Tesla",
+      "fiat": "Fiat",
+      "citroen": "Citroën",
+      "opel": "Opel",
+      "dacia": "Dacia",
+      "mini": "MINI",
+    };
+    const makeRegex = new RegExp(`\\b(${Object.keys(brandMap).join("|")})\\b`, "i");
+    const makeMatch = normalizedQuery.match(makeRegex);
+    const make = makeMatch ? brandMap[makeMatch[1]] || makeMatch[1] : null;
+
+    const yearMatch = normalizedQuery.match(/(?:from|since|after|year\s*)(19|20)\d{2}\b/i)
+      || normalizedQuery.match(/\b(19|20)\d{2}\b/);
+    const minYear = yearMatch ? Number(yearMatch[0]) : null;
+
+    const mileageMatch = normalizedQuery.match(/(?:under\s*)?(\d{1,3}(?:[.,]\d{3})*)(k)?\s*(?:km|kilometres|kilometers)\b/i);
+    let maxMileage = null;
+    if (mileageMatch) {
+      maxMileage = parseInt(mileageMatch[1].replace(/[.,]/g, ""), 10);
+      if (mileageMatch[2]) maxMileage *= 1000;
     }
-    return { brand, model, location, maxPrice };
+
+    let model = null;
+    if (makeMatch) {
+      const afterMake = normalizedQuery.slice(makeMatch.index + makeMatch[0].length).trim();
+      if (afterMake) {
+        const stopWords = ["from", "since", "after", "before", "year", "under", "over", "with", "for", "budget", "km", "mileage"];
+        const tokens = afterMake.split(/\s+/);
+        const modelTokens = [];
+        for (const token of tokens) {
+          if (!token) continue;
+          if (stopWords.includes(token)) break;
+          if (/^\d{4}$/.test(token)) break;
+          if (/^\d+$/.test(token)) break;
+          modelTokens.push(token);
+        }
+        if (modelTokens.length > 0) {
+          model = modelTokens.join(" ").trim();
+        }
+      }
+    }
+
+    let maxPrice = null;
+    const budgetIntent = /\b(?:under|max|budget|up to|€|k)\b/i.test(normalizedQuery);
+    if (budgetIntent) {
+      const budgetMatch = normalizedQuery.match(/(?:^|[^A-Za-z0-9€])(?:under\s*)?(?:€\s*)?(\d{4,}(?:[.,]\d{3})*)(k)?\b(?!\s*(?:km|kilometres|kilometers))/i)
+        || normalizedQuery.match(/(?:^|[^A-Za-z0-9€])(?:€\s*)?(\d+(?:[.,]\d{3})*)k\b(?!\s*(?:km|kilometres|kilometers))/i);
+      if (budgetMatch) {
+        maxPrice = parseInt(budgetMatch[1].replace(/[.,]/g, ""), 10);
+        if (budgetMatch[2]) maxPrice *= 1000;
+      }
+    }
+
+    return { make, model, minYear, maxPrice, maxMileage };
   };
   const getVisibleListings = (sourceListings, filter, model, locationFilter, maxPrice) => {
-    return sourceListings.filter((listing) => {
+    if (sourceListings && !Array.isArray(sourceListings) && typeof sourceListings === "object") {
+      const recommendation = sourceListings;
+      if (!recommendation.make && !recommendation.model && !recommendation.minYear && !recommendation.maxPrice && !recommendation.maxMileage) {
+        return [];
+      }
+
+      const title = [recommendation.make, recommendation.model].filter(Boolean).join(" ").trim() || "Recommended car";
+      const summaryParts = [];
+      if (recommendation.minYear) summaryParts.push(`from ${recommendation.minYear}`);
+      if (recommendation.maxPrice) summaryParts.push(`up to €${recommendation.maxPrice.toLocaleString()}`);
+      if (recommendation.maxMileage) summaryParts.push(`under ${recommendation.maxMileage.toLocaleString()} km`);
+      const subtitle = summaryParts.length > 0
+        ? `Based on your request ${summaryParts.join(", ")}.`
+        : "Search results matched to your request.";
+
+      return [{
+        id: `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${recommendation.minYear || "any"}-${recommendation.maxPrice || "any"}-${recommendation.maxMileage || "any"}`,
+        title,
+        subtitle,
+        priceLabel: recommendation.maxPrice ? `Up to €${recommendation.maxPrice.toLocaleString()}` : "Live market search",
+        fuel: "any",
+        transmission: "any",
+        country,
+        imageUrl: "https://images.unsplash.com/photo-1511919884226-20f0d3d4d687?auto=format&fit=crop&w=1200&q=80",
+        listingUrl: buildAutoScout24Url(recommendation.make || recommendation.model || "car", recommendation.model || "", country),
+        source: "AutoScout24",
+      }];
+    }
+
+    const listings = Array.isArray(sourceListings) ? sourceListings : [];
+    return listings.filter((listing) => {
       const title = `${listing.make || ""} ${listing.title || ""}`.toLowerCase();
       const locationText = (listing.location || "").toLowerCase();
       if (filter === "bmw" && !title.includes("bmw")) return false;
@@ -1626,40 +1701,25 @@ useEffect(() => {
     let filteredListings = [];
     if (isListingRequest) {
       setShowListings(true);
-      let effectiveQuery = listingQuery;
-      let effectiveFilter = listingFilter;
-      let effectiveModel = listingModel;
-      let effectiveLocation = listingLocation;
-      let effectiveMaxPrice = listingMaxPrice;
-      if (hasExplicitFilters) {
-        const parsed = parseListingFilters(query);
-        effectiveQuery = query;
-        effectiveFilter = parsed.brand;
-        effectiveModel = parsed.model;
-        effectiveLocation = parsed.location;
-        effectiveMaxPrice = parsed.maxPrice;
-        setListingQuery(effectiveQuery);
-        setListingFilter(effectiveFilter);
-        setListingModel(effectiveModel);
-        setListingLocation(effectiveLocation);
-        setListingMaxPrice(effectiveMaxPrice);
-      } else if (!listingQuery) {
-        // First listing request without explicit filters should still show listings.
-        effectiveQuery = query;
-        effectiveFilter = "all";
-        effectiveModel = "";
-        effectiveLocation = "";
-        effectiveMaxPrice = null;
-        setListingQuery(effectiveQuery);
-        setListingFilter(effectiveFilter);
-        setListingModel(effectiveModel);
-        setListingLocation(effectiveLocation);
-        setListingMaxPrice(effectiveMaxPrice);
+      const parsed = parseListingFilters(query);
+      const hasParsedIntent = parsed.make || parsed.model || parsed.minYear || parsed.maxPrice || parsed.maxMileage;
+
+      setListingQuery(query);
+      setListingFilter(parsed.make ? parsed.make.toLowerCase() : "all");
+      setListingModel(parsed.model || "");
+      setListingLocation("");
+      setListingMaxPrice(parsed.maxPrice ?? null);
+
+      if (hasParsedIntent) {
+        filteredListings = getVisibleListings(parsed);
+        listingReply = filteredListings.length > 0
+          ? "I created a recommendation based on your request."
+          : "I couldn't build a recommendation from that request.";
+      } else {
+        filteredListings = [];
+        listingReply = "I couldn't understand that listing request. Try including a make, model, year, price, or mileage.";
       }
-      filteredListings = getVisibleListings(listings, effectiveFilter, effectiveModel, effectiveLocation, effectiveMaxPrice);
-      listingReply = filteredListings.length > 0
-        ? "I found a few sample listings for you and showed them below. If you want, I can narrow them by budget, country, brand, or model."
-        : "I couldn't find any sample listings matching those filters.";
+
       loadListings();
     }
 
@@ -3775,14 +3835,51 @@ function ChatMessage({ message, country, openCar, shortlist, compareList, toggle
               <p className="text-sm text-muted">No listings found</p>
             ) : (
               <>
-                <div className="mb-3 font-semibold text-white">Sample listings</div>
+                <div className="mb-3 font-semibold text-white">Live market links</div>
+                <p className="text-xs text-white/60 mb-4">
+                  Open real AutoScout24 results based on your recommendation.
+                </p>
                 <div className="space-y-3">
                   {message.listings.slice(0, 2).map((listing) => (
-                    <div key={listing.id} className="rounded-2xl p-4" style={{ background: "#111" }}>
-                      <div className="text-base font-semibold text-white mb-2">{listing.title}</div>
-                      <div className="text-sm text-white mb-1">€{listing.price.toLocaleString()}</div>
-                      <div className="text-xs text-muted mb-1">{listing.year} · {listing.mileageKm.toLocaleString()} km</div>
-                      <div className="text-xs text-muted">{listing.location}</div>
+                    <div key={listing.id} className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+                      <div className="aspect-[16/9] w-full overflow-hidden bg-black/40">
+                        <img
+                          src={listing.imageUrl}
+                          alt={listing.title}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+
+                      <div className="p-3">
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <div className="text-sm font-semibold text-white">
+                            {listing.title}
+                          </div>
+                          <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/70">
+                            {listing.country}
+                          </span>
+                        </div>
+
+                        <p className="mb-2 text-xs text-white/65">
+                          {listing.subtitle}
+                        </p>
+
+                        <div className="mb-3 space-y-0.5 text-xs text-white/75">
+                          <div>Budget: {listing.priceLabel}</div>
+                          <div>Fuel: {listing.fuel}</div>
+                          <div>Transmission: {listing.transmission}</div>
+                          <div>Source: {listing.source}</div>
+                        </div>
+
+                        <a
+                          href={listing.listingUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex w-full items-center justify-center rounded-lg bg-[#f5a623] px-3 py-1.5 text-xs font-medium text-black transition hover:bg-[#ffb84d]"
+                        >
+                          View live listings
+                        </a>
+                      </div>
                     </div>
                   ))}
                 </div>
