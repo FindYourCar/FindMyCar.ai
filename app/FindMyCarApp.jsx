@@ -4805,184 +4805,133 @@ function FAQ() {
 
 function Contact() {
   const [sent, setSent] = useState(false);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+
+  const canSend = name.trim() && email.trim() && message.trim();
+
   return (
-    <div className="max-w-3xl mx-auto px-6 py-20 page-enter">
-      <div className="text-xs uppercase tracking-[0.2em] amber-text mb-4 stagger" style={{ "--stagger-index": 0 }}>Get in touch</div>
-      <h1 className="font-display text-5xl md:text-6xl font-semibold mb-6 leading-tight tracking-tight stagger" style={{ "--stagger-index": 1 }}>
-        We'd love to <span className="italic font-light">hear from you.</span>
+    <div className="max-w-6xl mx-auto px-6 py-20 page-enter">
+      <div className="text-xs uppercase tracking-[0.2em] amber-text mb-4">Get in touch</div>
+      <h1 className="font-display text-5xl md:text-6xl font-semibold mb-4 leading-tight tracking-tight">
+        Have questions or feedback?
       </h1>
-      <p className="text-lg text-muted mb-12 max-w-2xl stagger" style={{ "--stagger-index": 2 }}>
-        Questions, feedback, partnership ideas — reach out directly. A real person will get back to you.
+      <p className="text-lg text-muted max-w-3xl mb-14">
+        Reach out to our founders directly.
       </p>
 
-      {/* Business details block */}
-      <div className="card-static rounded-3xl p-8 mb-6 stagger" style={{ "--stagger-index": 3 }}>
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ background: "linear-gradient(135deg, #fbbf24, #92400e)", boxShadow: "0 0 20px rgba(251,191,36,0.4)" }}>
-            <UserPlus className="w-5 h-5 text-stone-950" />
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.2em] amber-text font-bold">Direct contact</div>
-            <div className="font-display text-xl font-semibold">Speak to the team</div>
-          </div>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-3">
-          {/* CEO */}
-          <div className="flex items-start gap-3 p-4 rounded-2xl" style={{ background: "rgba(245,241,234,0.02)", border: "1px solid var(--border)" }}>
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-              style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.25)" }}>
-              <Sparkles className="w-4 h-4 amber-text" />
+      <div className="grid gap-6 lg:grid-cols-2 mb-12">
+        <div className="rounded-[32px] border border-white/10 bg-white/5 p-8 shadow-[0_40px_120px_rgba(0,0,0,0.2)]">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-12 h-12 rounded-3xl flex items-center justify-center"
+              style={{ background: "rgba(251,191,36,0.15)" }}>
+              <Sparkles className="w-5 h-5 amber-text" />
             </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-[10px] uppercase tracking-wider text-muted font-semibold">CEO</div>
-              <div className="font-semibold text-base mt-0.5">Fryderyk Strycharz</div>
-              <div className="text-xs text-muted mt-0.5">Founder & Chief Executive Officer</div>
+            <div>
+              <div className="font-display text-2xl font-semibold">Fryderyk Strycharz</div>
+              <div className="text-xs uppercase tracking-[0.25em] text-muted mt-1">CEO & Founder</div>
             </div>
           </div>
-
-          {/* Phone */}
-          <a href="tel:+48798353930"
-            className="flex items-start gap-3 p-4 rounded-2xl transition hover:border-amber-500/40 group"
-            style={{ background: "rgba(245,241,234,0.02)", border: "1px solid var(--border)" }}>
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-              style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.25)" }}>
-              <Phone className="w-4 h-4 amber-text" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-[10px] uppercase tracking-wider text-muted font-semibold">Phone</div>
-              <div className="font-semibold text-base mt-0.5 group-hover:amber-text transition">+48 798 353 930</div>
-              <div className="text-xs text-muted mt-0.5">Tap to call</div>
-            </div>
-          </a>
-
-          {/* Email */}
-          <a href="mailto:06fryderyk@gmail.com"
-            className="flex items-start gap-3 p-4 rounded-2xl transition hover:border-amber-500/40 group"
-            style={{ background: "rgba(245,241,234,0.02)", border: "1px solid var(--border)" }}>
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-              style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.25)" }}>
-              <Mail className="w-4 h-4 amber-text" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-[10px] uppercase tracking-wider text-muted font-semibold">Email</div>
-              <div className="font-semibold text-base mt-0.5 truncate group-hover:amber-text transition">06fryderyk@gmail.com</div>
-              <div className="text-xs text-muted mt-0.5">Tap to compose</div>
-            </div>
-          </a>
-
-          {/* Address */}
-          <div className="flex items-start gap-3 p-4 rounded-2xl"
-            style={{ background: "rgba(245,241,234,0.02)", border: "1px solid var(--border)" }}>
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-              style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.25)" }}>
-              <MapPin className="w-4 h-4 amber-text" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-[10px] uppercase tracking-wider text-muted font-semibold">Address</div>
-              <div className="font-semibold text-base mt-0.5">Gerard Doustraat 64-1</div>
-              <div className="text-xs text-muted mt-0.5">HQ</div>
+          <div className="space-y-4 text-sm text-muted">
+            <a href="mailto:06fryderyk@gmail.com" className="block transition hover:text-amber-300">
+              06fryderyk@gmail.com
+            </a>
+            <a href="tel:+48798353930" className="block transition hover:text-amber-300">
+              +48 798 353 930
+            </a>
+            <div className="flex items-start gap-3">
+              <MapPin className="w-4 h-4 mt-0.5 amber-text shrink-0" />
+              <div>Gerard Doustraat 64-1, Amsterdam</div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Founder contact block — Mykhailo Shchur */}
-      <div className="card-static rounded-3xl p-8 mb-10 stagger" style={{ "--stagger-index": 4 }}>
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ background: "linear-gradient(135deg, #fbbf24, #92400e)", boxShadow: "0 0 20px rgba(251,191,36,0.4)" }}>
-            <Star className="w-5 h-5 text-stone-950" />
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.2em] amber-text font-bold">Founder contact</div>
-            <div className="font-display text-xl font-semibold">Reach the founder directly</div>
-          </div>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-3">
-          {/* Name / role */}
-          <div className="flex items-start gap-3 p-4 rounded-2xl" style={{ background: "rgba(245,241,234,0.02)", border: "1px solid var(--border)" }}>
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-              style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.25)" }}>
-              <UserPlus className="w-4 h-4 amber-text" />
+        <div className="rounded-[32px] border border-white/10 bg-white/5 p-8 shadow-[0_40px_120px_rgba(0,0,0,0.2)]">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-12 h-12 rounded-3xl flex items-center justify-center"
+              style={{ background: "rgba(251,191,36,0.15)" }}>
+              <Star className="w-5 h-5 amber-text" />
             </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-[10px] uppercase tracking-wider text-muted font-semibold">Founder & CEO</div>
-              <div className="font-semibold text-base mt-0.5">Mykhailo Shchur</div>
-              <div className="text-xs text-muted mt-0.5">Founder & Chief Executive Officer</div>
+            <div>
+              <div className="font-display text-2xl font-semibold">Mykhailo Shchur</div>
+              <div className="text-xs uppercase tracking-[0.25em] text-muted mt-1">Founder</div>
             </div>
           </div>
-
-          {/* Phone */}
-          <a href="tel:+380503153863"
-            className="flex items-start gap-3 p-4 rounded-2xl transition hover:border-amber-500/40 group"
-            style={{ background: "rgba(245,241,234,0.02)", border: "1px solid var(--border)" }}>
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-              style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.25)" }}>
-              <Phone className="w-4 h-4 amber-text" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-[10px] uppercase tracking-wider text-muted font-semibold">Phone</div>
-              <div className="font-semibold text-base mt-0.5 group-hover:amber-text transition">+380 50 315 3863</div>
-              <div className="text-xs text-muted mt-0.5">Tap to call</div>
-            </div>
-          </a>
-
-          {/* Email */}
-          <a href="mailto:m.shchur2006@gmail.com"
-            className="flex items-start gap-3 p-4 rounded-2xl transition hover:border-amber-500/40 group"
-            style={{ background: "rgba(245,241,234,0.02)", border: "1px solid var(--border)" }}>
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-              style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.25)" }}>
-              <Mail className="w-4 h-4 amber-text" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-[10px] uppercase tracking-wider text-muted font-semibold">Email</div>
-              <div className="font-semibold text-base mt-0.5 truncate group-hover:amber-text transition">m.shchur2006@gmail.com</div>
-              <div className="text-xs text-muted mt-0.5">Tap to compose</div>
-            </div>
-          </a>
-
-          {/* Location */}
-          <div className="flex items-start gap-3 p-4 rounded-2xl"
-            style={{ background: "rgba(245,241,234,0.02)", border: "1px solid var(--border)" }}>
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-              style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.25)" }}>
-              <MapPin className="w-4 h-4 amber-text" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-[10px] uppercase tracking-wider text-muted font-semibold">Location</div>
-              <div className="font-semibold text-base mt-0.5">Gravenstraat 3D</div>
-              <div className="text-xs text-muted mt-0.5">Amsterdam, Netherlands</div>
+          <div className="space-y-4 text-sm text-muted">
+            <a href="mailto:m.shchur2006@gmail.com" className="block transition hover:text-amber-300">
+              m.shchur2006@gmail.com
+            </a>
+            <a href="tel:+380503153863" className="block transition hover:text-amber-300">
+              +380 50 315 3863
+            </a>
+            <div className="flex items-start gap-3">
+              <MapPin className="w-4 h-4 mt-0.5 amber-text shrink-0" />
+              <div>Gravenstraat 3D, Amsterdam</div>
             </div>
           </div>
         </div>
       </div>
 
       {!sent ? (
-        <div className="card-static p-8 rounded-3xl space-y-5 stagger" style={{ "--stagger-index": 5 }}>
-          <div className="text-[10px] uppercase tracking-[0.2em] amber-text font-bold mb-2">Or send a message</div>
-          <div className="grid md:grid-cols-2 gap-4">
-            <Field label="Name"><input className="w-full p-3 rounded-xl input-dark" placeholder="Your name" /></Field>
-            <Field label="Email"><input className="w-full p-3 rounded-xl input-dark" placeholder="you@example.com" /></Field>
+        <div className="rounded-[32px] border border-white/10 bg-white/5 p-8 shadow-[0_40px_120px_rgba(0,0,0,0.2)]">
+          <div className="text-sm uppercase tracking-[0.2em] amber-text font-semibold mb-6">Send a message</div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Name">
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full p-4 rounded-2xl input-dark"
+                placeholder="Your name"
+              />
+            </Field>
+            <Field label="Email">
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full p-4 rounded-2xl input-dark"
+                placeholder="you@example.com"
+              />
+            </Field>
           </div>
           <Field label="Message">
-            <textarea rows={5} className="w-full p-3 rounded-xl input-dark" placeholder="How can we help?" />
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              rows={6}
+              maxLength={500}
+              className="w-full p-4 rounded-2xl input-dark"
+              placeholder="How can we help you?"
+            />
           </Field>
-          <button onClick={() => setSent(true)} className="px-6 py-3 rounded-xl btn-primary flex items-center gap-2">
-            Send message <Send className="w-4 h-4" />
+          <div className="flex items-center justify-between text-xs text-muted mt-2">
+            <span>All fields required.</span>
+            <span>{message.length}/500</span>
+          </div>
+          <button
+            onClick={() => setSent(true)}
+            disabled={!canSend}
+            className="mt-6 w-full rounded-2xl px-6 py-4 font-semibold uppercase tracking-[0.12em] transition"
+            style={{
+              background: canSend ? "linear-gradient(135deg, #fbbf24 0%, #d97706 100%)" : "rgba(251,191,36,0.2)",
+              color: canSend ? "#1a0f00" : "#a48a42",
+              border: "1px solid rgba(251,191,36,0.25)",
+              cursor: canSend ? "pointer" : "not-allowed",
+            }}
+          >
+            Send message
           </button>
         </div>
       ) : (
-        <div className="card-static p-10 rounded-3xl text-center stagger" style={{ "--stagger-index": 5 }}>
-          <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4"
-            style={{ background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.4)" }}>
-            <Check className="w-7 h-7 amber-text" />
+        <div className="rounded-[32px] border border-white/10 bg-white/5 p-10 text-center shadow-[0_40px_120px_rgba(0,0,0,0.2)]">
+          <div
+            className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5"
+            style={{ background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.4)" }}
+          >
+            <Check className="w-8 h-8 amber-text" />
           </div>
-          <div className="font-display text-3xl font-semibold mb-2">Message <span className="italic font-light">sent.</span></div>
-          <div className="text-muted">We'll get back to you within 24 hours.</div>
+          <div className="font-display text-3xl font-semibold mb-3">Message sent.</div>
+          <p className="text-muted">We'll get back to you within 24 hours.</p>
         </div>
       )}
     </div>
