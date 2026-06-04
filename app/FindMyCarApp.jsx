@@ -2509,7 +2509,7 @@ function Nav({ setView, shortlist, compareList, setShowShortlist, setShowCompare
   const goDiscover = () => smoothScrollTo ? smoothScrollTo("home-top",      "home") : setView("home");
   const goHow      = () => smoothScrollTo ? smoothScrollTo("home-how",      "home") : setView("about");
   const goFaq      = () => smoothScrollTo ? smoothScrollTo("home-faq",      "home") : setView("faq");
-  const goContact  = () => smoothScrollTo ? smoothScrollTo("footer-contact","home") : setView("contact");
+  const goContact  = () => setView("contact");
   const goCalc     = () => smoothNavigate ? smoothNavigate("calculator") : setView("calculator");
 
   return (
