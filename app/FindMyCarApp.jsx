@@ -14,7 +14,7 @@ import { supabase } from "@/lib/supabaseClient";
    MOCK DATA
    ============================================================ */
 // AutoScout24 affiliate URL builder
-function buildAutoScout24Url(make, model, country) {
+function buildAutoScout24Url(make, model, country, options = {}) {
   const domains = {
     NL: 'autoscout24.nl',
     BE: 'autoscout24.be',
@@ -22,13 +22,30 @@ function buildAutoScout24Url(make, model, country) {
     PL: 'autoscout24.pl'
   };
   const domain = domains[country] || 'autoscout24.nl';
-  const m = make.toLowerCase()
+  const m = (make || '').toLowerCase()
     .replace(/š/g,'s').replace(/[^a-z0-9\s-]/g,'')
     .trim().replace(/\s+/g,'-');
-  const mod = model.toLowerCase()
-    .replace(/\./g,'').replace(/[^a-z0-9\s-]/g,'')
-    .trim().replace(/\s+/g,'-');
-  return `https://www.${domain}/lst/${m}/${mod}?sort=standard&desc=0&ustate=N%2CU&size=20&page=1&utm_source=findmycar&utm_medium=car_card&utm_campaign=affiliate`;
+  const mod = model
+    ? model.toLowerCase()
+        .replace(/\./g,'').replace(/[^a-z0-9\s-]/g,'')
+        .trim().replace(/\s+/g,'-')
+    : '';
+  const params = new URLSearchParams({
+    sort: 'standard', desc: '0', ustate: 'N,U', size: '20', page: '1',
+    utm_source: 'findmycar', utm_medium: 'car_card', utm_campaign: 'affiliate',
+  });
+  // AutoScout24 fuel codes: B=petrol, D=diesel, E=electric, M=hybrid, X=plug-in hybrid
+  const fuelCodes = { petrol: 'B', diesel: 'D', electric: 'E', hybrid: 'M', plug_in_hybrid: 'X' };
+  if (options.fuel && fuelCodes[options.fuel]) params.set('fuelc', fuelCodes[options.fuel]);
+  if (options.transmission === 'automatic') params.set('gear', 'A');
+  else if (options.transmission === 'manual') params.set('gear', 'M');
+  if (options.minYear) params.set('fregfrom', String(options.minYear));
+  if (options.maxMileage) params.set('kmto', String(options.maxMileage));
+  if (options.maxPrice) params.set('priceto', String(options.maxPrice));
+  // Only include model path segment when it is non-empty
+  const path = m && mod ? `${m}/${mod}` : m;
+  const base = path ? `/lst/${path}` : '/lst';
+  return `https://www.${domain}${base}?${params.toString()}`;
 }
 const COUNTRIES = {
   NL: { code: "NL", name: "Netherlands", flag: "🇳🇱", currency: "EUR" },
@@ -1672,9 +1689,14 @@ useEffect(() => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language]);
 
-  const hasExplicitListingFilters = (text) => /\b(330i?|a4|bmw|audi|amsterdam|rotterdam)\b/i.test(text)
-    || /(?:^|[^A-Za-z0-9€])(?:under\s*)?(?:€\s*)?\d{4,}(?:[.,]\d{3})*(?:k)?\b/i.test(text)
-    || /(?:^|[^A-Za-z0-9€])(?:under\s*)?(?:€\s*)?\d+(?:[.,]\d{3})*k\b/i.test(text);
+  const hasExplicitListingFilters = (text) => {
+    const t = text.toLowerCase();
+    const hasMake = /\b(land rover|range rover|mercedes|volkswagen|\bvw\b|bmw|audi|toyota|volvo|ford|skoda|seat|peugeot|renault|nissan|kia|hyundai|mazda|tesla|fiat|citroen|opel|dacia|mini|honda|mitsubishi|subaru|suzuki|jeep|alfa romeo|chevrolet|lexus|porsche)\b/i.test(t);
+    const hasListingIntent = /\b(show me|find me|find a|looking for|i want a?|i need a?|can you find|can you show|search for|listings?)\b/i.test(t);
+    const hasBudget = /\b(?:under|up to|max|budget)\s*(?:€\s*)?\d[\d.,]*(k)?\b/i.test(t) || /(?:^|[^A-Za-z0-9€])(?:€\s*)?\d{4,}\b/i.test(t);
+    const hasMileage = /\d[\d.,]*\s*k?m\b/i.test(t) && /\b(km|kilometres|kilometers)\b/i.test(t);
+    return (hasMake && hasListingIntent) || (hasMake && hasBudget) || (hasListingIntent && hasBudget) || (hasListingIntent && hasMileage);
+  };
   const parseListingFilters = (query) => {
     const normalizedQuery = (query || "").toLowerCase();
     const brandMap = {
@@ -1703,14 +1725,24 @@ useEffect(() => {
       "opel": "Opel",
       "dacia": "Dacia",
       "mini": "MINI",
+      "honda": "Honda",
+      "mitsubishi": "Mitsubishi",
+      "subaru": "Subaru",
+      "suzuki": "Suzuki",
+      "jeep": "Jeep",
+      "alfa romeo": "Alfa Romeo",
+      "alfa": "Alfa Romeo",
+      "chevrolet": "Chevrolet",
+      "lexus": "Lexus",
+      "porsche": "Porsche",
     };
     const makeRegex = new RegExp(`\\b(${Object.keys(brandMap).join("|")})\\b`, "i");
     const makeMatch = normalizedQuery.match(makeRegex);
-    const make = makeMatch ? brandMap[makeMatch[1]] || makeMatch[1] : null;
+    const make = makeMatch ? brandMap[makeMatch[1].toLowerCase()] || makeMatch[1] : null;
 
-    const yearMatch = normalizedQuery.match(/(?:from|since|after|year\s*)(19|20)\d{2}\b/i)
-      || normalizedQuery.match(/\b(19|20)\d{2}\b/);
-    const minYear = yearMatch ? Number(yearMatch[0]) : null;
+    const yearMatch = normalizedQuery.match(/(?:from|since|after|year\s*)((?:19|20)\d{2})\b/i)
+      || normalizedQuery.match(/\b((?:19|20)\d{2})\b/);
+    const minYear = yearMatch ? Number(yearMatch[1] || yearMatch[0].match(/\d{4}/)?.[0]) : null;
 
     const mileageMatch = normalizedQuery.match(/(?:under\s*)?(\d{1,3}(?:[.,]\d{3})*)(k)?\s*(?:km|kilometres|kilometers)\b/i);
     let maxMileage = null;
@@ -1723,15 +1755,28 @@ useEffect(() => {
     if (makeMatch) {
       const afterMake = normalizedQuery.slice(makeMatch.index + makeMatch[0].length).trim();
       if (afterMake) {
-        const stopWords = ["from", "since", "after", "before", "year", "under", "over", "with", "for", "budget", "km", "mileage"];
+        // Expanded stop-word set — prevents noise like "listings", "show", country names,
+        // fuel/transmission words, and generic adjectives from leaking into the model slug.
+        const stopWords = new Set([
+          "from", "since", "after", "before", "year", "under", "over", "with", "for",
+          "budget", "km", "mileage", "listing", "listings", "show", "me", "find",
+          "search", "please", "get", "view", "see", "results", "cars", "vehicles",
+          "in", "at", "the", "a", "an", "and", "or", "new", "used",
+          "petrol", "diesel", "electric", "hybrid", "automatic", "manual",
+          "netherlands", "holland", "dutch", "belgium", "belgian", "germany", "german",
+          "poland", "polish", "nl", "be", "de", "pl",
+          "hatchback", "sedan", "saloon", "estate", "wagon", "suv", "crossover",
+          "convertible", "van", "reliable", "good", "best", "cheap", "efficient",
+        ]);
         const tokens = afterMake.split(/\s+/);
         const modelTokens = [];
         for (const token of tokens) {
           if (!token) continue;
-          if (stopWords.includes(token)) break;
-          if (/^\d{4}$/.test(token)) break;
-          if (/^\d+$/.test(token)) break;
+          if (stopWords.has(token)) break;
+          if (/^\d{4}$/.test(token)) break;   // standalone year
+          if (/^\d{5,}$/.test(token)) break;  // price or large number
           modelTokens.push(token);
+          if (modelTokens.length >= 3) break; // cap at 3 tokens
         }
         if (modelTokens.length > 0) {
           model = modelTokens.join(" ").trim();
@@ -1750,7 +1795,27 @@ useEffect(() => {
       }
     }
 
-    return { make, model, minYear, maxPrice, maxMileage };
+    // Country detection from the query text
+    let detectedCountry = null;
+    if (/\b(netherlands|dutch|holland|\bnl\b)\b/i.test(normalizedQuery)) detectedCountry = "NL";
+    else if (/\b(belgium|belgian|\bbe\b)\b/i.test(normalizedQuery)) detectedCountry = "BE";
+    else if (/\b(germany|german|deutschland|\bde\b)\b/i.test(normalizedQuery)) detectedCountry = "DE";
+    else if (/\b(poland|polish|\bpl\b)\b/i.test(normalizedQuery)) detectedCountry = "PL";
+
+    // Fuel type detection
+    let fuel = null;
+    if (/\b(plug.?in.?hybrid|phev)\b/i.test(normalizedQuery)) fuel = "plug_in_hybrid";
+    else if (/\b(petrol|gasoline|benzine|benzin)\b/i.test(normalizedQuery)) fuel = "petrol";
+    else if (/\bdiesel\b/i.test(normalizedQuery)) fuel = "diesel";
+    else if (/\b(hybrid)\b/i.test(normalizedQuery)) fuel = "hybrid";
+    else if (/\b(electric|ev\b|bev)\b/i.test(normalizedQuery)) fuel = "electric";
+
+    // Transmission detection
+    let transmission = null;
+    if (/\b(automatic|auto|automaat)\b/i.test(normalizedQuery)) transmission = "automatic";
+    else if (/\b(manual|stick|handgeschakeld)\b/i.test(normalizedQuery)) transmission = "manual";
+
+    return { make, model, minYear, maxPrice, maxMileage, detectedCountry, fuel, transmission };
   };
   const getVisibleListings = (sourceListings, filter, model, locationFilter, maxPrice) => {
     if (sourceListings && !Array.isArray(sourceListings) && typeof sourceListings === "object") {
@@ -1761,23 +1826,41 @@ useEffect(() => {
 
       const title = [recommendation.make, recommendation.model].filter(Boolean).join(" ").trim() || "Recommended car";
       const summaryParts = [];
+      if (recommendation.fuel && recommendation.fuel !== "any") summaryParts.push(recommendation.fuel);
+      if (recommendation.transmission && recommendation.transmission !== "any") summaryParts.push(recommendation.transmission);
       if (recommendation.minYear) summaryParts.push(`from ${recommendation.minYear}`);
       if (recommendation.maxPrice) summaryParts.push(`up to €${recommendation.maxPrice.toLocaleString()}`);
       if (recommendation.maxMileage) summaryParts.push(`under ${recommendation.maxMileage.toLocaleString()} km`);
       const subtitle = summaryParts.length > 0
-        ? `Based on your request ${summaryParts.join(", ")}.`
+        ? `Based on your request: ${summaryParts.join(", ")}.`
         : "Search results matched to your request.";
+
+      // Prefer country parsed from query; fall back to the app-level country selection
+      const resolvedCountry = recommendation.detectedCountry || country;
 
       return [{
         id: `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${recommendation.minYear || "any"}-${recommendation.maxPrice || "any"}-${recommendation.maxMileage || "any"}`,
         title,
         subtitle,
         priceLabel: recommendation.maxPrice ? `Up to €${recommendation.maxPrice.toLocaleString()}` : "Live market search",
-        fuel: "any",
-        transmission: "any",
-        country,
+        fuel: recommendation.fuel || "any",
+        transmission: recommendation.transmission || "any",
+        minYear: recommendation.minYear || null,
+        maxMileage: recommendation.maxMileage || null,
+        country: resolvedCountry,
         imageUrl: "https://images.unsplash.com/photo-1511919884226-20f0d3d4d687?auto=format&fit=crop&w=1200&q=80",
-        listingUrl: buildAutoScout24Url(recommendation.make || recommendation.model || "car", recommendation.model || "", country),
+        listingUrl: buildAutoScout24Url(
+          recommendation.make || "",
+          recommendation.model || "",
+          resolvedCountry,
+          {
+            fuel: recommendation.fuel,
+            transmission: recommendation.transmission,
+            minYear: recommendation.minYear,
+            maxMileage: recommendation.maxMileage,
+            maxPrice: recommendation.maxPrice,
+          }
+        ),
         source: "AutoScout24",
       }];
     }
@@ -4027,8 +4110,10 @@ function ChatMessage({ message, country, openCar, shortlist, compareList, toggle
 
                         <div className="mb-3 space-y-0.5 text-xs text-white/75">
                           <div>Budget: {listing.priceLabel}</div>
-                          <div>Fuel: {listing.fuel}</div>
-                          <div>Transmission: {listing.transmission}</div>
+                          {listing.fuel && listing.fuel !== "any" && <div>Fuel: {listing.fuel}</div>}
+                          {listing.transmission && listing.transmission !== "any" && <div>Transmission: {listing.transmission}</div>}
+                          {listing.minYear && <div>Year: from {listing.minYear}</div>}
+                          {listing.maxMileage && <div>Max mileage: {listing.maxMileage.toLocaleString()} km</div>}
                           <div>Source: {listing.source}</div>
                         </div>
 
