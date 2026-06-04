@@ -8,6 +8,7 @@ import {
   TrendingUp, Lightbulb, ThumbsUp, Mail, Send, Settings, LogIn, UserPlus,
   Clock, History, Bookmark, Phone, MessageSquare, Plus, Trash2, FileText
 } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
 
 /* ============================================================
    MOCK DATA
@@ -1472,6 +1473,9 @@ export default function App() {
   const [view, setView] = useState("home");
   const [country, setCountry] = useState("NL");
   const [language, setLanguage] = useState("EN");
+  const [authUser, setAuthUser] = useState(null);
+  const [authModalMode, setAuthModalMode] = useState("signup");
+  const [toast, setToast] = useState({ type: "", message: "", visible: false });
   const t = useT(language);
 const normalizeExternalListing = (raw) => {
   return {
@@ -1528,6 +1532,84 @@ const loadListings = useCallback(async () => {
 useEffect(() => {
   loadListings();
 }, [loadListings]);
+
+  const mapAuthError = (error) => {
+    if (!error || !error.message) return "An unexpected error occurred.";
+    const msg = error.message.toLowerCase();
+    if (msg.includes("invalid login credentials")) return "Incorrect email or password.";
+    if (msg.includes("already registered")) return "An account with this email already exists. Try logging in instead.";
+    if (msg.includes("email not confirmed")) return "Please confirm your email before logging in. Check your inbox.";
+    return error.message;
+  };
+
+  const showToast = (type, message) => {
+    setToast({ type, message, visible: true });
+    window.setTimeout(() => setToast((current) => current.message === message ? { ...current, visible: false } : current), 3000);
+  };
+
+  useEffect(() => {
+    const initAuth = async () => {
+      const { data } = await supabase.auth.getSession();
+      const currentUser = data?.session?.user ?? null;
+      setAuthUser(currentUser);
+      setHasAccount(Boolean(currentUser));
+    };
+    initAuth();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      const currentUser = session?.user ?? null;
+      setAuthUser(currentUser);
+      setHasAccount(Boolean(currentUser));
+      if (event === "SIGNED_OUT") {
+        showToast("success", "You have been logged out.");
+      }
+    });
+
+    return () => {
+      authListener?.subscription?.unsubscribe();
+    };
+  }, []);
+
+  const handleSignUp = async ({ name, email, password }) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: name } },
+    });
+    if (error) return { error: mapAuthError(error) };
+    if (data?.session?.user) {
+      setAuthUser(data.session.user);
+      setHasAccount(true);
+    }
+    return { data };
+  };
+
+  const handleLogin = async ({ email, password }) => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return { error: mapAuthError(error) };
+    if (data?.session?.user) {
+      setAuthUser(data.session.user);
+      setHasAccount(true);
+      showToast("success", "Logged in successfully.");
+    }
+    return { data };
+  };
+
+  const handleResetPassword = async (email) => {
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email);
+    if (error) return { error: mapAuthError(error) };
+    return { data };
+  };
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      showToast("error", mapAuthError(error));
+      return;
+    }
+    setAuthUser(null);
+    setHasAccount(false);
+  };
   // Chat sessions: each is { id, title, messages, createdAt, updatedAt }
   const makeWelcome = (lang) => ({
     role: "assistant",
@@ -2406,6 +2488,7 @@ useEffect(() => {
       `}</style>
 
       <div className="grain" />
+      {toast.visible && <Toast type={toast.type} message={toast.message} />}
 
       {/* Ambient glow orbs - global */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
@@ -2417,7 +2500,9 @@ useEffect(() => {
         <Nav setView={setView}
           shortlist={shortlist} compareList={compareList}
           setShowShortlist={setShowShortlist} setShowCompare={setShowCompare}
-          hasAccount={hasAccount} setShowAccountModal={setShowAccountModal}
+          hasAccount={hasAccount} user={authUser}
+          setShowAccountModal={setShowAccountModal} setAuthModalMode={setAuthModalMode}
+          handleLogout={handleLogout}
           language={language} setShowLanguagePicker={setShowLanguagePicker}
           chatSessions={chatSessions} setShowHistory={setShowHistory}
           smoothScrollTo={smoothScrollTo} smoothNavigate={smoothNavigate}
@@ -2483,8 +2568,13 @@ useEffect(() => {
         country={country} />}
       {showCompare && compareList.length > 0 && <CompareModal compareList={compareList}
         onClose={() => setShowCompare(false)} toggleCompare={toggleCompare} clearCompare={clearCompare} country={country} />}
-      {showAccountModal && <AccountModal onClose={() => setShowAccountModal(false)}
-        onSignUp={() => { setHasAccount(true); setShowAccountModal(false); }} searchCount={searchCount} />}
+      {showAccountModal && <AccountModal
+        onClose={() => setShowAccountModal(false)}
+        initialMode={authModalMode}
+        onLogin={handleLogin}
+        onSignUp={handleSignUp}
+        onResetPassword={handleResetPassword}
+      />}
       {showCountryPicker && <CountryPicker country={country}
         setCountry={(c) => { setCountry(c); setShowCountryPicker(false); }}
         onClose={() => setShowCountryPicker(false)} />}
@@ -2502,7 +2592,8 @@ useEffect(() => {
    NAV
    ============================================================ */
 
-function Nav({ setView, shortlist, compareList, setShowShortlist, setShowCompare, hasAccount, setShowAccountModal, language, setShowLanguagePicker, chatSessions, setShowHistory, smoothScrollTo, smoothNavigate, t }) {
+function Nav({ setView, shortlist, compareList, setShowShortlist, setShowCompare, hasAccount, user, setShowAccountModal, setAuthModalMode, handleLogout, language, setShowLanguagePicker, chatSessions, setShowHistory, smoothScrollTo, smoothNavigate, t }) {
+  const [showUserMenu, setShowUserMenu] = useState(false);
   // Smooth-scroll handlers for in-page anchors. The Cost Calculator is a
   // separate view, so it uses smoothNavigate. Everything else lives on the
   // home page as a section and gets scrolled to via smoothScrollTo.
@@ -2562,13 +2653,45 @@ function Nav({ setView, shortlist, compareList, setShowShortlist, setShowCompare
             {shortlist.length > 0 && <span className="font-medium">{shortlist.length}</span>}
           </button>
 
-          {!hasAccount ? (
-            <button onClick={() => setShowAccountModal(true)}
-              className="hidden sm:flex items-center gap-1.5 px-5 py-2 rounded-full text-sm btn-primary">
-              {t.nav.signup}
-            </button>
+          {!user ? (
+            <div className="flex items-center gap-2">
+              <button onClick={() => { setAuthModalMode("signup"); setShowAccountModal(true); }}
+                className="px-5 py-2 rounded-full text-sm btn-primary">
+                {t.nav.signup}
+              </button>
+              <button onClick={() => { setAuthModalMode("login"); setShowAccountModal(true); }}
+                className="text-sm text-muted hover:text-[#f5f1ea] transition">
+                Log in
+              </button>
+            </div>
           ) : (
-            <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm" style={{ background: "linear-gradient(135deg, #fbbf24, #92400e)", color: "#1a0f00" }}>A</div>
+            <div className="relative">
+              <button onClick={() => setShowUserMenu((open) => !open)}
+                className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm"
+                style={{ background: "linear-gradient(135deg, #fbbf24, #92400e)", color: "#1a0f00" }}>
+                {String(user.email?.[0] || "U").toUpperCase()}
+              </button>
+              {showUserMenu && (
+                <div className="absolute right-0 mt-2 w-64 rounded-3xl border border-white/10 bg-[#0a0908]/95 p-4 shadow-2xl">
+                  <div className="mb-4">
+                    <div className="font-semibold text-sm">{user.user_metadata?.full_name || user.email}</div>
+                    <div className="text-xs text-muted truncate">{user.email}</div>
+                  </div>
+                  <button onClick={() => { setShowUserMenu(false); setShowShortlist(true); }}
+                    className="w-full text-left text-sm text-muted hover:text-amber-400 transition py-2">
+                    My shortlist
+                  </button>
+                  <button onClick={() => { setShowUserMenu(false); setShowHistory(true); }}
+                    className="w-full text-left text-sm text-muted hover:text-amber-400 transition py-2">
+                    Chat history
+                  </button>
+                  <button onClick={() => { setShowUserMenu(false); handleLogout(); }}
+                    className="w-full text-left text-sm text-muted hover:text-amber-400 transition py-2">
+                    Log out
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -4557,30 +4680,195 @@ function CompareModal({ compareList, onClose, toggleCompare, clearCompare, count
    ACCOUNT MODAL
    ============================================================ */
 
-function AccountModal({ onClose, onSignUp, searchCount }) {
+function AccountModal({ onClose, onSignUp, onLogin, onResetPassword, initialMode = "signup" }) {
+  const [mode, setMode] = useState(initialMode);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  React.useEffect(() => {
+    setMode(initialMode);
+    setName("");
+    setEmail("");
+    setPassword("");
+    setConfirmPassword("");
+    setMessage("");
+    setError("");
+  }, [initialMode]);
+
+  const runSignUp = async () => {
+    setError("");
+    setMessage("");
+    if (!name || name.trim().length < 2) {
+      setError("Full name must be at least 2 characters.");
+      return;
+    }
+    if (!email || !email.includes("@")) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+    if (!password || password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+    setLoading(true);
+    const result = await onSignUp({ name: name.trim(), email: email.trim(), password });
+    setLoading(false);
+    if (result?.error) {
+      setError(result.error);
+      return;
+    }
+    setMessage(`We sent a confirmation email to ${email.trim()}. Please check your inbox and click the link before logging in.`);
+  };
+
+  const runLogin = async () => {
+    setError("");
+    setMessage("");
+    if (!email || !email.includes("@")) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+    if (!password) {
+      setError("Please enter your password.");
+      return;
+    }
+    setLoading(true);
+    const result = await onLogin({ email: email.trim(), password });
+    setLoading(false);
+    if (result?.error) {
+      setError(result.error);
+      return;
+    }
+    onClose();
+  };
+
+  const runResetPassword = async () => {
+    setError("");
+    setMessage("");
+    if (!email || !email.includes("@")) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+    setLoading(true);
+    const result = await onResetPassword(email.trim());
+    setLoading(false);
+    if (result?.error) {
+      setError(result.error);
+      return;
+    }
+    setMessage("Password reset email sent. Check your inbox.");
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md" style={{ background: "rgba(10,9,8,0.85)" }} onClick={onClose}>
-      <div className="card-static rounded-3xl max-w-md w-full fade-up" onClick={e => e.stopPropagation()}
+      <div className="card-static rounded-3xl max-w-md w-full fade-up" onClick={(e) => e.stopPropagation()}
         style={{ boxShadow: "0 40px 100px rgba(0,0,0,0.8), 0 0 120px rgba(251,191,36,0.15)" }}>
         <div className="p-10 text-center">
           <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6"
             style={{ background: "linear-gradient(135deg, #fbbf24, #92400e)", boxShadow: "0 0 60px rgba(251,191,36,0.5)" }}>
             <Sparkles className="w-9 h-9 text-stone-950" />
           </div>
-          <h2 className="font-display text-4xl font-semibold mb-3">Loving it <span className="italic font-light">so far?</span></h2>
-          <p className="text-muted mb-7 leading-relaxed">You've done {searchCount} searches. Create a free account to save your shortlist, remember your searches for 10 days, and get sharper recommendations.</p>
-          <div className="space-y-3">
-            <button onClick={onSignUp} className="w-full py-3.5 rounded-xl btn-primary flex items-center justify-center gap-2">
-              <UserPlus className="w-4 h-4" /> Create free account
+          <div className="flex items-center justify-center gap-3 mb-6">
+            <button onClick={() => setMode("signup")}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition ${mode === "signup" ? "bg-amber-400 text-stone-950" : "text-muted hover:text-amber-300"}`}>
+              Sign up
             </button>
-            <button onClick={onSignUp} className="w-full py-3.5 rounded-xl btn-ghost font-medium flex items-center justify-center gap-2">
-              <LogIn className="w-4 h-4" /> Sign in
+            <button onClick={() => setMode("login")}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition ${mode === "login" ? "bg-amber-400 text-stone-950" : "text-muted hover:text-amber-300"}`}>
+              Log in
             </button>
-            <button onClick={onClose} className="text-sm text-muted hover:amber-text pt-2">Maybe later</button>
+            <button onClick={() => setMode("reset")}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition ${mode === "reset" ? "bg-amber-400 text-stone-950" : "text-muted hover:text-amber-300"}`}>
+              Forgot password?
+            </button>
           </div>
-          <div className="mt-6 text-xs text-muted">No spam. Unsubscribe anytime.</div>
+
+          {mode === "signup" && (
+            <>
+              <div className="grid gap-4">
+                <div className="text-left">
+                  <label className="text-sm text-muted mb-2 block">Full name</label>
+                  <input value={name} onChange={(e) => setName(e.target.value)} className="w-full p-4 rounded-2xl input-dark" placeholder="Your full name" />
+                </div>
+                <div className="text-left">
+                  <label className="text-sm text-muted mb-2 block">Email</label>
+                  <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-4 rounded-2xl input-dark" placeholder="you@example.com" />
+                </div>
+                <div className="text-left">
+                  <label className="text-sm text-muted mb-2 block">Password</label>
+                  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full p-4 rounded-2xl input-dark" placeholder="At least 8 characters" />
+                </div>
+                <div className="text-left">
+                  <label className="text-sm text-muted mb-2 block">Confirm password</label>
+                  <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full p-4 rounded-2xl input-dark" placeholder="Repeat your password" />
+                </div>
+              </div>
+              <button onClick={runSignUp} disabled={loading}
+                className="mt-6 w-full py-3.5 rounded-xl btn-primary font-semibold">
+                {loading ? "Creating account..." : "Create account"}
+              </button>
+            </>
+          )}
+
+          {mode === "login" && (
+            <>
+              <div className="grid gap-4">
+                <div className="text-left">
+                  <label className="text-sm text-muted mb-2 block">Email</label>
+                  <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-4 rounded-2xl input-dark" placeholder="you@example.com" />
+                </div>
+                <div className="text-left">
+                  <label className="text-sm text-muted mb-2 block">Password</label>
+                  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full p-4 rounded-2xl input-dark" placeholder="Your password" />
+                </div>
+              </div>
+              <button onClick={runLogin} disabled={loading}
+                className="mt-6 w-full py-3.5 rounded-xl btn-primary font-semibold">
+                {loading ? "Signing in..." : "Sign in"}
+              </button>
+              <button onClick={() => setMode("reset")} className="mt-4 text-sm text-muted hover:text-amber-300 transition">Forgot password?</button>
+            </>
+          )}
+
+          {mode === "reset" && (
+            <>
+              <div className="text-left">
+                <label className="text-sm text-muted mb-2 block">Email</label>
+                <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-4 rounded-2xl input-dark" placeholder="you@example.com" />
+              </div>
+              <button onClick={runResetPassword} disabled={loading}
+                className="mt-6 w-full py-3.5 rounded-xl btn-primary font-semibold">
+                {loading ? "Sending link..." : "Send reset link"}
+              </button>
+            </>
+          )}
+
+          {error && <div className="mt-4 text-sm text-red-400">{error}</div>}
+          {message && <div className="mt-4 text-sm text-amber-200">{message}</div>}
+          <button onClick={onClose} className="mt-6 text-sm text-muted hover:text-amber-300">Close</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function Toast({ type, message }) {
+  return (
+    <div className="fixed left-1/2 top-6 z-[9999] -translate-x-1/2 rounded-3xl px-5 py-3 text-sm font-medium shadow-2xl" style={{
+      background: type === "success" ? "linear-gradient(135deg, #fbbf24, #d97706)" : "rgba(220,38,38,0.95)",
+      color: type === "success" ? "#0a0f00" : "#ffffff",
+      minWidth: "320px",
+      textAlign: "center",
+    }}>
+      {message}
     </div>
   );
 }
@@ -5396,123 +5684,101 @@ function LegalPage({ title, kind }) {
    ============================================================ */
 
 function Footer({ setView, smoothScrollTo, smoothNavigate, t }) {
-  // Resilient handlers — fall back to plain setView if helpers are missing
-  const goHome    = () => smoothNavigate ? smoothNavigate("home")    : setView("home");
-  const goAbout   = () => smoothNavigate ? smoothNavigate("about")   : setView("about");
-  const goPrivacy = () => smoothNavigate ? smoothNavigate("privacy") : setView("privacy");
-  const goTerms   = () => smoothNavigate ? smoothNavigate("terms")   : setView("terms");
-
-  // FAQ lives on the home page — scroll to its anchor
-  const goFaq = () => {
-    if (smoothScrollTo) smoothScrollTo("home-faq", "home");
-    else setView("faq");
-  };
-
-  // Contact section is in the footer itself — scroll to its anchor
-  const goContact = () => {
-    const el = document.getElementById("footer-contact");
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
-    } else if (smoothNavigate) {
-      smoothNavigate("contact");
-    } else {
-      setView("contact");
-    }
-  };
-
   return (
     <footer className="mt-20 relative" style={{ borderTop: "1px solid var(--border)" }}>
-      {/* Ambient footer glow */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="glow-orb" style={{ width: 700, height: 400, bottom: -200, left: "50%", transform: "translateX(-50%)", background: "radial-gradient(ellipse, rgba(251,191,36,0.10), transparent 70%)", filter: "blur(100px)" }} />
       </div>
 
       <div className="relative max-w-7xl mx-auto px-6 py-20">
-        {/* Top section: prominent logo + tagline + columns */}
-        <div className="grid lg:grid-cols-[1.5fr_1fr_1fr_1fr] gap-12 mb-16">
-          {/* Brand block — bigger, more prominent */}
+        <div className="grid lg:grid-cols-4 gap-12 mb-16">
+          {/* Column 1: Brand */}
           <div>
-            <div className="mb-5 -ml-1">
-              <Logo size={64} />
+            <div className="mb-4">
+              <Logo size={48} />
             </div>
-            <p className="text-sm text-muted leading-relaxed max-w-sm mb-6">
-              {t.footer.tagline}
+            <p className="text-sm text-muted leading-relaxed">
+              AI-powered car advisor for NL, BE, DE, and PL. Find the right car in minutes.
             </p>
-            {/* Country chips */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {Object.values(COUNTRIES).map(c => (
-                <div key={c.code} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px]"
-                  style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.2)", color: "#fbbf24" }}>
-                  <span>{c.flag}</span>
-                  <span className="font-medium">{c.code}</span>
-                </div>
-              ))}
-            </div>
           </div>
 
-          {/* Quick Links column */}
+          {/* Column 2: Quick Links */}
           <div>
-            <div className="text-xs uppercase tracking-[0.2em] amber-text font-bold mb-5">{t.footer.quickLinks}</div>
-            <div className="space-y-3">
-              <FooterLink onClick={goHome} icon={Sparkles}>{t.nav.discover}</FooterLink>
-              <FooterLink onClick={goAbout} icon={Info}>{t.nav.how}</FooterLink>
-              <FooterLink onClick={goFaq} icon={MessageCircle}>{t.nav.faq}</FooterLink>
-              <FooterLink onClick={goContact} icon={Mail}>{t.nav.contact}</FooterLink>
-            </div>
+            <h3 className="text-sm font-bold mb-5" style={{ color: "#f5f1ea" }}>Quick Links</h3>
+            <ul className="space-y-3">
+              <li>
+                <button onClick={() => smoothNavigate ? smoothNavigate("home") : setView("home")} className="text-sm text-muted hover:text-amber-400 transition">
+                  Discover
+                </button>
+              </li>
+              <li>
+                <button onClick={() => smoothNavigate ? smoothNavigate("about") : setView("about")} className="text-sm text-muted hover:text-amber-400 transition">
+                  How it works
+                </button>
+              </li>
+              <li>
+                <button onClick={() => smoothNavigate ? smoothNavigate("calculator") : setView("calculator")} className="text-sm text-muted hover:text-amber-400 transition">
+                  Cost Calculator
+                </button>
+              </li>
+              <li>
+                <button onClick={() => smoothScrollTo ? smoothScrollTo("home-faq", "home") : setView("faq")} className="text-sm text-muted hover:text-amber-400 transition">
+                  FAQ
+                </button>
+              </li>
+            </ul>
           </div>
 
-          {/* Contact column — anchor target for "Contact" footer link */}
-          <div id="footer-contact" className="scroll-mt-24">
-            <div className="text-xs uppercase tracking-[0.2em] amber-text font-bold mb-5">{t.footer.contact}</div>
-            <div className="space-y-3 text-sm">
-              <div className="flex items-start gap-2.5 text-muted">
-                <Sparkles className="w-4 h-4 mt-0.5 amber-text shrink-0" />
-                <span><span className="font-semibold" style={{ color: "#f5f1ea" }}>Fryderyk Strycharz</span><br /><span className="text-[11px]">CEO & Founder</span></span>
-              </div>
-              <a href="mailto:06fryderyk@gmail.com" className="flex items-start gap-2.5 text-muted hover:text-amber-400 transition group">
-                <Mail className="w-4 h-4 mt-0.5 amber-text shrink-0" />
-                <span>06fryderyk@gmail.com</span>
-              </a>
-              <a href="tel:+48798353930" className="flex items-start gap-2.5 text-muted hover:text-amber-400 transition">
-                <Phone className="w-4 h-4 mt-0.5 amber-text shrink-0" />
-                <span>+48 798 353 930</span>
-              </a>
-              <div className="flex items-start gap-2.5 text-muted">
-                <MapPin className="w-4 h-4 mt-0.5 amber-text shrink-0" />
-                <span>Gerard Doustraat 64-1</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Legal column */}
+          {/* Column 3: Contact */}
           <div>
-            <div className="text-xs uppercase tracking-[0.2em] amber-text font-bold mb-5">{t.footer.legal}</div>
-            <div className="space-y-3">
-              <FooterLink onClick={goPrivacy} icon={Shield}>Privacy Policy</FooterLink>
-              <FooterLink onClick={goTerms} icon={FileText}>Terms of Service</FooterLink>
+            <h3 className="text-sm font-bold mb-5 flex items-center gap-2" style={{ color: "#f5f1ea" }}>
+              Contact
+              <div className="w-2 h-2 rounded-full" style={{ background: "#fbbf24" }} />
+            </h3>
+            <div className="space-y-4 text-sm text-muted">
+              <div>
+                <div className="font-medium">Gerard Doustraat 64-1</div>
+                <div className="text-xs">Amsterdam, Netherlands</div>
+              </div>
+              <a href="mailto:06fryderyk@gmail.com" className="block hover:text-amber-400 transition">
+                06fryderyk@gmail.com
+              </a>
             </div>
+          </div>
+
+          {/* Column 4: Legal */}
+          <div>
+            <h3 className="text-sm font-bold mb-5" style={{ color: "#f5f1ea" }}>Legal</h3>
+            <ul className="space-y-3">
+              <li>
+                <button onClick={() => smoothNavigate ? smoothNavigate("privacy") : setView("privacy")} className="text-sm text-muted hover:text-amber-400 transition">
+                  Privacy Policy
+                </button>
+              </li>
+              <li>
+                <button onClick={() => smoothNavigate ? smoothNavigate("terms") : setView("terms")} className="text-sm text-muted hover:text-amber-400 transition">
+                  Terms of Service
+                </button>
+              </li>
+              <li>
+                <button onClick={() => setView("cookies")} className="text-sm text-muted hover:text-amber-400 transition">
+                  Cookie Policy
+                </button>
+              </li>
+            </ul>
           </div>
         </div>
 
-        {/* Bottom bar */}
-        <div
-          className="pt-8 text-xs text-muted"
-          style={{
-            borderTop: "1px solid var(--border)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: "12px",
-          }}
-        >
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-3 h-3 amber-text" />
-            {t.footer.copy}
-          </div>
-          <div className="flex items-center gap-2">
-            <span>🇳🇱</span><span>🇧🇪</span><span>🇩🇪</span><span>🇵🇱</span>
-            <span className="ml-2">{t.footer.countries}</span>
+        {/* Bottom Bar */}
+        <div className="pt-8" style={{ borderTop: "1px solid var(--border)" }}>
+          <div className="flex items-center justify-between text-xs text-muted">
+            <span>© 2026 FindMyCar · All rights reserved.</span>
+            <div className="flex items-center gap-3">
+              <span>NL</span>
+              <span>BE</span>
+              <span>DE</span>
+              <span>PL</span>
+            </div>
           </div>
         </div>
       </div>
