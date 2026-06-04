@@ -15,6 +15,27 @@ import { supabase } from "@/lib/supabaseClient";
    ============================================================ */
 // AutoScout24 affiliate URL builder
 function buildAutoScout24Url(make, model, country, options = {}) {
+  // AutoScout24 uses German-derived slugs for many models.
+  // Map parsed model names → correct AutoScout path segment before slugification.
+  const MODEL_SLUG_OVERRIDES = {
+    // Mercedes-Benz: AutoScout uses "klasse" suffix, not "class"
+    "c class": "c-klasse",   "c-class": "c-klasse",
+    "e class": "e-klasse",   "e-class": "e-klasse",
+    "s class": "s-klasse",   "s-class": "s-klasse",
+    "a class": "a-klasse",   "a-class": "a-klasse",
+    "b class": "b-klasse",   "b-class": "b-klasse",
+    "g class": "g-klasse",   "g-class": "g-klasse",
+    "glc class": "glc",      "gla class": "gla",      "gle class": "gle",
+    // BMW: AutoScout uses German "er" suffix for numbered series
+    "1 series": "1er",  "1-series": "1er",
+    "2 series": "2er",  "2-series": "2er",
+    "3 series": "3er",  "3-series": "3er",
+    "4 series": "4er",  "4-series": "4er",
+    "5 series": "5er",  "5-series": "5er",
+    "6 series": "6er",  "6-series": "6er",
+    "7 series": "7er",  "7-series": "7er",
+    "8 series": "8er",  "8-series": "8er",
+  };
   const domains = {
     NL: 'autoscout24.nl',
     BE: 'autoscout24.be',
@@ -25,8 +46,11 @@ function buildAutoScout24Url(make, model, country, options = {}) {
   const m = (make || '').toLowerCase()
     .replace(/š/g,'s').replace(/[^a-z0-9\s-]/g,'')
     .trim().replace(/\s+/g,'-');
-  const mod = model
-    ? model.toLowerCase()
+  // Apply slug override before slugifying (e.g. "c class" → "c-klasse")
+  const modelKey = (model || '').toLowerCase().trim();
+  const modelNorm = MODEL_SLUG_OVERRIDES[modelKey] || model;
+  const mod = modelNorm
+    ? modelNorm.toLowerCase()
         .replace(/\./g,'').replace(/[^a-z0-9\s-]/g,'')
         .trim().replace(/\s+/g,'-')
     : '';
@@ -1703,6 +1727,7 @@ useEffect(() => {
       "land rover": "Land Rover",
       "range rover": "Land Rover",
       "mercedes-benz": "Mercedes-Benz",
+      "mercedes benz": "Mercedes-Benz",  // space variant — must come before "mercedes"
       "mercedes": "Mercedes-Benz",
       "volkswagen": "Volkswagen",
       "vw": "Volkswagen",
@@ -1758,24 +1783,41 @@ useEffect(() => {
         // Expanded stop-word set — prevents noise like "listings", "show", country names,
         // fuel/transmission words, and generic adjectives from leaking into the model slug.
         const stopWords = new Set([
+          // structural / listing intent words
           "from", "since", "after", "before", "year", "under", "over", "with", "for",
           "budget", "km", "mileage", "listing", "listings", "show", "me", "find",
           "search", "please", "get", "view", "see", "results", "cars", "vehicles",
-          "in", "at", "the", "a", "an", "and", "or", "new", "used",
-          "petrol", "diesel", "electric", "hybrid", "automatic", "manual",
+          // qualifiers / filler that users append but that must not enter the slug
+          "only", "just", "want", "need", "newer", "older", "newest", "oldest", "latest",
+          "that", "which", "or", "and", "not",
+          // articles / prepositions
+          "in", "at", "the", "a", "an", "new", "used",
+          // fuel / transmission words
+          "petrol", "gasoline", "benzine", "benzin", "diesel", "electric", "ev",
+          "hybrid", "phev", "automatic", "auto", "manual",
+          // country words
           "netherlands", "holland", "dutch", "belgium", "belgian", "germany", "german",
-          "poland", "polish", "nl", "be", "de", "pl",
+          "deutschland", "poland", "polish", "nl", "be", "de", "pl",
+          // body type words
           "hatchback", "sedan", "saloon", "estate", "wagon", "suv", "crossover",
-          "convertible", "van", "reliable", "good", "best", "cheap", "efficient",
+          "convertible", "van", "coupe",
+          // generic adjectives
+          "reliable", "good", "best", "cheap", "efficient", "clean", "nice",
+          // brand fragment words — safety net if multi-word brand match fails
+          "benz", "rover", "romeo",
         ]);
         const tokens = afterMake.split(/\s+/);
         const modelTokens = [];
         for (const token of tokens) {
           if (!token) continue;
-          if (stopWords.has(token)) break;
-          if (/^\d{4}$/.test(token)) break;   // standalone year
-          if (/^\d{5,}$/.test(token)) break;  // price or large number
-          modelTokens.push(token);
+          // Strip punctuation before every check so "petrol," stops the loop
+          // and "50,000" is recognised as a 5-digit price and breaks cleanly.
+          const clean = token.replace(/[^a-z0-9-]/gi, '').toLowerCase();
+          if (!clean) continue;
+          if (stopWords.has(clean)) break;
+          if (/^\d{4}$/.test(clean)) break;   // standalone year
+          if (/^\d{5,}$/.test(clean)) break;  // price or large number
+          modelTokens.push(clean);
           if (modelTokens.length >= 3) break; // cap at 3 tokens
         }
         if (modelTokens.length > 0) {
