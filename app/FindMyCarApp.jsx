@@ -1563,6 +1563,15 @@ useEffect(() => {
       if (event === "SIGNED_OUT") {
         showToast("success", "You have been logged out.");
       }
+      // When Supabase consumes the recovery hash internally it fires this event
+      // instead of leaving the tokens in window.location.hash. Handle it here
+      // so the reset modal appears whether or not the hash was already parsed.
+      if (event === "PASSWORD_RECOVERY") {
+        setShowPasswordReset(true);
+        // Session is already established by Supabase; signal modal to skip setSession.
+        setRecoveryAccessToken("__from_event__");
+        setRecoveryRefreshToken("");
+      }
     });
 
     return () => {
@@ -1596,7 +1605,9 @@ useEffect(() => {
   };
 
   const handleResetPassword = async (email) => {
-    const { data, error } = await supabase.auth.resetPasswordForEmail(email);
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + "/",
+    });
     if (error) return { error: mapAuthError(error) };
     return { data };
   };
@@ -1610,6 +1621,23 @@ useEffect(() => {
     setAuthUser(null);
     setHasAccount(false);
   };
+
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const [recoveryAccessToken, setRecoveryAccessToken] = useState(null);
+  const [recoveryRefreshToken, setRecoveryRefreshToken] = useState(null);
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash) return;
+    const params = new URLSearchParams(hash.substring(1));
+    const type = params.get("type");
+    const accessToken = params.get("access_token");
+    if (type === "recovery" && accessToken) {
+      setRecoveryAccessToken(accessToken);
+      setRecoveryRefreshToken(params.get("refresh_token") || "");
+      setShowPasswordReset(true);
+    }
+  }, []);
   // Chat sessions: each is { id, title, messages, createdAt, updatedAt }
   const makeWelcome = (lang) => ({
     role: "assistant",
@@ -2584,6 +2612,16 @@ useEffect(() => {
       {showHistory && <ChatHistoryModal sessions={chatSessions}
         onRestore={restoreSession} onDelete={deleteSession}
         onClose={() => setShowHistory(false)} />}
+      {showPasswordReset && (
+        <PasswordResetModal
+          accessToken={recoveryAccessToken}
+          refreshToken={recoveryRefreshToken}
+          onDone={() => {
+            setShowPasswordReset(false);
+            window.history.replaceState(null, "", "/");
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -4671,6 +4709,144 @@ function CompareModal({ compareList, onClose, toggleCompare, clearCompare, count
             })}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   PASSWORD RESET MODAL
+   ============================================================ */
+
+function PasswordResetModal({ accessToken, refreshToken, onDone }) {
+  const [password, setPassword] = React.useState("");
+  const [confirm, setConfirm] = React.useState("");
+  const [error, setError] = React.useState("");
+  const [status, setStatus] = React.useState("idle"); // idle | loading | success | expired | failed
+
+  React.useEffect(() => {
+    if (!accessToken) { setStatus("expired"); return; }
+    // "__from_event__" means PASSWORD_RECOVERY already established the session.
+    if (accessToken === "__from_event__") return;
+    supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken || "" })
+      .then(({ error }) => { if (error) setStatus("expired"); })
+      .catch(() => setStatus("expired"));
+  }, [accessToken, refreshToken]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
+    if (password !== confirm) { setError("Passwords do not match."); return; }
+    setStatus("loading");
+    const { error: updateError } = await supabase.auth.updateUser({ password });
+    if (updateError) { setStatus("failed"); return; }
+    setStatus("success");
+    setTimeout(() => onDone(), 2000);
+  };
+
+  const backdropStyle = {
+    position: "fixed", inset: 0, zIndex: 9999,
+    background: "rgba(10,9,8,0.95)",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    padding: "1rem",
+  };
+  const cardStyle = {
+    width: "100%", maxWidth: 448,
+    boxShadow: "0 0 60px rgba(251,191,36,0.18), 0 30px 80px rgba(0,0,0,0.7)",
+    borderRadius: "1.5rem",
+    padding: "2.5rem 2rem",
+    display: "flex", flexDirection: "column", alignItems: "center", gap: "1.25rem",
+  };
+
+  if (status === "expired") return (
+    <div style={backdropStyle}>
+      <div className="card-static" style={cardStyle}>
+        <Logo size={44} showText tagline={false} />
+        <div style={{ textAlign: "center" }}>
+          <p style={{ fontFamily: "Fraunces, Georgia, serif", fontSize: "1.25rem", color: "#f5f1ea", marginBottom: "0.5rem" }}>
+            This reset link has expired.
+          </p>
+          <p style={{ color: "#a09070", fontSize: "0.875rem" }}>Please request a new password reset.</p>
+        </div>
+        <button onClick={onDone} className="btn-primary" style={{ width: "100%", padding: "0.75rem", borderRadius: "0.75rem", fontSize: "0.95rem" }}>
+          Go to FindMyCar
+        </button>
+      </div>
+    </div>
+  );
+
+  if (status === "success") return (
+    <div style={backdropStyle}>
+      <div className="card-static" style={cardStyle}>
+        <Logo size={44} showText tagline={false} />
+        <div style={{ textAlign: "center" }}>
+          <p style={{ color: "#4ade80", fontWeight: 600, fontSize: "1rem", marginBottom: "0.25rem" }}>Password updated successfully.</p>
+          <p style={{ color: "#a09070", fontSize: "0.875rem" }}>You are now logged in.</p>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (status === "failed") return (
+    <div style={backdropStyle}>
+      <div className="card-static" style={cardStyle}>
+        <Logo size={44} showText tagline={false} />
+        <div style={{ textAlign: "center" }}>
+          <p style={{ color: "#f87171", fontWeight: 600, fontSize: "1rem", marginBottom: "0.25rem" }}>Failed to update password.</p>
+          <p style={{ color: "#a09070", fontSize: "0.875rem" }}>Please request a new reset link.</p>
+        </div>
+        <button onClick={onDone} className="btn-primary" style={{ width: "100%", padding: "0.75rem", borderRadius: "0.75rem", fontSize: "0.95rem" }}>
+          Back to site
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={backdropStyle}>
+      <div className="card-static" style={cardStyle}>
+        <Logo size={44} showText tagline={false} />
+        <div style={{ textAlign: "center" }}>
+          <p style={{ fontFamily: "Fraunces, Georgia, serif", fontSize: "1.4rem", color: "#f5f1ea", marginBottom: "0.4rem" }}>
+            Set your new password
+          </p>
+          <p style={{ color: "#a09070", fontSize: "0.875rem" }}>
+            Choose a strong password for your FindMyCar account.
+          </p>
+        </div>
+        <form onSubmit={handleSubmit} style={{ width: "100%", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+          <input
+            type="password"
+            className="input-dark"
+            placeholder="New password"
+            minLength={8}
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={{ width: "100%", padding: "0.75rem 1rem", borderRadius: "0.75rem", fontSize: "0.95rem" }}
+          />
+          <input
+            type="password"
+            className="input-dark"
+            placeholder="Confirm new password"
+            required
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            style={{ width: "100%", padding: "0.75rem 1rem", borderRadius: "0.75rem", fontSize: "0.95rem" }}
+          />
+          {error && (
+            <p style={{ color: "#f87171", fontSize: "0.825rem", textAlign: "center" }}>{error}</p>
+          )}
+          <button
+            type="submit"
+            className="btn-primary"
+            disabled={status === "loading"}
+            style={{ width: "100%", padding: "0.75rem", borderRadius: "0.75rem", fontSize: "0.95rem", marginTop: "0.25rem", opacity: status === "loading" ? 0.6 : 1 }}
+          >
+            {status === "loading" ? "Saving…" : "Save password"}
+          </button>
+        </form>
       </div>
     </div>
   );
