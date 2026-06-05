@@ -11,31 +11,237 @@ import {
 import { supabase } from "@/lib/supabaseClient";
 
 /* ============================================================
+   SEARCH PIPELINE — brand/model data & pure helper functions
+   Defined at module level so they are created once, not per render.
+   ============================================================ */
+
+// Brand registry. Key = lowercase user-input variant; value = { name, slug }.
+// Longer phrases must appear first so MAKE_REGEX tries "mercedes benz" before "mercedes".
+const CANONICAL_MAKES = {
+  "mercedes-benz":  { name: "Mercedes-Benz", slug: "mercedes-benz" },
+  "mercedes benz":  { name: "Mercedes-Benz", slug: "mercedes-benz" },
+  "mercedes":       { name: "Mercedes-Benz", slug: "mercedes-benz" },
+  "alfa romeo":     { name: "Alfa Romeo",    slug: "alfa-romeo"    },
+  "aston martin":   { name: "Aston Martin",  slug: "aston-martin"  },
+  "land rover":     { name: "Land Rover",    slug: "land-rover"    },
+  "range rover":    { name: "Land Rover",    slug: "land-rover"    },
+  "rolls royce":    { name: "Rolls-Royce",   slug: "rolls-royce"   },
+  "rolls-royce":    { name: "Rolls-Royce",   slug: "rolls-royce"   },
+  "volkswagen":     { name: "Volkswagen",    slug: "volkswagen"    },
+  "landrover":      { name: "Land Rover",    slug: "land-rover"    },
+  "alfa":           { name: "Alfa Romeo",    slug: "alfa-romeo"    },
+  "chevy":          { name: "Chevrolet",     slug: "chevrolet"     },
+  "vauxhall":       { name: "Opel",          slug: "opel"          },
+  "citroën":        { name: "Citroën",       slug: "citroen"       },
+  "citroen":        { name: "Citroën",       slug: "citroen"       },
+  "bmw":            { name: "BMW",           slug: "bmw"           },
+  "vw":             { name: "Volkswagen",    slug: "volkswagen"    },
+  "audi":           { name: "Audi",          slug: "audi"          },
+  "toyota":         { name: "Toyota",        slug: "toyota"        },
+  "volvo":          { name: "Volvo",         slug: "volvo"         },
+  "ford":           { name: "Ford",          slug: "ford"          },
+  "skoda":          { name: "Škoda",         slug: "skoda"         },
+  "seat":           { name: "SEAT",          slug: "seat"          },
+  "peugeot":        { name: "Peugeot",       slug: "peugeot"       },
+  "renault":        { name: "Renault",       slug: "renault"       },
+  "nissan":         { name: "Nissan",        slug: "nissan"        },
+  "kia":            { name: "Kia",           slug: "kia"           },
+  "hyundai":        { name: "Hyundai",       slug: "hyundai"       },
+  "mazda":          { name: "Mazda",         slug: "mazda"         },
+  "tesla":          { name: "Tesla",         slug: "tesla"         },
+  "fiat":           { name: "Fiat",          slug: "fiat"          },
+  "opel":           { name: "Opel",          slug: "opel"          },
+  "dacia":          { name: "Dacia",         slug: "dacia"         },
+  "mini":           { name: "MINI",          slug: "mini"          },
+  "honda":          { name: "Honda",         slug: "honda"         },
+  "mitsubishi":     { name: "Mitsubishi",    slug: "mitsubishi"    },
+  "subaru":         { name: "Subaru",        slug: "subaru"        },
+  "suzuki":         { name: "Suzuki",        slug: "suzuki"        },
+  "jeep":           { name: "Jeep",          slug: "jeep"          },
+  "chevrolet":      { name: "Chevrolet",     slug: "chevrolet"     },
+  "lexus":          { name: "Lexus",         slug: "lexus"         },
+  "porsche":        { name: "Porsche",       slug: "porsche"       },
+  "bentley":        { name: "Bentley",       slug: "bentley"       },
+  "maserati":       { name: "Maserati",      slug: "maserati"      },
+  "cupra":          { name: "Cupra",         slug: "cupra"         },
+};
+
+// AutoScout24 uses German slugs on .nl / .de / .be — map English user names to them.
+const MODEL_SLUG_MAP = {
+  "c class": "c-klasse",   "c-class": "c-klasse",
+  "e class": "e-klasse",   "e-class": "e-klasse",
+  "s class": "s-klasse",   "s-class": "s-klasse",
+  "a class": "a-klasse",   "a-class": "a-klasse",
+  "b class": "b-klasse",   "b-class": "b-klasse",
+  "g class": "g-klasse",   "g-class": "g-klasse",
+  "glc class": "glc",      "gla class": "gla",      "gle class": "gle",
+  "1 series": "1er",  "1-series": "1er",
+  "2 series": "2er",  "2-series": "2er",
+  "3 series": "3er",  "3-series": "3er",
+  "4 series": "4er",  "4-series": "4er",
+  "5 series": "5er",  "5-series": "5er",
+  "6 series": "6er",  "6-series": "6er",
+  "7 series": "7er",  "7-series": "7er",
+  "8 series": "8er",  "8-series": "8er",
+};
+
+// Words that must NEVER appear in a model slug.
+// If any token matches, the model tokeniser stops immediately.
+const FILLER_WORDS = new Set([
+  "show","me","find","get","search","look","looking","want","need",
+  "please","just","only","that","which","can","you","i","is","are",
+  "a","an","the","in","at","for","with","from","to","of","about","by",
+  "newer","older","newest","oldest","latest","new","used","recent",
+  "good","best","cheap","reliable","efficient","clean","nice","or","and","not",
+  "under","over","max","minimum","budget","km","mileage","year","since","after","before",
+  "petrol","gasoline","benzine","benzin","diesel","electric","ev",
+  "hybrid","phev","automatic","auto","manual","stick","automaat","handgeschakeld",
+  "netherlands","holland","dutch","belgium","belgian","germany","german",
+  "deutschland","poland","polish","nl","be","de","pl",
+  "hatchback","sedan","saloon","estate","wagon","suv","crossover",
+  "convertible","coupe","van","pickup","combi",
+  // brand-fragment safety net
+  "benz","rover","romeo","martin",
+  "listing","listings","results","cars","vehicles","view","see",
+]);
+
+// Regex built from CANONICAL_MAKES; longest phrases first ensures multi-word
+// brands ("mercedes benz") win over single-word aliases ("mercedes").
+const _MAKE_PHRASES = Object.keys(CANONICAL_MAKES).sort((a, b) => b.length - a.length);
+const MAKE_REGEX = new RegExp(`\\b(${_MAKE_PHRASES.join("|")})\\b`, "i");
+
+// ─── Stage 1 (sync fallback): regex-based intent extractor ───────────────────
+function regexExtractIntent(query) {
+  const q = (query || "").toLowerCase();
+  const makeMatch = q.match(MAKE_REGEX);
+  const makeEntry = makeMatch ? CANONICAL_MAKES[makeMatch[1].toLowerCase()] : null;
+
+  let model = null;
+  if (makeMatch) {
+    const after = q.slice(makeMatch.index + makeMatch[0].length).trim();
+    const kept = [];
+    for (const raw of after.split(/\s+/)) {
+      const t = raw.replace(/[^a-z0-9-]/gi, "").toLowerCase();
+      if (!t || FILLER_WORDS.has(t)) break;
+      if (/^\d{4}$/.test(t) || /^\d{5,}$/.test(t)) break;
+      kept.push(t);
+      if (kept.length >= 3) break;
+    }
+    if (kept.length) model = kept.join(" ");
+  }
+
+  const yrM = q.match(/(?:from|since|after|year\s*)((?:19|20)\d{2})\b/i) || q.match(/\b((?:19|20)\d{2})\b/);
+  const year_min = yrM ? Number(yrM[1] || yrM[0].match(/\d{4}/)?.[0]) : null;
+
+  const milM = q.match(/(?:under\s*)?(\d{1,3}(?:[.,]\d{3})*)(k)?\s*(?:km|kilometres|kilometers)\b/i);
+  let mileage_max = null;
+  if (milM) { mileage_max = parseInt(milM[1].replace(/[.,]/g, ""), 10); if (milM[2]) mileage_max *= 1000; }
+
+  let budget_max = null;
+  const budM = q.match(/(?:^|[^A-Za-z0-9€])(?:under\s*)?(?:€\s*)?(\d{4,}(?:[.,]\d{3})*)(k)?\b(?!\s*(?:km|kilometres|kilometers))/i)
+    || q.match(/(?:^|[^A-Za-z0-9€])(?:€\s*)?(\d+(?:[.,]\d{3})*)k\b(?!\s*(?:km|kilometres|kilometers))/i);
+  if (budM) { budget_max = parseInt(budM[1].replace(/[.,]/g, ""), 10); if (budM[2]) budget_max *= 1000; }
+
+  let country = null;
+  if (/\b(netherlands|dutch|holland|\bnl\b)\b/i.test(q)) country = "NL";
+  else if (/\b(belgium|belgian|\bbe\b)\b/i.test(q)) country = "BE";
+  else if (/\b(germany|german|deutschland|\bde\b)\b/i.test(q)) country = "DE";
+  else if (/\b(poland|polish|\bpl\b)\b/i.test(q)) country = "PL";
+
+  let fuel_type = null;
+  if (/\b(plug.?in.?hybrid|phev)\b/i.test(q)) fuel_type = "plug_in_hybrid";
+  else if (/\b(petrol|gasoline|benzine|benzin)\b/i.test(q)) fuel_type = "petrol";
+  else if (/\bdiesel\b/i.test(q)) fuel_type = "diesel";
+  else if (/\bhybrid\b/i.test(q)) fuel_type = "hybrid";
+  else if (/\b(electric|ev\b|bev)\b/i.test(q)) fuel_type = "electric";
+
+  let transmission = null;
+  if (/\b(automatic|auto|automaat)\b/i.test(q)) transmission = "automatic";
+  else if (/\b(manual|stick|handgeschakeld)\b/i.test(q)) transmission = "manual";
+
+  const hasFilters = budget_max || mileage_max || year_min || fuel_type || transmission;
+  const confidence = makeEntry
+    ? (model ? (hasFilters ? 0.85 : 0.70) : 0.50)
+    : (hasFilters ? 0.35 : 0.20);
+
+  return { make: makeEntry?.name || null, makeSlug: makeEntry?.slug || null,
+    model: model || null, fuel_type, transmission,
+    budget_max, mileage_max, year_min, country, confidence, source: "regex" };
+}
+
+// ─── Stage 2: deterministic normalisation ────────────────────────────────────
+function normalizeIntent(raw) {
+  const makeEntry = CANONICAL_MAKES[(raw.make || "").toLowerCase().trim()] || null;
+  const makeName  = makeEntry?.name || raw.make || null;
+  const makeSlug  = makeEntry?.slug || raw.makeSlug
+    || (raw.make ? raw.make.toLowerCase().replace(/[^a-z0-9]+/g, "-") : null);
+
+  let modelDisplay = null;
+  if (raw.model) {
+    const kept = [];
+    for (const rt of raw.model.toLowerCase().split(/\s+/)) {
+      const t = rt.replace(/[^a-z0-9-]/g, "");
+      if (!t || FILLER_WORDS.has(t)) break;
+      kept.push(t);
+      if (kept.length >= 3) break;
+    }
+    if (kept.length) modelDisplay = kept.join(" ");
+  }
+
+  const modelSlug = MODEL_SLUG_MAP[(modelDisplay || "").trim()]
+    || (modelDisplay ? modelDisplay.replace(/\s+/g, "-") : null);
+
+  return {
+    makeName, makeSlug, modelDisplay, modelSlug,
+    fuel_type: raw.fuel_type || null,
+    transmission: raw.transmission || null,
+    budget_max: typeof raw.budget_max === "number" ? raw.budget_max : null,
+    mileage_max: typeof raw.mileage_max === "number" ? raw.mileage_max : null,
+    year_min: typeof raw.year_min === "number" ? raw.year_min : null,
+    country: raw.country || null,
+    confidence: typeof raw.confidence === "number" ? raw.confidence : 0.5,
+    source: raw.source || "unknown",
+  };
+}
+
+// ─── Stage 3: fallback level decision ────────────────────────────────────────
+// Returns { level, fallbackReason }
+//   "exact"      confidence ≥ 0.7  make + model → full path
+//   "make_model" confidence 0.4–0.7 make + model → full path, moderate confidence
+//   "make_only"  no trustworthy model → make-only path
+//   "generic"    no make → /lst base + params only
+function determineSearchLevel({ makeName, modelDisplay, confidence }) {
+  if (!makeName)      return { level: "generic",     fallbackReason: "No make detected" };
+  if (!modelDisplay)  return { level: "make_only",   fallbackReason: "No model detected" };
+  if (confidence < 0.4) return { level: "make_only", fallbackReason: "Low confidence on model" };
+  if (confidence >= 0.7) return { level: "exact",    fallbackReason: null };
+  return { level: "make_model", fallbackReason: "Approximate — model may vary" };
+}
+
+// ─── Stage 1 (async): LLM extraction with regex fallback ─────────────────────
+async function extractSearchIntent(query) {
+  try {
+    const res = await fetch("/api/extract", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.intent && typeof data.intent.confidence === "number") {
+        return { ...data.intent, source: "llm" };
+      }
+    }
+  } catch (_) { /* LLM call failed — fall through to regex */ }
+  return regexExtractIntent(query);
+}
+
+/* ============================================================
    MOCK DATA
    ============================================================ */
 // AutoScout24 affiliate URL builder
+// URL builder uses module-level MODEL_SLUG_MAP for German AutoScout slug translations.
 function buildAutoScout24Url(make, model, country, options = {}) {
-  // AutoScout24 uses German-derived slugs for many models.
-  // Map parsed model names → correct AutoScout path segment before slugification.
-  const MODEL_SLUG_OVERRIDES = {
-    // Mercedes-Benz: AutoScout uses "klasse" suffix, not "class"
-    "c class": "c-klasse",   "c-class": "c-klasse",
-    "e class": "e-klasse",   "e-class": "e-klasse",
-    "s class": "s-klasse",   "s-class": "s-klasse",
-    "a class": "a-klasse",   "a-class": "a-klasse",
-    "b class": "b-klasse",   "b-class": "b-klasse",
-    "g class": "g-klasse",   "g-class": "g-klasse",
-    "glc class": "glc",      "gla class": "gla",      "gle class": "gle",
-    // BMW: AutoScout uses German "er" suffix for numbered series
-    "1 series": "1er",  "1-series": "1er",
-    "2 series": "2er",  "2-series": "2er",
-    "3 series": "3er",  "3-series": "3er",
-    "4 series": "4er",  "4-series": "4er",
-    "5 series": "5er",  "5-series": "5er",
-    "6 series": "6er",  "6-series": "6er",
-    "7 series": "7er",  "7-series": "7er",
-    "8 series": "8er",  "8-series": "8er",
-  };
   const domains = {
     NL: 'autoscout24.nl',
     BE: 'autoscout24.be',
@@ -48,7 +254,7 @@ function buildAutoScout24Url(make, model, country, options = {}) {
     .trim().replace(/\s+/g,'-');
   // Apply slug override before slugifying (e.g. "c class" → "c-klasse")
   const modelKey = (model || '').toLowerCase().trim();
-  const modelNorm = MODEL_SLUG_OVERRIDES[modelKey] || model;
+  const modelNorm = MODEL_SLUG_MAP[modelKey] || model;
   const mod = modelNorm
     ? modelNorm.toLowerCase()
         .replace(/\./g,'').replace(/[^a-z0-9\s-]/g,'')
@@ -1715,193 +1921,63 @@ useEffect(() => {
 
   const hasExplicitListingFilters = (text) => {
     const t = text.toLowerCase();
-    const hasMake = /\b(land rover|range rover|mercedes|volkswagen|\bvw\b|bmw|audi|toyota|volvo|ford|skoda|seat|peugeot|renault|nissan|kia|hyundai|mazda|tesla|fiat|citroen|opel|dacia|mini|honda|mitsubishi|subaru|suzuki|jeep|alfa romeo|chevrolet|lexus|porsche)\b/i.test(t);
+    const hasMake = MAKE_REGEX.test(t);
     const hasListingIntent = /\b(show me|find me|find a|looking for|i want a?|i need a?|can you find|can you show|search for|listings?)\b/i.test(t);
     const hasBudget = /\b(?:under|up to|max|budget)\s*(?:€\s*)?\d[\d.,]*(k)?\b/i.test(t) || /(?:^|[^A-Za-z0-9€])(?:€\s*)?\d{4,}\b/i.test(t);
     const hasMileage = /\d[\d.,]*\s*k?m\b/i.test(t) && /\b(km|kilometres|kilometers)\b/i.test(t);
     return (hasMake && hasListingIntent) || (hasMake && hasBudget) || (hasListingIntent && hasBudget) || (hasListingIntent && hasMileage);
   };
-  const parseListingFilters = (query) => {
-    const normalizedQuery = (query || "").toLowerCase();
-    const brandMap = {
-      "land rover": "Land Rover",
-      "range rover": "Land Rover",
-      "mercedes-benz": "Mercedes-Benz",
-      "mercedes benz": "Mercedes-Benz",  // space variant — must come before "mercedes"
-      "mercedes": "Mercedes-Benz",
-      "volkswagen": "Volkswagen",
-      "vw": "Volkswagen",
-      "bmw": "BMW",
-      "audi": "Audi",
-      "toyota": "Toyota",
-      "volvo": "Volvo",
-      "ford": "Ford",
-      "skoda": "Škoda",
-      "seat": "Seat",
-      "peugeot": "Peugeot",
-      "renault": "Renault",
-      "nissan": "Nissan",
-      "kia": "Kia",
-      "hyundai": "Hyundai",
-      "mazda": "Mazda",
-      "tesla": "Tesla",
-      "fiat": "Fiat",
-      "citroen": "Citroën",
-      "opel": "Opel",
-      "dacia": "Dacia",
-      "mini": "MINI",
-      "honda": "Honda",
-      "mitsubishi": "Mitsubishi",
-      "subaru": "Subaru",
-      "suzuki": "Suzuki",
-      "jeep": "Jeep",
-      "alfa romeo": "Alfa Romeo",
-      "alfa": "Alfa Romeo",
-      "chevrolet": "Chevrolet",
-      "lexus": "Lexus",
-      "porsche": "Porsche",
-    };
-    const makeRegex = new RegExp(`\\b(${Object.keys(brandMap).join("|")})\\b`, "i");
-    const makeMatch = normalizedQuery.match(makeRegex);
-    const make = makeMatch ? brandMap[makeMatch[1].toLowerCase()] || makeMatch[1] : null;
-
-    const yearMatch = normalizedQuery.match(/(?:from|since|after|year\s*)((?:19|20)\d{2})\b/i)
-      || normalizedQuery.match(/\b((?:19|20)\d{2})\b/);
-    const minYear = yearMatch ? Number(yearMatch[1] || yearMatch[0].match(/\d{4}/)?.[0]) : null;
-
-    const mileageMatch = normalizedQuery.match(/(?:under\s*)?(\d{1,3}(?:[.,]\d{3})*)(k)?\s*(?:km|kilometres|kilometers)\b/i);
-    let maxMileage = null;
-    if (mileageMatch) {
-      maxMileage = parseInt(mileageMatch[1].replace(/[.,]/g, ""), 10);
-      if (mileageMatch[2]) maxMileage *= 1000;
-    }
-
-    let model = null;
-    if (makeMatch) {
-      const afterMake = normalizedQuery.slice(makeMatch.index + makeMatch[0].length).trim();
-      if (afterMake) {
-        // Expanded stop-word set — prevents noise like "listings", "show", country names,
-        // fuel/transmission words, and generic adjectives from leaking into the model slug.
-        const stopWords = new Set([
-          // structural / listing intent words
-          "from", "since", "after", "before", "year", "under", "over", "with", "for",
-          "budget", "km", "mileage", "listing", "listings", "show", "me", "find",
-          "search", "please", "get", "view", "see", "results", "cars", "vehicles",
-          // qualifiers / filler that users append but that must not enter the slug
-          "only", "just", "want", "need", "newer", "older", "newest", "oldest", "latest",
-          "that", "which", "or", "and", "not",
-          // articles / prepositions
-          "in", "at", "the", "a", "an", "new", "used",
-          // fuel / transmission words
-          "petrol", "gasoline", "benzine", "benzin", "diesel", "electric", "ev",
-          "hybrid", "phev", "automatic", "auto", "manual",
-          // country words
-          "netherlands", "holland", "dutch", "belgium", "belgian", "germany", "german",
-          "deutschland", "poland", "polish", "nl", "be", "de", "pl",
-          // body type words
-          "hatchback", "sedan", "saloon", "estate", "wagon", "suv", "crossover",
-          "convertible", "van", "coupe",
-          // generic adjectives
-          "reliable", "good", "best", "cheap", "efficient", "clean", "nice",
-          // brand fragment words — safety net if multi-word brand match fails
-          "benz", "rover", "romeo",
-        ]);
-        const tokens = afterMake.split(/\s+/);
-        const modelTokens = [];
-        for (const token of tokens) {
-          if (!token) continue;
-          // Strip punctuation before every check so "petrol," stops the loop
-          // and "50,000" is recognised as a 5-digit price and breaks cleanly.
-          const clean = token.replace(/[^a-z0-9-]/gi, '').toLowerCase();
-          if (!clean) continue;
-          if (stopWords.has(clean)) break;
-          if (/^\d{4}$/.test(clean)) break;   // standalone year
-          if (/^\d{5,}$/.test(clean)) break;  // price or large number
-          modelTokens.push(clean);
-          if (modelTokens.length >= 3) break; // cap at 3 tokens
-        }
-        if (modelTokens.length > 0) {
-          model = modelTokens.join(" ").trim();
-        }
-      }
-    }
-
-    let maxPrice = null;
-    const budgetIntent = /\b(?:under|max|budget|up to|€|k)\b/i.test(normalizedQuery);
-    if (budgetIntent) {
-      const budgetMatch = normalizedQuery.match(/(?:^|[^A-Za-z0-9€])(?:under\s*)?(?:€\s*)?(\d{4,}(?:[.,]\d{3})*)(k)?\b(?!\s*(?:km|kilometres|kilometers))/i)
-        || normalizedQuery.match(/(?:^|[^A-Za-z0-9€])(?:€\s*)?(\d+(?:[.,]\d{3})*)k\b(?!\s*(?:km|kilometres|kilometers))/i);
-      if (budgetMatch) {
-        maxPrice = parseInt(budgetMatch[1].replace(/[.,]/g, ""), 10);
-        if (budgetMatch[2]) maxPrice *= 1000;
-      }
-    }
-
-    // Country detection from the query text
-    let detectedCountry = null;
-    if (/\b(netherlands|dutch|holland|\bnl\b)\b/i.test(normalizedQuery)) detectedCountry = "NL";
-    else if (/\b(belgium|belgian|\bbe\b)\b/i.test(normalizedQuery)) detectedCountry = "BE";
-    else if (/\b(germany|german|deutschland|\bde\b)\b/i.test(normalizedQuery)) detectedCountry = "DE";
-    else if (/\b(poland|polish|\bpl\b)\b/i.test(normalizedQuery)) detectedCountry = "PL";
-
-    // Fuel type detection
-    let fuel = null;
-    if (/\b(plug.?in.?hybrid|phev)\b/i.test(normalizedQuery)) fuel = "plug_in_hybrid";
-    else if (/\b(petrol|gasoline|benzine|benzin)\b/i.test(normalizedQuery)) fuel = "petrol";
-    else if (/\bdiesel\b/i.test(normalizedQuery)) fuel = "diesel";
-    else if (/\b(hybrid)\b/i.test(normalizedQuery)) fuel = "hybrid";
-    else if (/\b(electric|ev\b|bev)\b/i.test(normalizedQuery)) fuel = "electric";
-
-    // Transmission detection
-    let transmission = null;
-    if (/\b(automatic|auto|automaat)\b/i.test(normalizedQuery)) transmission = "automatic";
-    else if (/\b(manual|stick|handgeschakeld)\b/i.test(normalizedQuery)) transmission = "manual";
-
-    return { make, model, minYear, maxPrice, maxMileage, detectedCountry, fuel, transmission };
-  };
   const getVisibleListings = (sourceListings, filter, model, locationFilter, maxPrice) => {
     if (sourceListings && !Array.isArray(sourceListings) && typeof sourceListings === "object") {
-      const recommendation = sourceListings;
-      if (!recommendation.make && !recommendation.model && !recommendation.minYear && !recommendation.maxPrice && !recommendation.maxMileage) {
+      const r = sourceListings;
+      // Support both old shape (make, model, detectedCountry, fuel, maxPrice, maxMileage, minYear)
+      // and new pipeline shape (makeName, makeSlug, modelDisplay, modelSlug, fuel_type, budget_max, mileage_max, year_min, country)
+      const makeName     = r.makeName     || r.make     || null;
+      const makeSlug     = r.makeSlug     || (makeName ? makeName.toLowerCase().replace(/[^a-z0-9]+/g, "-") : null);
+      const modelDisplay = r.modelDisplay || r.model    || null;
+      const modelSlug    = r.modelSlug    || null;
+      const fuel         = r.fuel_type    || r.fuel     || null;
+      const transmission = r.transmission || null;
+      const minYear      = r.year_min     || r.minYear  || null;
+      const maxBudget    = r.budget_max   || r.maxPrice || null;
+      const maxMileage   = r.mileage_max  || r.maxMileage || null;
+      const resolvedCountry = r.country   || r.detectedCountry || country;
+      const level        = r.level        || null;
+      const fallbackReason = r.fallbackReason || null;
+
+      if (!makeName && !modelDisplay && !minYear && !maxBudget && !maxMileage) {
         return [];
       }
 
-      const title = [recommendation.make, recommendation.model].filter(Boolean).join(" ").trim() || "Recommended car";
+      const title = [makeName, modelDisplay].filter(Boolean).join(" ").trim() || "Recommended car";
       const summaryParts = [];
-      if (recommendation.fuel && recommendation.fuel !== "any") summaryParts.push(recommendation.fuel);
-      if (recommendation.transmission && recommendation.transmission !== "any") summaryParts.push(recommendation.transmission);
-      if (recommendation.minYear) summaryParts.push(`from ${recommendation.minYear}`);
-      if (recommendation.maxPrice) summaryParts.push(`up to €${recommendation.maxPrice.toLocaleString()}`);
-      if (recommendation.maxMileage) summaryParts.push(`under ${recommendation.maxMileage.toLocaleString()} km`);
+      if (fuel && fuel !== "any") summaryParts.push(fuel);
+      if (transmission && transmission !== "any") summaryParts.push(transmission);
+      if (minYear) summaryParts.push(`from ${minYear}`);
+      if (maxBudget) summaryParts.push(`up to €${maxBudget.toLocaleString()}`);
+      if (maxMileage) summaryParts.push(`under ${maxMileage.toLocaleString()} km`);
       const subtitle = summaryParts.length > 0
         ? `Based on your request: ${summaryParts.join(", ")}.`
         : "Search results matched to your request.";
 
-      // Prefer country parsed from query; fall back to the app-level country selection
-      const resolvedCountry = recommendation.detectedCountry || country;
-
       return [{
-        id: `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${recommendation.minYear || "any"}-${recommendation.maxPrice || "any"}-${recommendation.maxMileage || "any"}`,
+        id: `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${minYear || "any"}-${maxBudget || "any"}-${maxMileage || "any"}`,
         title,
         subtitle,
-        priceLabel: recommendation.maxPrice ? `Up to €${recommendation.maxPrice.toLocaleString()}` : "Live market search",
-        fuel: recommendation.fuel || "any",
-        transmission: recommendation.transmission || "any",
-        minYear: recommendation.minYear || null,
-        maxMileage: recommendation.maxMileage || null,
+        priceLabel: maxBudget ? `Up to €${maxBudget.toLocaleString()}` : "Live market search",
+        fuel: fuel || "any",
+        transmission: transmission || "any",
+        minYear: minYear || null,
+        maxMileage: maxMileage || null,
         country: resolvedCountry,
+        level,
+        fallbackReason,
         imageUrl: "https://images.unsplash.com/photo-1511919884226-20f0d3d4d687?auto=format&fit=crop&w=1200&q=80",
         listingUrl: buildAutoScout24Url(
-          recommendation.make || "",
-          recommendation.model || "",
+          makeSlug || makeName || "",
+          modelSlug || modelDisplay || "",
           resolvedCountry,
-          {
-            fuel: recommendation.fuel,
-            transmission: recommendation.transmission,
-            minYear: recommendation.minYear,
-            maxMileage: recommendation.maxMileage,
-            maxPrice: recommendation.maxPrice,
-          }
+          { fuel, transmission, minYear, maxMileage, maxPrice: maxBudget }
         ),
         source: "AutoScout24",
       }];
@@ -1929,41 +2005,46 @@ useEffect(() => {
     const turn = chatTurn + 1;
     setChatTurn(turn);
 
-    const query = text.toLowerCase();
     const hasExplicitFilters = hasExplicitListingFilters(text);
     const isListingRequest = /\blistings?\b/i.test(text) || hasExplicitFilters;
-    let listingReply;
+    let listingReply = "";
     let filteredListings = [];
-    if (isListingRequest) {
-      setShowListings(true);
-      const parsed = parseListingFilters(query);
-      const hasParsedIntent = parsed.make || parsed.model || parsed.minYear || parsed.maxPrice || parsed.maxMileage;
-
-      setListingQuery(query);
-      setListingFilter(parsed.make ? parsed.make.toLowerCase() : "all");
-      setListingModel(parsed.model || "");
-      setListingLocation("");
-      setListingMaxPrice(parsed.maxPrice ?? null);
-
-      if (hasParsedIntent) {
-        filteredListings = getVisibleListings(parsed);
-        listingReply = filteredListings.length > 0
-          ? "I created a recommendation based on your request."
-          : "I couldn't build a recommendation from that request.";
-      } else {
-        filteredListings = [];
-        listingReply = "I couldn't understand that listing request. Try including a make, model, year, price, or mileage.";
-      }
-
-      loadListings();
-    }
 
     try {
-      // Hybrid: tries /api/chat first, falls back to local simulation
-      const replyText = await hybridChatSend(updatedMsgs);
+      // Run intent extraction and chat response in parallel to save time
+      const [intentRaw, replyText] = await Promise.all([
+        isListingRequest ? extractSearchIntent(text) : Promise.resolve(null),
+        hybridChatSend(updatedMsgs),
+      ]);
+
+      if (isListingRequest && intentRaw) {
+        setShowListings(true);
+        const intent = normalizeIntent(intentRaw);
+        const { level, fallbackReason } = determineSearchLevel(intent);
+        const hasParsedIntent = intent.makeName || intent.modelDisplay || intent.year_min || intent.budget_max || intent.mileage_max;
+
+        setListingQuery(text);
+        setListingFilter(intent.makeName ? intent.makeName.toLowerCase() : "all");
+        setListingModel(intent.modelDisplay || "");
+        setListingLocation("");
+        setListingMaxPrice(intent.budget_max ?? null);
+
+        if (hasParsedIntent) {
+          filteredListings = getVisibleListings({ ...intent, level, fallbackReason });
+          listingReply = filteredListings.length > 0
+            ? "I found a live-market search based on your request."
+            : "I couldn't build a recommendation from that request.";
+        } else {
+          listingReply = "I couldn't understand that listing request. Try including a make, model, year, price, or mileage.";
+        }
+
+        loadListings();
+      }
+
       setMessages(m => {
         const next = [...m, {
-          role: "assistant", kind: "text", content: isListingRequest ? listingReply : replyText,
+          role: "assistant", kind: "text",
+          content: isListingRequest ? listingReply : replyText,
           lang: language, mode: "advisor",
         }];
         if (isListingRequest) {
@@ -2043,13 +2124,14 @@ useEffect(() => {
     } else {
       const lastListingUser = [...session.messages].reverse().find((m) => m.role === "user" && hasExplicitListingFilters(m.content));
       if (lastListingUser) {
-        const parsed = parseListingFilters(lastListingUser.content.toLowerCase());
+        const rawIntent = regexExtractIntent(lastListingUser.content);
+        const intent = normalizeIntent(rawIntent);
         setShowListings(true);
         setListingQuery(lastListingUser.content.toLowerCase());
-        setListingFilter(parsed.brand);
-        setListingModel(parsed.model);
-        setListingLocation(parsed.location);
-        setListingMaxPrice(parsed.maxPrice);
+        setListingFilter(intent.makeName ? intent.makeName.toLowerCase() : "all");
+        setListingModel(intent.modelDisplay || "");
+        setListingLocation("");
+        setListingMaxPrice(intent.budget_max ?? null);
       } else {
         setShowListings(false);
         setListingQuery("");
@@ -4157,6 +4239,12 @@ function ChatMessage({ message, country, openCar, shortlist, compareList, toggle
                           {listing.minYear && <div>Year: from {listing.minYear}</div>}
                           {listing.maxMileage && <div>Max mileage: {listing.maxMileage.toLocaleString()} km</div>}
                           <div>Source: {listing.source}</div>
+                          {listing.level === "exact" && (
+                            <div style={{ color: "#4ade80" }}>✓ Exact match</div>
+                          )}
+                          {listing.fallbackReason && listing.level !== "exact" && (
+                            <div style={{ color: "#fbbf24" }}>↓ {listing.fallbackReason}</div>
+                          )}
                         </div>
 
                         <a
