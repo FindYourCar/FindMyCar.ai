@@ -231,17 +231,32 @@ const DRIVETRAIN_TOKENS = new Set([
 
 // Generation / chassis / platform codes → role "generation": metadata only
 const GENERATION_TOKENS = new Set([
-  "na","nb","nc","nd",             // Mazda MX-5
-  "mk5","mk6","mk7","mk8",         // VW Golf
-  "f10","f11","f30","f31","f32","f36","g20","g21","g30","g31",  // BMW
-  "e46","e90","e92","ek","ej","fn","fk",
+  "na","nb","nc","nd",                          // Mazda MX-5 gens
+  "mk1","mk2","mk3","mk4","mk5","mk6","mk7","mk8",  // VW Golf / Ford Focus gens
+  // BMW platform codes
+  "e30","e36","e46","e60","e90","e91","e92","e93",
+  "f10","f11","f20","f21","f30","f31","f32","f33","f36",
+  "g20","g21","g22","g26","g30","g31","g38",
+  // Honda Civic codes
+  "ek","ej","ep","fn","fk",
+  // Renault generation suffix
+  "iv","v","vi",
 ]);
 
-// Engine badge: these tokens reveal fuel/displacement but must NOT enter the URL path.
-//   BMW-style:  exactly 3 digits + fuel letter  (320d, 540i, 116d, 530e)
-//   MB-style:   1 letter + 3+ digits + optional letter  (c220d, e350, a200)
-// Does NOT match model names: 308, 911, 718 (no fuel suffix) nor a4/v60 (too short).
-const ENGINE_BADGE_RE = /^\d{3}[die]$|^[a-z]\d{3,}[a-z]?$/i;
+// Fuel injection / technology suffixes — classify as "engine_badge", never in URL path.
+// Handles "35 TFSI", "40 TDI", "1.6 TSI", "dCi" etc.
+const FUEL_TECH_TOKENS = new Set([
+  "tfsi","tdi","tsi","dci","hdi","mpi","fsi","crdi","gdi",
+  "bluehdi","tce","dce","sce","gte","mhev","shev",
+]);
+
+// Engine badge RE — tokens that reveal fuel/displacement but must NOT enter the URL path.
+//   BMW-style with fuel letter:  320d, 540i, 116d, 530e
+//   BMW-style bare (no letter):  540, 320, 116  ← [die]? makes fuel letter optional
+//   MB-style alpha-prefix:       c220d, e350, a200, s500
+// Does NOT match: Peugeot 308 / Porsche 911 (the map lookup gets those first);
+// nor a4/v60 (single letter + ≤2 digits).
+const ENGINE_BADGE_RE = /^\d{3}[die]?$|^[a-z]\d{3,}[a-z]?$/i;
 
 // When ONLY an engine badge is found (no model family tokens), try to infer the
 // model family from the badge's prefix.  BMW "3" → "3er", Mercedes "c" → "c-klasse".
@@ -277,6 +292,8 @@ const MAKE_REGEX = new RegExp(`\\b(${_MAKE_PHRASES.join("|")})\\b`, "i");
 
 // ─── Token role classifier ────────────────────────────────────────────────────
 // Returns: "stop" | "model_family" | "body" | "trim" | "drivetrain" | "engine_badge" | "generation"
+// NOTE: "model_family" is a provisional role — resolveVehicle() may demote these tokens
+//       to engine_badge / generation via the key-trimming fallback.
 function classifyToken(t) {
   if (!t) return "stop";
   if (STOP_TOKENS.has(t))         return "stop";
@@ -286,8 +303,20 @@ function classifyToken(t) {
   if (TRIM_BADGE_TOKENS.has(t))   return "trim";
   if (DRIVETRAIN_TOKENS.has(t))   return "drivetrain";
   if (GENERATION_TOKENS.has(t))   return "generation";
-  if (ENGINE_BADGE_RE.test(t))    return "engine_badge";
+  if (FUEL_TECH_TOKENS.has(t))    return "engine_badge"; // tfsi, tdi, tsi, dci…
+  if (ENGINE_BADGE_RE.test(t))    return "engine_badge"; // 320d, 540, c220d…
   return "model_family";
+}
+
+// ─── Reclassify a demoted model_family token ──────────────────────────────────
+// Called when key-trimming drops a token that was provisionally model_family.
+// Determines the best non-family bucket for it.
+function reclassifyDemoted(t) {
+  if (/^[1-9]$/.test(t))                                return "generation"; // Golf 8 → gen 8
+  if (/^\d{2}$/.test(t) && +t >= 25 && +t <= 70)       return "engine_badge"; // Audi 35/40/45
+  if (/^\d{2,3}$/.test(t))                              return "engine_badge"; // BMW 540, 320
+  if (FUEL_TECH_TOKENS.has(t))                          return "engine_badge";
+  return "trim"; // safe default
 }
 
 // ─── Stage 1 (sync fallback): regex-based intent extractor ───────────────────
@@ -383,43 +412,82 @@ function resolveVehicle(raw) {
     else if (role === "generation")  metaGen.push(t);
   }
 
-  // 3. Engine-badge → model family inference (last resort when no family tokens found)
-  //    e.g. "540i" → BMW 5 Series slug "5er";  "c220d" → "c-klasse"
-  let inferredSlug = null;
-  if (modelFamilyTokens.length === 0 && metaEngine.length > 0 && makeSlug) {
-    const badge    = metaEngine[0];
-    const mbPfx    = badge.match(/^([a-z])\d{3}/i);    // c220d → "c"
-    const bmwPfx   = badge.match(/^(\d)\d{2}[die]$/i); // 320d → "3"
-    const pfx      = mbPfx ? mbPfx[1].toLowerCase() : (bmwPfx ? bmwPfx[1] : null);
-    if (pfx) inferredSlug = ENGINE_PREFIX_TO_MODEL[`${makeSlug}:${pfx}`] || null;
+  // 3. Key-trimming slug resolution
+  //    Try progressively shorter model-family keys until one hits MODEL_FAMILY_MAP.
+  //    Surplus tokens are reclassified (not discarded) — e.g. "Golf 8" → "golf" matched,
+  //    "8" demoted to generation;  "A4 35 TFSI" → "a4" matched, "35" demoted to engine_badge.
+  let modelSlug = null;
+  const matchedFamilyTokens = [];
+
+  if (modelFamilyTokens.length > 0 && makeSlug) {
+    let found = false;
+    for (let len = modelFamilyTokens.length; len >= 1; len--) {
+      const key  = modelFamilyTokens.slice(0, len).join(" ");
+      const slug = MODEL_FAMILY_MAP[`${makeSlug}:${key}`];
+      if (slug) {
+        modelSlug = slug;
+        matchedFamilyTokens.push(...modelFamilyTokens.slice(0, len));
+        // Reclassify tokens that failed (Golf "8" → generation; A4 "35" → engine_badge)
+        for (const dt of modelFamilyTokens.slice(len)) {
+          const role = reclassifyDemoted(dt);
+          if      (role === "generation")   metaGen.push(dt);
+          else if (role === "engine_badge") metaEngine.push(dt);
+          else                              metaTrim.push(dt);
+        }
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      // No match at any length — demote all family tokens for engine inference below
+      for (const dt of modelFamilyTokens) {
+        const role = reclassifyDemoted(dt);
+        if      (role === "generation")   metaGen.push(dt);
+        else if (role === "engine_badge") metaEngine.push(dt);
+        else                              metaTrim.push(dt);
+      }
+    }
   }
 
-  // 4. Resolve AutoScout24 slug via make-scoped lookup
-  const modelRawKey = modelFamilyTokens.join(" ");
-  const scopedKey   = makeSlug && modelRawKey ? `${makeSlug}:${modelRawKey}` : null;
-  const modelSlug   = (scopedKey ? MODEL_FAMILY_MAP[scopedKey] : null) || inferredSlug || null;
+  // 4. Engine-badge → model family inference (fires when no direct key match)
+  //    Handles: "540i"/"540" → 5er; "320d" → 3er; "c220d" → c-klasse
+  //    ENGINE_BADGE_RE now allows optional fuel letter, so bare "540" also reaches here.
+  let inferredSlug = null;
+  if (!modelSlug && metaEngine.length > 0 && makeSlug) {
+    for (const badge of metaEngine) {
+      const mbPfx  = badge.match(/^([a-z])\d{3}/i);      // c220d → "c"
+      const numPfx = badge.match(/^(\d)\d{2}[die]?$/i);  // 320d or 540 → "3" or "5"
+      const pfx    = mbPfx ? mbPfx[1].toLowerCase() : (numPfx ? numPfx[1] : null);
+      if (pfx) {
+        inferredSlug = ENGINE_PREFIX_TO_MODEL[`${makeSlug}:${pfx}`] || null;
+        if (inferredSlug) { modelSlug = inferredSlug; break; }
+      }
+    }
+  }
 
-  // 5. Human-readable model display name (English, not German slug)
-  const rawDisplay   = modelFamilyTokens.length ? modelFamilyTokens.join(" ") : null;
-  const resolvedSlug = (scopedKey ? MODEL_FAMILY_MAP[scopedKey] : null) || null;
+  // 5. Human-readable model display name
+  const rawDisplay   = matchedFamilyTokens.length ? matchedFamilyTokens.join(" ") : null;
   const modelDisplay = rawDisplay
-    ? (MODEL_FAMILY_DISPLAY[resolvedSlug] || rawDisplay)
+    ? (MODEL_FAMILY_DISPLAY[modelSlug] || rawDisplay)
     : (inferredSlug ? (MODEL_FAMILY_DISPLAY[inferredSlug] || inferredSlug) : null);
 
-  // 6. Trim display (everything classified as non-family: trim, body, drivetrain, engine badge)
-  const trimDisplay = [...metaTrim, ...metaBody, ...metaDrive, ...metaEngine]
-    .join(" ").trim() || null;
+  // 6. Trim display — everything that isn't in the URL path (trim, body, drivetrain,
+  //    engine badge, generation).  This is shown on the card as metadata.
+  const trimDisplay = [
+    ...metaTrim, ...metaBody, ...metaDrive, ...metaEngine, ...metaGen,
+  ].join(" ").trim() || null;
 
-  // 7. Infer fuel from numeric engine badge suffix (BMW-style only; safe for MB too)
+  // 7. Infer fuel type from engine badge suffix when not already declared
   let fuel_type = raw.fuel_type || null;
   if (!fuel_type && metaEngine.length > 0) {
-    const b = metaEngine[0];
-    if (/^\d{3}d$/.test(b))       fuel_type = "diesel";
-    else if (/^\d{3}i$/.test(b))  fuel_type = "petrol";
-    else if (/^\d{3}e$/.test(b))  fuel_type = "plug_in_hybrid";
+    for (const b of metaEngine) {
+      if      (/^\d{3}d$/i.test(b) || /tdi|dci|hdi|crdi|gdi/i.test(b)) { fuel_type = "diesel"; break; }
+      else if (/^\d{3}i$/i.test(b) || /tsi|tfsi|mpi|fsi|sce/i.test(b))  { fuel_type = "petrol"; break; }
+      else if (/^\d{3}e$/i.test(b) || /gte|phev|shev|mhev/i.test(b))    { fuel_type = "plug_in_hybrid"; break; }
+    }
   }
 
-  // 8. Determine search level
+  // 8. Determine search level + fallback reason
   const conf = typeof raw.confidence === "number" ? raw.confidence : 0.7;
   let level, fallbackReason;
   if (!makeName) {
@@ -427,8 +495,8 @@ function resolveVehicle(raw) {
   } else if (!modelDisplay) {
     level = "make_only";  fallbackReason = "No model detected";
   } else if (!modelSlug) {
-    level = "make_only";  fallbackReason = `"${modelDisplay}" not in index — searching by make`;
-  } else if (inferredSlug && !MODEL_FAMILY_MAP[scopedKey || ""]) {
+    level = "make_only";  fallbackReason = `"${modelDisplay}" not resolved — searching by make`;
+  } else if (inferredSlug && matchedFamilyTokens.length === 0) {
     level = "make_model"; fallbackReason = `Inferred from engine code "${metaEngine[0]}"`;
   } else if (conf >= 0.65) {
     level = "exact";      fallbackReason = null;
