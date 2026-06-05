@@ -11,12 +11,13 @@ import {
 import { supabase } from "@/lib/supabaseClient";
 
 /* ============================================================
-   SEARCH PIPELINE — brand/model data & pure helper functions
-   Defined at module level so they are created once, not per render.
+   VEHICLE TAXONOMY — generalised make / model / trim classification
+   All pure data and helpers; defined once at module level.
    ============================================================ */
 
-// Brand registry. Key = lowercase user-input variant; value = { name, slug }.
-// Longer phrases must appear first so MAKE_REGEX tries "mercedes benz" before "mercedes".
+// ─── Make registry ────────────────────────────────────────────────────────────
+// Key = any user-input variant (lowercase); value = { name, slug }.
+// Multi-word brands must come first so MAKE_REGEX matches them before aliases.
 const CANONICAL_MAKES = {
   "mercedes-benz":  { name: "Mercedes-Benz", slug: "mercedes-benz" },
   "mercedes benz":  { name: "Mercedes-Benz", slug: "mercedes-benz" },
@@ -66,28 +67,196 @@ const CANONICAL_MAKES = {
   "cupra":          { name: "Cupra",         slug: "cupra"         },
 };
 
-// AutoScout24 uses German slugs on .nl / .de / .be — map English user names to them.
-const MODEL_SLUG_MAP = {
-  "c class": "c-klasse",   "c-class": "c-klasse",
-  "e class": "e-klasse",   "e-class": "e-klasse",
-  "s class": "s-klasse",   "s-class": "s-klasse",
-  "a class": "a-klasse",   "a-class": "a-klasse",
-  "b class": "b-klasse",   "b-class": "b-klasse",
-  "g class": "g-klasse",   "g-class": "g-klasse",
-  "glc class": "glc",      "gla class": "gla",      "gle class": "gle",
-  "1 series": "1er",  "1-series": "1er",
-  "2 series": "2er",  "2-series": "2er",
-  "3 series": "3er",  "3-series": "3er",
-  "4 series": "4er",  "4-series": "4er",
-  "5 series": "5er",  "5-series": "5er",
-  "6 series": "6er",  "6-series": "6er",
-  "7 series": "7er",  "7-series": "7er",
-  "8 series": "8er",  "8-series": "8er",
+// ─── Model family slug map ─────────────────────────────────────────────────────
+// Key: "{makeSlug}:{user model key normalised to lowercase}" → AutoScout24 URL slug.
+// Only MODEL FAMILY names live here — no trims, badges, or drivetrains.
+// If a query resolves here the URL path is safe; otherwise → make-only fallback.
+const MODEL_FAMILY_MAP = {
+  // Volkswagen
+  "volkswagen:golf":"golf","volkswagen:polo":"polo","volkswagen:passat":"passat",
+  "volkswagen:tiguan":"tiguan","volkswagen:t-roc":"t-roc","volkswagen:troc":"t-roc",
+  "volkswagen:arteon":"arteon","volkswagen:touareg":"touareg",
+  "volkswagen:id3":"id-3","volkswagen:id4":"id-4","volkswagen:id.3":"id-3","volkswagen:id.4":"id-4",
+  // BMW
+  "bmw:1 series":"1er","bmw:1-series":"1er","bmw:1er":"1er",
+  "bmw:2 series":"2er","bmw:2-series":"2er","bmw:2er":"2er",
+  "bmw:3 series":"3er","bmw:3-series":"3er","bmw:3er":"3er",
+  "bmw:4 series":"4er","bmw:4-series":"4er","bmw:4er":"4er",
+  "bmw:5 series":"5er","bmw:5-series":"5er","bmw:5er":"5er",
+  "bmw:6 series":"6er","bmw:6er":"6er",
+  "bmw:7 series":"7er","bmw:7-series":"7er","bmw:7er":"7er",
+  "bmw:8 series":"8er","bmw:8er":"8er",
+  "bmw:x1":"x1","bmw:x2":"x2","bmw:x3":"x3","bmw:x4":"x4",
+  "bmw:x5":"x5","bmw:x6":"x6","bmw:x7":"x7",
+  "bmw:z3":"z3","bmw:z4":"z4","bmw:i3":"i3","bmw:i4":"i4","bmw:i8":"i8","bmw:ix":"ix",
+  // Mercedes-Benz
+  "mercedes-benz:a class":"a-klasse","mercedes-benz:a-class":"a-klasse",
+  "mercedes-benz:b class":"b-klasse","mercedes-benz:b-class":"b-klasse",
+  "mercedes-benz:c class":"c-klasse","mercedes-benz:c-class":"c-klasse",
+  "mercedes-benz:e class":"e-klasse","mercedes-benz:e-class":"e-klasse",
+  "mercedes-benz:s class":"s-klasse","mercedes-benz:s-class":"s-klasse",
+  "mercedes-benz:g class":"g-klasse","mercedes-benz:g-class":"g-klasse",
+  "mercedes-benz:gla":"gla","mercedes-benz:glb":"glb","mercedes-benz:glc":"glc",
+  "mercedes-benz:gle":"gle","mercedes-benz:gls":"gls","mercedes-benz:gl":"gl",
+  "mercedes-benz:cla":"cla","mercedes-benz:cls":"cls","mercedes-benz:sl":"sl","mercedes-benz:slk":"slk",
+  "mercedes-benz:eqc":"eqc","mercedes-benz:eqa":"eqa","mercedes-benz:eqb":"eqb","mercedes-benz:eqs":"eqs",
+  // Audi
+  "audi:a1":"a1","audi:a2":"a2","audi:a3":"a3","audi:a4":"a4","audi:a5":"a5",
+  "audi:a6":"a6","audi:a7":"a7","audi:a8":"a8",
+  "audi:q2":"q2","audi:q3":"q3","audi:q4":"q4","audi:q5":"q5","audi:q7":"q7","audi:q8":"q8",
+  "audi:tt":"tt","audi:r8":"r8","audi:e-tron":"e-tron","audi:etron":"e-tron",
+  // Renault
+  "renault:megane":"megane","renault:clio":"clio","renault:captur":"captur",
+  "renault:kadjar":"kadjar","renault:zoe":"zoe","renault:twingo":"twingo",
+  "renault:scenic":"scenic","renault:arkana":"arkana","renault:austral":"austral",
+  // Peugeot
+  "peugeot:208":"208","peugeot:308":"308","peugeot:408":"408","peugeot:508":"508",
+  "peugeot:2008":"2008","peugeot:3008":"3008","peugeot:5008":"5008",
+  // Toyota
+  "toyota:yaris":"yaris","toyota:corolla":"corolla","toyota:camry":"camry",
+  "toyota:rav4":"rav4","toyota:prius":"prius","toyota:c-hr":"c-hr","toyota:chr":"c-hr",
+  "toyota:aygo":"aygo","toyota:supra":"supra","toyota:gr86":"gr86","toyota:hilux":"hilux",
+  // Honda
+  "honda:civic":"civic","honda:jazz":"jazz","honda:hr-v":"hr-v","honda:hrv":"hr-v",
+  "honda:cr-v":"cr-v","honda:crv":"cr-v","honda:e":"e","honda:accord":"accord",
+  // Mazda
+  "mazda:mx-5":"mx-5","mazda:mx5":"mx-5","mazda:miata":"mx-5","mazda:roadster":"mx-5",
+  "mazda:3":"3","mazda:6":"6","mazda:cx-3":"cx-3","mazda:cx-5":"cx-5",
+  "mazda:cx-30":"cx-30","mazda:cx-60":"cx-60",
+  // Škoda
+  "skoda:octavia":"octavia","skoda:fabia":"fabia","skoda:superb":"superb",
+  "skoda:karoq":"karoq","skoda:kodiaq":"kodiaq","skoda:enyaq":"enyaq","skoda:scala":"scala",
+  // SEAT
+  "seat:ibiza":"ibiza","seat:leon":"leon","seat:arona":"arona","seat:ateca":"ateca","seat:tarraco":"tarraco",
+  // Cupra
+  "cupra:formentor":"formentor","cupra:born":"born","cupra:leon":"leon","cupra:ateca":"ateca",
+  // Volvo
+  "volvo:s60":"s60","volvo:s90":"s90","volvo:v40":"v40","volvo:v60":"v60","volvo:v90":"v90",
+  "volvo:xc40":"xc40","volvo:xc60":"xc60","volvo:xc90":"xc90",
+  // MINI
+  "mini:cooper":"mini","mini:mini":"mini","mini:hatch":"mini",
+  "mini:countryman":"countryman","mini:clubman":"clubman","mini:paceman":"paceman",
+  // Ford
+  "ford:fiesta":"fiesta","ford:focus":"focus","ford:mondeo":"mondeo","ford:puma":"puma",
+  "ford:kuga":"kuga","ford:mustang":"mustang","ford:mach-e":"mustang-mach-e",
+  // Kia
+  "kia:rio":"rio","kia:ceed":"ceed","kia:proceed":"proceed","kia:sportage":"sportage",
+  "kia:sorento":"sorento","kia:stinger":"stinger","kia:ev6":"ev6","kia:niro":"niro",
+  // Hyundai
+  "hyundai:i20":"i20","hyundai:i30":"i30","hyundai:tucson":"tucson",
+  "hyundai:santa fe":"santa-fe","hyundai:ioniq":"ioniq",
+  "hyundai:ioniq5":"ioniq-5","hyundai:ioniq6":"ioniq-6","hyundai:kona":"kona",
+  // Fiat
+  "fiat:500":"500","fiat:tipo":"tipo","fiat:panda":"panda","fiat:500x":"500x",
+  // Opel
+  "opel:corsa":"corsa","opel:astra":"astra","opel:insignia":"insignia",
+  "opel:mokka":"mokka","opel:zafira":"zafira","opel:crossland":"crossland",
+  // Dacia
+  "dacia:sandero":"sandero","dacia:duster":"duster","dacia:logan":"logan","dacia:spring":"spring",
+  // Porsche
+  "porsche:911":"911","porsche:718":"718","porsche:cayenne":"cayenne",
+  "porsche:macan":"macan","porsche:panamera":"panamera","porsche:taycan":"taycan",
+  // Tesla
+  "tesla:model 3":"model-3","tesla:model-3":"model-3",
+  "tesla:model s":"model-s","tesla:model-s":"model-s",
+  "tesla:model x":"model-x","tesla:model-x":"model-x",
+  "tesla:model y":"model-y","tesla:model-y":"model-y",
+  // Alfa Romeo
+  "alfa-romeo:giulia":"giulia","alfa-romeo:stelvio":"stelvio",
+  "alfa-romeo:giulietta":"giulietta","alfa-romeo:tonale":"tonale",
+  // Subaru
+  "subaru:impreza":"impreza","subaru:forester":"forester",
+  "subaru:outback":"outback","subaru:wrx":"wrx","subaru:brz":"brz","subaru:levorg":"levorg",
+  // Nissan
+  "nissan:micra":"micra","nissan:juke":"juke","nissan:qashqai":"qashqai",
+  "nissan:leaf":"leaf","nissan:ariya":"ariya","nissan:gt-r":"gt-r","nissan:gtr":"gt-r",
+  // Lexus
+  "lexus:is":"is","lexus:es":"es","lexus:nx":"nx","lexus:rx":"rx",
+  "lexus:ux":"ux","lexus:lc":"lc","lexus:ls":"ls",
+  // Citroën
+  "citroen:c3":"c3","citroen:c4":"c4","citroen:c5":"c5","citroen:berlingo":"berlingo",
+  "citroen:c3 aircross":"c3-aircross","citroen:c5 aircross":"c5-aircross",
+  // Mitsubishi
+  "mitsubishi:eclipse cross":"eclipse-cross","mitsubishi:outlander":"outlander",
+  "mitsubishi:asx":"asx","mitsubishi:colt":"colt","mitsubishi:l200":"l200",
+  // Suzuki
+  "suzuki:swift":"swift","suzuki:vitara":"vitara","suzuki:jimny":"jimny",
+  "suzuki:sx4":"sx4-s-cross","suzuki:ignis":"ignis",
 };
 
-// Words that must NEVER appear in a model slug.
-// If any token matches, the model tokeniser stops immediately.
-const FILLER_WORDS = new Set([
+// Human-readable English display names for slugs that differ from natural English.
+const MODEL_FAMILY_DISPLAY = {
+  "1er":"1 Series","2er":"2 Series","3er":"3 Series","4er":"4 Series",
+  "5er":"5 Series","6er":"6 Series","7er":"7 Series","8er":"8 Series",
+  "c-klasse":"C-Class","e-klasse":"E-Class","a-klasse":"A-Class",
+  "b-klasse":"B-Class","s-klasse":"S-Class","g-klasse":"G-Class",
+  "mx-5":"MX-5","hr-v":"HR-V","cr-v":"CR-V","c-hr":"C-HR","t-roc":"T-Roc",
+  "e-tron":"e-tron","id-3":"ID.3","id-4":"ID.4","gr86":"GR86",
+  "santa-fe":"Santa Fe","ioniq-5":"IONIQ 5","ioniq-6":"IONIQ 6",
+  "model-3":"Model 3","model-s":"Model S","model-x":"Model X","model-y":"Model Y",
+  "mustang-mach-e":"Mustang Mach-E","gt-r":"GT-R","sx4-s-cross":"SX4 S-Cross",
+};
+
+// ─── Token classification sets ────────────────────────────────────────────────
+
+// Body style variants → role "body": metadata only, never in URL path
+const BODY_VARIANT_TOKENS = new Set([
+  "avant","touring","combi","estate","wagon","sw","break","variant","allroad",
+  "cross","country",          // "cross country" (Volvo)
+  "cabrio","cabriolet","convertible","roadster","spider","spyder","targa",
+  "coupe","fastback","sportback",
+  "hatchback","hatch","hb","saloon","sedan","berlina",
+  "suv","crossover","offroad","van","minivan","mpv","pickup","truck",
+]);
+
+// Performance / specification trim badges → role "trim": metadata only
+const TRIM_BADGE_TOKENS = new Set([
+  "s","r","rs","gt","gti","gtx","gts","sport","sports","sportline",
+  "type",             // Honda "Type R" / BMW "M Type"
+  "fr","vz",          // SEAT / Cupra
+  "m","competition",  // BMW M
+  "amg","brabus","night","edition",
+  "trophy",           // Renault RS Trophy
+  "n","nline","n-line",   // Hyundai N
+  "active","life","style","comfort","lounge","allure","signature","exclusive",
+  "premium","elite","elegance","luxury","limited","motion","trend","inspire",
+  "icon","titanium","zetec","ghia","sensation","intens","zen","initiale",
+  "graphite","access","acenta","se","xse","le","xl","lx","ex","sx",
+]);
+
+// All-wheel-drive / drivetrain designators → role "drivetrain": metadata only
+const DRIVETRAIN_TOKENS = new Set([
+  "xdrive","x-drive","quattro","4matic","4x4","awd","4drive","e-four","fwd","rwd","2wd",
+]);
+
+// Generation / chassis / platform codes → role "generation": metadata only
+const GENERATION_TOKENS = new Set([
+  "na","nb","nc","nd",             // Mazda MX-5
+  "mk5","mk6","mk7","mk8",         // VW Golf
+  "f10","f11","f30","f31","f32","f36","g20","g21","g30","g31",  // BMW
+  "e46","e90","e92","ek","ej","fn","fk",
+]);
+
+// Engine badge: these tokens reveal fuel/displacement but must NOT enter the URL path.
+//   BMW-style:  exactly 3 digits + fuel letter  (320d, 540i, 116d, 530e)
+//   MB-style:   1 letter + 3+ digits + optional letter  (c220d, e350, a200)
+// Does NOT match model names: 308, 911, 718 (no fuel suffix) nor a4/v60 (too short).
+const ENGINE_BADGE_RE = /^\d{3}[die]$|^[a-z]\d{3,}[a-z]?$/i;
+
+// When ONLY an engine badge is found (no model family tokens), try to infer the
+// model family from the badge's prefix.  BMW "3" → "3er", Mercedes "c" → "c-klasse".
+const ENGINE_PREFIX_TO_MODEL = {
+  "mercedes-benz:a":"a-klasse","mercedes-benz:b":"b-klasse",
+  "mercedes-benz:c":"c-klasse","mercedes-benz:e":"e-klasse",
+  "mercedes-benz:s":"s-klasse","mercedes-benz:g":"g-klasse",
+  "bmw:1":"1er","bmw:2":"2er","bmw:3":"3er","bmw:4":"4er",
+  "bmw:5":"5er","bmw:6":"6er","bmw:7":"7er","bmw:8":"8er",
+};
+
+// Hard stop tokens — collection ends immediately here.
+// Fuel / country / filter words are hard stops.
+// Body / trim / drivetrain words are NOT stops — resolveVehicle classifies them.
+const STOP_TOKENS = new Set([
   "show","me","find","get","search","look","looking","want","need",
   "please","just","only","that","which","can","you","i","is","are",
   "a","an","the","in","at","for","with","from","to","of","about","by",
@@ -98,34 +267,48 @@ const FILLER_WORDS = new Set([
   "hybrid","phev","automatic","auto","manual","stick","automaat","handgeschakeld",
   "netherlands","holland","dutch","belgium","belgian","germany","german",
   "deutschland","poland","polish","nl","be","de","pl",
-  "hatchback","sedan","saloon","estate","wagon","suv","crossover",
-  "convertible","coupe","van","pickup","combi",
-  // brand-fragment safety net
-  "benz","rover","romeo","martin",
   "listing","listings","results","cars","vehicles","view","see",
+  "benz","rover","romeo","martin",  // brand-fragment safety net
 ]);
 
-// Regex built from CANONICAL_MAKES; longest phrases first ensures multi-word
-// brands ("mercedes benz") win over single-word aliases ("mercedes").
+// MAKE_REGEX: built from CANONICAL_MAKES, longest phrases first.
 const _MAKE_PHRASES = Object.keys(CANONICAL_MAKES).sort((a, b) => b.length - a.length);
 const MAKE_REGEX = new RegExp(`\\b(${_MAKE_PHRASES.join("|")})\\b`, "i");
 
+// ─── Token role classifier ────────────────────────────────────────────────────
+// Returns: "stop" | "model_family" | "body" | "trim" | "drivetrain" | "engine_badge" | "generation"
+function classifyToken(t) {
+  if (!t) return "stop";
+  if (STOP_TOKENS.has(t))         return "stop";
+  if (/^\d{4}$/.test(t))          return "stop";   // standalone year
+  if (/^\d{5,}$/.test(t))         return "stop";   // price / mileage
+  if (BODY_VARIANT_TOKENS.has(t)) return "body";
+  if (TRIM_BADGE_TOKENS.has(t))   return "trim";
+  if (DRIVETRAIN_TOKENS.has(t))   return "drivetrain";
+  if (GENERATION_TOKENS.has(t))   return "generation";
+  if (ENGINE_BADGE_RE.test(t))    return "engine_badge";
+  return "model_family";
+}
+
 // ─── Stage 1 (sync fallback): regex-based intent extractor ───────────────────
+// Extracts raw fields only — no slug resolution.  resolveVehicle() does that.
 function regexExtractIntent(query) {
   const q = (query || "").toLowerCase();
   const makeMatch = q.match(MAKE_REGEX);
   const makeEntry = makeMatch ? CANONICAL_MAKES[makeMatch[1].toLowerCase()] : null;
 
+  // Collect post-make tokens. Stop only at STOP_TOKENS / year / price.
+  // Trim, body, drivetrain words pass through — resolveVehicle classifies them.
   let model = null;
   if (makeMatch) {
     const after = q.slice(makeMatch.index + makeMatch[0].length).trim();
     const kept = [];
     for (const raw of after.split(/\s+/)) {
       const t = raw.replace(/[^a-z0-9-]/gi, "").toLowerCase();
-      if (!t || FILLER_WORDS.has(t)) break;
-      if (/^\d{4}$/.test(t) || /^\d{5,}$/.test(t)) break;
+      if (!t) continue;
+      if (STOP_TOKENS.has(t) || /^\d{4}$/.test(t) || /^\d{5,}$/.test(t)) break;
       kept.push(t);
-      if (kept.length >= 3) break;
+      if (kept.length >= 5) break; // generous cap; resolveVehicle trims further
     }
     if (kept.length) model = kept.join(" ");
   }
@@ -169,56 +352,105 @@ function regexExtractIntent(query) {
     budget_max, mileage_max, year_min, country, confidence, source: "regex" };
 }
 
-// ─── Stage 2: deterministic normalisation ────────────────────────────────────
-function normalizeIntent(raw) {
-  const makeEntry = CANONICAL_MAKES[(raw.make || "").toLowerCase().trim()] || null;
+// ─── Stage 2+3: vehicle resolver ─────────────────────────────────────────────
+// Replaces normaliseIntent() + determineSearchLevel().
+// Classifies post-make tokens into roles, resolves the AutoScout24 slug,
+// infers fuel from engine badge when possible, and determines search level.
+function resolveVehicle(raw) {
+  // 1. Resolve make
+  const makeKey  = (raw.make || "").toLowerCase().trim();
+  const makeEntry = CANONICAL_MAKES[makeKey] || null;
   const makeName  = makeEntry?.name || raw.make || null;
   const makeSlug  = makeEntry?.slug || raw.makeSlug
-    || (raw.make ? raw.make.toLowerCase().replace(/[^a-z0-9]+/g, "-") : null);
+    || (makeName ? makeName.toLowerCase().replace(/[^a-z0-9]+/g, "-") : null);
 
-  let modelDisplay = null;
-  if (raw.model) {
-    const kept = [];
-    for (const rt of raw.model.toLowerCase().split(/\s+/)) {
-      const t = rt.replace(/[^a-z0-9-]/g, "");
-      if (!t || FILLER_WORDS.has(t)) break;
-      kept.push(t);
-      if (kept.length >= 3) break;
-    }
-    if (kept.length) modelDisplay = kept.join(" ");
+  // 2. Classify every post-make token
+  const rawModel = (raw.model || "").toLowerCase().trim();
+  const tokens   = rawModel ? rawModel.split(/\s+/).filter(Boolean) : [];
+  const modelFamilyTokens = [];
+  const metaTrim = [], metaBody = [], metaDrive = [], metaEngine = [], metaGen = [];
+
+  for (const tok of tokens) {
+    const t = tok.replace(/[^a-z0-9-]/g, "");
+    if (!t) continue;
+    const role = classifyToken(t);
+    if (role === "stop") break;
+    if      (role === "model_family" && modelFamilyTokens.length < 3) modelFamilyTokens.push(t);
+    else if (role === "trim")        metaTrim.push(t);
+    else if (role === "body")        metaBody.push(t);
+    else if (role === "drivetrain")  metaDrive.push(t);
+    else if (role === "engine_badge") metaEngine.push(t);
+    else if (role === "generation")  metaGen.push(t);
   }
 
-  const modelSlug = MODEL_SLUG_MAP[(modelDisplay || "").trim()]
-    || (modelDisplay ? modelDisplay.replace(/\s+/g, "-") : null);
+  // 3. Engine-badge → model family inference (last resort when no family tokens found)
+  //    e.g. "540i" → BMW 5 Series slug "5er";  "c220d" → "c-klasse"
+  let inferredSlug = null;
+  if (modelFamilyTokens.length === 0 && metaEngine.length > 0 && makeSlug) {
+    const badge    = metaEngine[0];
+    const mbPfx    = badge.match(/^([a-z])\d{3}/i);    // c220d → "c"
+    const bmwPfx   = badge.match(/^(\d)\d{2}[die]$/i); // 320d → "3"
+    const pfx      = mbPfx ? mbPfx[1].toLowerCase() : (bmwPfx ? bmwPfx[1] : null);
+    if (pfx) inferredSlug = ENGINE_PREFIX_TO_MODEL[`${makeSlug}:${pfx}`] || null;
+  }
+
+  // 4. Resolve AutoScout24 slug via make-scoped lookup
+  const modelRawKey = modelFamilyTokens.join(" ");
+  const scopedKey   = makeSlug && modelRawKey ? `${makeSlug}:${modelRawKey}` : null;
+  const modelSlug   = (scopedKey ? MODEL_FAMILY_MAP[scopedKey] : null) || inferredSlug || null;
+
+  // 5. Human-readable model display name (English, not German slug)
+  const rawDisplay   = modelFamilyTokens.length ? modelFamilyTokens.join(" ") : null;
+  const resolvedSlug = (scopedKey ? MODEL_FAMILY_MAP[scopedKey] : null) || null;
+  const modelDisplay = rawDisplay
+    ? (MODEL_FAMILY_DISPLAY[resolvedSlug] || rawDisplay)
+    : (inferredSlug ? (MODEL_FAMILY_DISPLAY[inferredSlug] || inferredSlug) : null);
+
+  // 6. Trim display (everything classified as non-family: trim, body, drivetrain, engine badge)
+  const trimDisplay = [...metaTrim, ...metaBody, ...metaDrive, ...metaEngine]
+    .join(" ").trim() || null;
+
+  // 7. Infer fuel from numeric engine badge suffix (BMW-style only; safe for MB too)
+  let fuel_type = raw.fuel_type || null;
+  if (!fuel_type && metaEngine.length > 0) {
+    const b = metaEngine[0];
+    if (/^\d{3}d$/.test(b))       fuel_type = "diesel";
+    else if (/^\d{3}i$/.test(b))  fuel_type = "petrol";
+    else if (/^\d{3}e$/.test(b))  fuel_type = "plug_in_hybrid";
+  }
+
+  // 8. Determine search level
+  const conf = typeof raw.confidence === "number" ? raw.confidence : 0.7;
+  let level, fallbackReason;
+  if (!makeName) {
+    level = "generic";    fallbackReason = "No make detected";
+  } else if (!modelDisplay) {
+    level = "make_only";  fallbackReason = "No model detected";
+  } else if (!modelSlug) {
+    level = "make_only";  fallbackReason = `"${modelDisplay}" not in index — searching by make`;
+  } else if (inferredSlug && !MODEL_FAMILY_MAP[scopedKey || ""]) {
+    level = "make_model"; fallbackReason = `Inferred from engine code "${metaEngine[0]}"`;
+  } else if (conf >= 0.65) {
+    level = "exact";      fallbackReason = null;
+  } else {
+    level = "make_model"; fallbackReason = "Approximate — verify model";
+  }
 
   return {
-    makeName, makeSlug, modelDisplay, modelSlug,
-    fuel_type: raw.fuel_type || null,
+    makeName, makeSlug, modelDisplay, modelSlug, trimDisplay,
+    fuel_type,
     transmission: raw.transmission || null,
-    budget_max: typeof raw.budget_max === "number" ? raw.budget_max : null,
-    mileage_max: typeof raw.mileage_max === "number" ? raw.mileage_max : null,
-    year_min: typeof raw.year_min === "number" ? raw.year_min : null,
-    country: raw.country || null,
-    confidence: typeof raw.confidence === "number" ? raw.confidence : 0.5,
+    budget_max:   typeof raw.budget_max  === "number" ? raw.budget_max  : null,
+    mileage_max:  typeof raw.mileage_max === "number" ? raw.mileage_max : null,
+    year_min:     typeof raw.year_min    === "number" ? raw.year_min    : null,
+    country:      raw.country || null,
+    confidence: conf,
     source: raw.source || "unknown",
+    level, fallbackReason,
   };
 }
 
-// ─── Stage 3: fallback level decision ────────────────────────────────────────
-// Returns { level, fallbackReason }
-//   "exact"      confidence ≥ 0.7  make + model → full path
-//   "make_model" confidence 0.4–0.7 make + model → full path, moderate confidence
-//   "make_only"  no trustworthy model → make-only path
-//   "generic"    no make → /lst base + params only
-function determineSearchLevel({ makeName, modelDisplay, confidence }) {
-  if (!makeName)      return { level: "generic",     fallbackReason: "No make detected" };
-  if (!modelDisplay)  return { level: "make_only",   fallbackReason: "No model detected" };
-  if (confidence < 0.4) return { level: "make_only", fallbackReason: "Low confidence on model" };
-  if (confidence >= 0.7) return { level: "exact",    fallbackReason: null };
-  return { level: "make_model", fallbackReason: "Approximate — model may vary" };
-}
-
-// ─── Stage 1 (async): LLM extraction with regex fallback ─────────────────────
+// ─── Stage 1 (async): LLM extraction with sync regex fallback ────────────────
 async function extractSearchIntent(query) {
   try {
     const res = await fetch("/api/extract", {
@@ -232,15 +464,14 @@ async function extractSearchIntent(query) {
         return { ...data.intent, source: "llm" };
       }
     }
-  } catch (_) { /* LLM call failed — fall through to regex */ }
+  } catch (_) { /* fall through to regex */ }
   return regexExtractIntent(query);
 }
 
 /* ============================================================
    MOCK DATA
    ============================================================ */
-// AutoScout24 affiliate URL builder
-// URL builder uses module-level MODEL_SLUG_MAP for German AutoScout slug translations.
+// AutoScout24 affiliate URL builder — receives pre-resolved slugs from resolveVehicle().
 function buildAutoScout24Url(make, model, country, options = {}) {
   const domains = {
     NL: 'autoscout24.nl',
@@ -252,11 +483,9 @@ function buildAutoScout24Url(make, model, country, options = {}) {
   const m = (make || '').toLowerCase()
     .replace(/š/g,'s').replace(/[^a-z0-9\s-]/g,'')
     .trim().replace(/\s+/g,'-');
-  // Apply slug override before slugifying (e.g. "c class" → "c-klasse")
-  const modelKey = (model || '').toLowerCase().trim();
-  const modelNorm = MODEL_SLUG_MAP[modelKey] || model;
-  const mod = modelNorm
-    ? modelNorm.toLowerCase()
+  // model is already a resolved slug (e.g. "c-klasse", "3er", "golf") — just sanitise
+  const mod = model
+    ? model.toLowerCase()
         .replace(/\./g,'').replace(/[^a-z0-9\s-]/g,'')
         .trim().replace(/\s+/g,'-')
     : '';
@@ -1936,6 +2165,7 @@ useEffect(() => {
       const makeSlug     = r.makeSlug     || (makeName ? makeName.toLowerCase().replace(/[^a-z0-9]+/g, "-") : null);
       const modelDisplay = r.modelDisplay || r.model    || null;
       const modelSlug    = r.modelSlug    || null;
+      const trimDisplay  = r.trimDisplay  || null;
       const fuel         = r.fuel_type    || r.fuel     || null;
       const transmission = r.transmission || null;
       const minYear      = r.year_min     || r.minYear  || null;
@@ -1949,7 +2179,7 @@ useEffect(() => {
         return [];
       }
 
-      const title = [makeName, modelDisplay].filter(Boolean).join(" ").trim() || "Recommended car";
+      const title = [makeName, modelDisplay, trimDisplay].filter(Boolean).join(" ").trim() || "Recommended car";
       const summaryParts = [];
       if (fuel && fuel !== "any") summaryParts.push(fuel);
       if (transmission && transmission !== "any") summaryParts.push(transmission);
@@ -1972,6 +2202,7 @@ useEffect(() => {
         country: resolvedCountry,
         level,
         fallbackReason,
+        trimDisplay,
         imageUrl: "https://images.unsplash.com/photo-1511919884226-20f0d3d4d687?auto=format&fit=crop&w=1200&q=80",
         listingUrl: buildAutoScout24Url(
           makeSlug || makeName || "",
@@ -2019,8 +2250,8 @@ useEffect(() => {
 
       if (isListingRequest && intentRaw) {
         setShowListings(true);
-        const intent = normalizeIntent(intentRaw);
-        const { level, fallbackReason } = determineSearchLevel(intent);
+        const intent = resolveVehicle(intentRaw);
+        const { level, fallbackReason } = intent;
         const hasParsedIntent = intent.makeName || intent.modelDisplay || intent.year_min || intent.budget_max || intent.mileage_max;
 
         setListingQuery(text);
@@ -2125,7 +2356,7 @@ useEffect(() => {
       const lastListingUser = [...session.messages].reverse().find((m) => m.role === "user" && hasExplicitListingFilters(m.content));
       if (lastListingUser) {
         const rawIntent = regexExtractIntent(lastListingUser.content);
-        const intent = normalizeIntent(rawIntent);
+        const intent = resolveVehicle(rawIntent);
         setShowListings(true);
         setListingQuery(lastListingUser.content.toLowerCase());
         setListingFilter(intent.makeName ? intent.makeName.toLowerCase() : "all");
@@ -4239,6 +4470,9 @@ function ChatMessage({ message, country, openCar, shortlist, compareList, toggle
                           {listing.minYear && <div>Year: from {listing.minYear}</div>}
                           {listing.maxMileage && <div>Max mileage: {listing.maxMileage.toLocaleString()} km</div>}
                           <div>Source: {listing.source}</div>
+                          {listing.trimDisplay && (
+                            <div style={{ color: "#94a3b8" }}>Trim: {listing.trimDisplay}</div>
+                          )}
                           {listing.level === "exact" && (
                             <div style={{ color: "#4ade80" }}>✓ Exact match</div>
                           )}
