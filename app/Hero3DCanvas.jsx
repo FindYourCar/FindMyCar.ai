@@ -1,204 +1,152 @@
 "use client";
 
-import { useRef, useEffect, Suspense } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { ScrollControls, useScroll, Environment } from "@react-three/drei";
+import { useRef, Suspense } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { ScrollControls, useScroll, useGLTF, Environment, ContactShadows } from "@react-three/drei";
 import * as THREE from "three";
-import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 
-gsap.registerPlugin(ScrollTrigger);
+/*
+  ─────────────────────────────────────────────────────────────────────────────
+  Car model path — your BMW M5 G90 GLB lives at /public/car.glb
+  To swap models: replace "/car.glb" with the new path under /public/
+  ─────────────────────────────────────────────────────────────────────────────
+*/
+const CAR_MODEL_PATH = "/car.glb";
+
+// Preload so there's no pop-in on first render
+useGLTF.preload(CAR_MODEL_PATH);
+
+/* ─── Helpers ───────────────────────────────────────────────────────────────── */
+
+/** Walk the scene graph and collect objects whose names match a keyword list */
+function findByKeywords(scene, keywords) {
+  const results = [];
+  scene.traverse((obj) => {
+    const n = obj.name.toLowerCase();
+    if (keywords.some((kw) => n.includes(kw))) results.push(obj);
+  });
+  return results;
+}
+
+/** Smooth lerp applied every frame */
+const lerpV3 = (vec, target, alpha) => vec.lerp(target, alpha);
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   CarModel
-   ─ Placeholder geometry that mimics a car silhouette (body + 4 wheels).
-   ─ Replace the geometry inside each mesh with your actual .glb loader when ready.
-   ─────────────────────────────────────────────────────────────────────────────
-   HOW TO SWAP IN YOUR OWN MODEL:
-     1. Place your car.glb in /public/models/car.glb
-     2. Add this import at the top:
-          import { useGLTF } from "@react-three/drei";
-     3. Replace this entire component body with:
-          const { scene } = useGLTF("/models/car.glb");
-          return <primitive object={scene} ref={groupRef} />;
-   ───────────────────────────────────────────────────────────────────────────── */
+   BMW M5 Explode Groups
+   We map real node-name keywords → explode direction vectors.
+   The model has: WHEEL_LF/RF/LR/RR, RIM_LF/RF/LR, roof carbon,
+   mirrors carbon, GrilleNoAlpha, Body_lodA (multiple panels).
+   ─────────────────────────────────────────────────────────────────────────── */
+const EXPLODE_GROUPS = [
+  { keywords: ["wheel_lf", "rim_lf", "g_tyre_lf", "g_wheel_hub_lf"], dir: new THREE.Vector3(-1.6,  0.4,  1.4) },
+  { keywords: ["wheel_rf", "rim_rf", "g_tyre_rf", "g_wheel_hub_rf"], dir: new THREE.Vector3( 1.6,  0.4,  1.4) },
+  { keywords: ["wheel_lr", "rim_lr", "g_tyre_lr", "g_wheel_hub_lr"], dir: new THREE.Vector3(-1.6,  0.4, -1.4) },
+  { keywords: ["wheel_rr", "rim_rr", "g_tyre_rr", "g_wheel_hub_rr"], dir: new THREE.Vector3( 1.6,  0.4, -1.4) },
+  { keywords: ["roof carbon"],                                         dir: new THREE.Vector3( 0,    2.2,  0  ) },
+  { keywords: ["mirrors carbon", "mirrors stock"],                     dir: new THREE.Vector3( 0,    0.8,  0  ) },
+  { keywords: ["grillenoalpha"],                                       dir: new THREE.Vector3( 0,    0.3,  2.2) },
+  { keywords: ["body_loda.005", "body_loda.006"],                      dir: new THREE.Vector3( 0,   -0.5,  0  ) },
+  { keywords: ["body_loda.008", "body_loda.009"],                      dir: new THREE.Vector3( 0,    0.6,  0  ) },
+  { keywords: ["body_loda.010", "body_loda.012"],                      dir: new THREE.Vector3( 0,    0,   -1.8) },
+  { keywords: ["paint_geo"],                                           dir: new THREE.Vector3( 0,    0.2,  0  ) },
+  { keywords: ["engine_geo"],                                          dir: new THREE.Vector3( 0,   -1.0,  1.5) },
+  { keywords: ["carbon1_geo"],                                         dir: new THREE.Vector3( 0,    0.4, -0.5) },
+  { keywords: ["badge_geo"],                                           dir: new THREE.Vector3( 0,    0,    2.4) },
+];
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   CarModel — loads the GLB, stores original positions, drives explode on scroll
+   ─────────────────────────────────────────────────────────────────────────────*/
 function CarModel() {
   const groupRef = useRef();
-  const scroll = useScroll();
+  const scroll    = useScroll();
+  const { scene } = useGLTF(CAR_MODEL_PATH);
 
-  // Part refs for assembly/disassembly effect
-  const bodyRef = useRef();
-  const wheelFLRef = useRef();
-  const wheelFRRef = useRef();
-  const wheelRLRef = useRef();
-  const wheelRRRef = useRef();
-  const roofRef = useRef();
-  const hoodRef = useRef();
+  // Build part-group refs once on first render (lazy init pattern)
+  const partsRef = useRef(null);
 
-  // Shared material — neutral metallic, won't affect site colours
-  const bodyMat = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(0.18, 0.18, 0.22),
-    metalness: 0.85,
-    roughness: 0.2,
-  });
-  const wheelMat = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(0.08, 0.08, 0.08),
-    metalness: 0.6,
-    roughness: 0.5,
-  });
-  const glassMat = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(0.4, 0.5, 0.6),
-    metalness: 0.1,
-    roughness: 0.05,
-    transparent: true,
-    opacity: 0.45,
-  });
+  function buildParts() {
+    if (partsRef.current) return;
+    partsRef.current = EXPLODE_GROUPS.map(({ keywords, dir }) => {
+      const objects = findByKeywords(scene, keywords);
+      // Store each object's original world position offset
+      const origins = objects.map((o) => o.position.clone());
+      return { objects, origins, dir };
+    });
+  }
 
   useFrame(() => {
     if (!groupRef.current) return;
+    buildParts();
 
-    const s = scroll.offset; // 0 → 1 as user scrolls
+    const s = scroll.offset; // 0 → 1
 
-    // ── Main rotation ──────────────────────────────────────────────────────
-    groupRef.current.rotation.y = s * Math.PI * 2;
+    // ── Whole-car rotation ──────────────────────────────────────────────────
+    groupRef.current.rotation.y = s * Math.PI * 1.8;
+    groupRef.current.position.y = Math.sin(s * Math.PI * 3) * 0.06 - 0.3;
 
-    // ── Assembly effect ────────────────────────────────────────────────────
-    // Phase 1  (scroll 0→0.3) : parts explode outward
-    // Phase 2  (scroll 0.3→0.6): parts snap back together
-    // Phase 3  (scroll 0.6→1) : assembled car continues rotating
-
-    const explode = s < 0.3 ? s / 0.3 : s < 0.6 ? 1 - (s - 0.3) / 0.3 : 0;
-    const ease = 1 - Math.pow(1 - explode, 3); // cubic ease
-
-    if (roofRef.current)    roofRef.current.position.y    =  ease * 1.4;
-    if (hoodRef.current)    hoodRef.current.position.z    = -ease * 1.2;
-    if (wheelFLRef.current) {
-      wheelFLRef.current.position.x = -1.05 - ease * 0.8;
-      wheelFLRef.current.position.z =  1.1  + ease * 0.8;
-    }
-    if (wheelFRRef.current) {
-      wheelFRRef.current.position.x =  1.05 + ease * 0.8;
-      wheelFRRef.current.position.z =  1.1  + ease * 0.8;
-    }
-    if (wheelRLRef.current) {
-      wheelRLRef.current.position.x = -1.05 - ease * 0.8;
-      wheelRLRef.current.position.z = -1.1  - ease * 0.8;
-    }
-    if (wheelRRRef.current) {
-      wheelRRRef.current.position.x =  1.05 + ease * 0.8;
-      wheelRRRef.current.position.z = -1.1  - ease * 0.8;
+    // ── Explode phase ───────────────────────────────────────────────────────
+    // 0–0.35  : explode out (cubic ease-in)
+    // 0.35–0.65: snap back (cubic ease-out)
+    // 0.65–1  : assembled, keep rotating
+    let explode;
+    if (s < 0.35) {
+      const t = s / 0.35;
+      explode = t * t * t;              // ease-in
+    } else if (s < 0.65) {
+      const t = (s - 0.35) / 0.30;
+      explode = 1 - t * t * t;         // ease-out snap back
+    } else {
+      explode = 0;
     }
 
-    // Slight vertical float
-    groupRef.current.position.y = Math.sin(s * Math.PI * 4) * 0.05;
+    if (!partsRef.current) return;
+    partsRef.current.forEach(({ objects, origins, dir }) => {
+      objects.forEach((obj, i) => {
+        const origin = origins[i];
+        const tx = origin.x + dir.x * explode;
+        const ty = origin.y + dir.y * explode;
+        const tz = origin.z + dir.z * explode;
+        // Smooth lerp so it never snaps instantly
+        obj.position.x += (tx - obj.position.x) * 0.12;
+        obj.position.y += (ty - obj.position.y) * 0.12;
+        obj.position.z += (tz - obj.position.z) * 0.12;
+      });
+    });
   });
 
   return (
-    <group ref={groupRef} scale={[1, 1, 1]}>
-      {/* ── Car body ── */}
-      <group ref={bodyRef}>
-        {/* Lower body */}
-        <mesh material={bodyMat} position={[0, 0, 0]} castShadow>
-          <boxGeometry args={[2.0, 0.45, 4.2]} />
-        </mesh>
-        {/* Skirt / sill */}
-        <mesh material={bodyMat} position={[0, -0.28, 0]}>
-          <boxGeometry args={[2.1, 0.1, 4.0]} />
-        </mesh>
-      </group>
-
-      {/* ── Roof / cabin (separates upward) ── */}
-      <group ref={roofRef}>
-        <mesh material={bodyMat} position={[0, 0.52, 0.1]} castShadow>
-          <boxGeometry args={[1.75, 0.38, 2.4]} />
-        </mesh>
-        {/* Windscreen */}
-        <mesh material={glassMat} position={[0, 0.44, 1.25]} rotation={[-0.42, 0, 0]}>
-          <planeGeometry args={[1.62, 0.7]} />
-        </mesh>
-        {/* Rear glass */}
-        <mesh material={glassMat} position={[0, 0.44, -1.1]} rotation={[0.42, 0, 0]}>
-          <planeGeometry args={[1.62, 0.7]} />
-        </mesh>
-      </group>
-
-      {/* ── Hood (separates forward) ── */}
-      <group ref={hoodRef}>
-        <mesh material={bodyMat} position={[0, 0.28, 1.5]} castShadow>
-          <boxGeometry args={[1.9, 0.08, 1.2]} />
-        </mesh>
-      </group>
-
-      {/* ── Wheels ── */}
-      <group ref={wheelFLRef} position={[-1.05, -0.28, 1.1]}>
-        <mesh material={wheelMat} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.32, 0.32, 0.22, 28]} />
-        </mesh>
-        {/* Rim */}
-        <mesh
-          material={new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.9, roughness: 0.1 })}
-          rotation={[0, 0, Math.PI / 2]}
-        >
-          <cylinderGeometry args={[0.18, 0.18, 0.24, 10]} />
-        </mesh>
-      </group>
-
-      <group ref={wheelFRRef} position={[1.05, -0.28, 1.1]}>
-        <mesh material={wheelMat} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.32, 0.32, 0.22, 28]} />
-        </mesh>
-        <mesh
-          material={new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.9, roughness: 0.1 })}
-          rotation={[0, 0, Math.PI / 2]}
-        >
-          <cylinderGeometry args={[0.18, 0.18, 0.24, 10]} />
-        </mesh>
-      </group>
-
-      <group ref={wheelRLRef} position={[-1.05, -0.28, -1.1]}>
-        <mesh material={wheelMat} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.32, 0.32, 0.22, 28]} />
-        </mesh>
-        <mesh
-          material={new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.9, roughness: 0.1 })}
-          rotation={[0, 0, Math.PI / 2]}
-        >
-          <cylinderGeometry args={[0.18, 0.18, 0.24, 10]} />
-        </mesh>
-      </group>
-
-      <group ref={wheelRRRef} position={[1.05, -0.28, -1.1]}>
-        <mesh material={wheelMat} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.32, 0.32, 0.22, 28]} />
-        </mesh>
-        <mesh
-          material={new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.9, roughness: 0.1 })}
-          rotation={[0, 0, Math.PI / 2]}
-        >
-          <cylinderGeometry args={[0.18, 0.18, 0.24, 10]} />
-        </mesh>
-      </group>
+    <group ref={groupRef} scale={[1.05, 1.05, 1.05]}>
+      <primitive object={scene} />
     </group>
   );
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Scene — wraps ScrollControls around the car model
-   pages controls how many "scroll heights" the animation spans.
-   Increase pages to slow the animation down.
-   ───────────────────────────────────────────────────────────────────────────── */
+   Scene — wraps ScrollControls so scroll.offset maps to page scroll
+   pages = how many viewport-heights the animation spans (more = slower)
+   ─────────────────────────────────────────────────────────────────────────────*/
 function Scene() {
   return (
-    <ScrollControls pages={4} damping={0.25}>
+    <ScrollControls pages={5} damping={0.3}>
       <Suspense fallback={null}>
         <CarModel />
       </Suspense>
-      {/* Premium neutral lighting — does NOT introduce new colours */}
-      <ambientLight intensity={0.4} />
-      <directionalLight position={[5, 8, 5]} intensity={1.2} castShadow />
-      <directionalLight position={[-5, 2, -5]} intensity={0.4} color="#ffffff" />
-      <pointLight position={[0, 4, 0]} intensity={0.6} color="#e8eeff" />
+
+      {/* Premium neutral lighting — no colour cast on the site palette */}
+      <ambientLight intensity={0.55} />
+      <directionalLight position={[6, 10, 6]}  intensity={1.4} castShadow />
+      <directionalLight position={[-6, 4, -6]} intensity={0.5} color="#ddeeff" />
+      <pointLight       position={[0, 5, 0]}   intensity={0.7} color="#fff8ee" />
+
       {/* Subtle ground reflection */}
+      <ContactShadows
+        position={[0, -0.9, 0]}
+        opacity={0.35}
+        scale={12}
+        blur={2.5}
+        far={4}
+      />
       <Environment preset="city" />
     </ScrollControls>
   );
@@ -206,22 +154,22 @@ function Scene() {
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Hero3DCanvas
-   ─ Fixed behind all page content via z-index: -1 / pointer-events: none.
-   ─ Transparent background so your site colours show through untouched.
-   ───────────────────────────────────────────────────────────────────────────── */
+   Fixed, behind all page content (z-index 0), transparent background,
+   pointer-events disabled so it never blocks clicks or native scroll.
+   ─────────────────────────────────────────────────────────────────────────────*/
 export default function Hero3DCanvas() {
   return (
     <div
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 0,           // above transparent body, below UI (UI elements use z-index 10+)
-        pointerEvents: "none", // never intercepts clicks/scrolls
+        zIndex: 0,
+        pointerEvents: "none",
       }}
     >
       <Canvas
-        camera={{ position: [0, 1.5, 5.5], fov: 45 }}
-        gl={{ alpha: true, antialias: true }}
+        camera={{ position: [0, 1.2, 5.5], fov: 42 }}
+        gl={{ alpha: true, antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.1 }}
         style={{ background: "transparent" }}
         shadows
       >
