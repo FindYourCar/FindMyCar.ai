@@ -6,8 +6,10 @@ export default function Page() {
     <>
       {/* 3D canvas sits fixed behind everything — z-index: -1, pointer-events: none */}
       <Hero3DCanvasLoader />
-      {/* Your existing app — completely untouched */}
-      <FindMyCarApp />
+      {/* Content wrapper — sits above the canvas, all pointer events work normally */}
+      <div style={{ position: "relative", zIndex: 1, pointerEvents: "auto" }}>
+        <FindMyCarApp />
+      </div>
     </>
   );
 }
