@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, Suspense } from "react";
+import { useRef, useEffect, Suspense } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { ScrollControls, useScroll, useGLTF, Environment, ContactShadows } from "@react-three/drei";
+import { useGLTF, Environment, ContactShadows } from "@react-three/drei";
 import * as THREE from "three";
 
 /*
@@ -16,8 +16,6 @@ const CAR_MODEL_PATH = "/car.glb";
 // Preload so there's no pop-in on first render
 useGLTF.preload(CAR_MODEL_PATH);
 
-/* ─── Helpers ───────────────────────────────────────────────────────────────── */
-
 /** Walk the scene graph and collect objects whose names match a keyword list */
 function findByKeywords(scene, keywords) {
   const results = [];
@@ -28,15 +26,9 @@ function findByKeywords(scene, keywords) {
   return results;
 }
 
-/** Smooth lerp applied every frame */
-const lerpV3 = (vec, target, alpha) => vec.lerp(target, alpha);
-
 /* ─────────────────────────────────────────────────────────────────────────────
-   BMW M5 Explode Groups
-   We map real node-name keywords → explode direction vectors.
-   The model has: WHEEL_LF/RF/LR/RR, RIM_LF/RF/LR, roof carbon,
-   mirrors carbon, GrilleNoAlpha, Body_lodA (multiple panels).
-   ─────────────────────────────────────────────────────────────────────────── */
+   Explode groups — real BMW M5 G90 node names mapped to blast directions
+   ─────────────────────────────────────────────────────────────────────────────*/
 const EXPLODE_GROUPS = [
   { keywords: ["wheel_lf", "rim_lf", "g_tyre_lf", "g_wheel_hub_lf"], dir: new THREE.Vector3(-1.6,  0.4,  1.4) },
   { keywords: ["wheel_rf", "rim_rf", "g_tyre_rf", "g_wheel_hub_rf"], dir: new THREE.Vector3( 1.6,  0.4,  1.4) },
@@ -55,21 +47,35 @@ const EXPLODE_GROUPS = [
 ];
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   CarModel — loads the GLB, stores original positions, drives explode on scroll
+   useWindowScroll — reads window scroll progress (0→1) into a ref.
+   Does NOT inject any DOM elements or affect page layout.
    ─────────────────────────────────────────────────────────────────────────────*/
-function CarModel() {
-  const groupRef = useRef();
-  const scroll    = useScroll();
-  const { scene } = useGLTF(CAR_MODEL_PATH);
+function useWindowScroll() {
+  const scrollRef = useRef(0);
+  useEffect(() => {
+    const onScroll = () => {
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+      scrollRef.current = maxScroll > 0 ? window.scrollY / maxScroll : 0;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll(); // initialise
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+  return scrollRef;
+}
 
-  // Build part-group refs once on first render (lazy init pattern)
-  const partsRef = useRef(null);
+/* ─────────────────────────────────────────────────────────────────────────────
+   CarModel — loads the real GLB and drives the explode/spin on scroll
+   ─────────────────────────────────────────────────────────────────────────────*/
+function CarModel({ scrollRef }) {
+  const groupRef  = useRef();
+  const { scene } = useGLTF(CAR_MODEL_PATH);
+  const partsRef  = useRef(null);
 
   function buildParts() {
     if (partsRef.current) return;
     partsRef.current = EXPLODE_GROUPS.map(({ keywords, dir }) => {
       const objects = findByKeywords(scene, keywords);
-      // Store each object's original world position offset
       const origins = objects.map((o) => o.position.clone());
       return { objects, origins, dir };
     });
@@ -79,23 +85,20 @@ function CarModel() {
     if (!groupRef.current) return;
     buildParts();
 
-    const s = scroll.offset; // 0 → 1
+    const s = scrollRef.current; // 0 → 1
 
-    // ── Whole-car rotation ──────────────────────────────────────────────────
+    // Whole-car rotation
     groupRef.current.rotation.y = s * Math.PI * 1.8;
     groupRef.current.position.y = Math.sin(s * Math.PI * 3) * 0.06 - 0.3;
 
-    // ── Explode phase ───────────────────────────────────────────────────────
-    // 0–0.35  : explode out (cubic ease-in)
-    // 0.35–0.65: snap back (cubic ease-out)
-    // 0.65–1  : assembled, keep rotating
+    // Explode: 0–35% out, 35–65% snap back, 65–100% assembled
     let explode;
     if (s < 0.35) {
       const t = s / 0.35;
-      explode = t * t * t;              // ease-in
+      explode = t * t * t;
     } else if (s < 0.65) {
       const t = (s - 0.35) / 0.30;
-      explode = 1 - t * t * t;         // ease-out snap back
+      explode = 1 - t * t * t;
     } else {
       explode = 0;
     }
@@ -104,13 +107,9 @@ function CarModel() {
     partsRef.current.forEach(({ objects, origins, dir }) => {
       objects.forEach((obj, i) => {
         const origin = origins[i];
-        const tx = origin.x + dir.x * explode;
-        const ty = origin.y + dir.y * explode;
-        const tz = origin.z + dir.z * explode;
-        // Smooth lerp so it never snaps instantly
-        obj.position.x += (tx - obj.position.x) * 0.12;
-        obj.position.y += (ty - obj.position.y) * 0.12;
-        obj.position.z += (tz - obj.position.z) * 0.12;
+        obj.position.x += (origin.x + dir.x * explode - obj.position.x) * 0.12;
+        obj.position.y += (origin.y + dir.y * explode - obj.position.y) * 0.12;
+        obj.position.z += (origin.z + dir.z * explode - obj.position.z) * 0.12;
       });
     });
   });
@@ -123,41 +122,30 @@ function CarModel() {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Scene — wraps ScrollControls so scroll.offset maps to page scroll
-   pages = how many viewport-heights the animation spans (more = slower)
+   Scene — no ScrollControls, no DOM injection, pure Three.js
    ─────────────────────────────────────────────────────────────────────────────*/
-function Scene() {
+function Scene({ scrollRef }) {
   return (
-    <ScrollControls pages={5} damping={0.3}>
-      <Suspense fallback={null}>
-        <CarModel />
-      </Suspense>
-
-      {/* Premium neutral lighting — no colour cast on the site palette */}
+    <Suspense fallback={null}>
+      <CarModel scrollRef={scrollRef} />
       <ambientLight intensity={0.55} />
       <directionalLight position={[6, 10, 6]}  intensity={1.4} castShadow />
       <directionalLight position={[-6, 4, -6]} intensity={0.5} color="#ddeeff" />
       <pointLight       position={[0, 5, 0]}   intensity={0.7} color="#fff8ee" />
-
-      {/* Subtle ground reflection */}
-      <ContactShadows
-        position={[0, -0.9, 0]}
-        opacity={0.35}
-        scale={12}
-        blur={2.5}
-        far={4}
-      />
+      <ContactShadows position={[0, -0.9, 0]} opacity={0.35} scale={12} blur={2.5} far={4} />
       <Environment preset="city" />
-    </ScrollControls>
+    </Suspense>
   );
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Hero3DCanvas
-   Fixed, behind all page content (z-index 0), transparent background,
-   pointer-events disabled so it never blocks clicks or native scroll.
+   position:fixed, 100vw × 100vh, z-index:-1, pointer-events:none
+   Zero impact on page layout.
    ─────────────────────────────────────────────────────────────────────────────*/
 export default function Hero3DCanvas() {
+  const scrollRef = useWindowScroll();
+
   return (
     <div
       style={{
@@ -172,11 +160,16 @@ export default function Hero3DCanvas() {
     >
       <Canvas
         camera={{ position: [0, 1.2, 5.5], fov: 42 }}
-        gl={{ alpha: true, antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.1 }}
+        gl={{
+          alpha: true,
+          antialias: true,
+          toneMapping: THREE.ACESFilmicToneMapping,
+          toneMappingExposure: 1.1,
+        }}
         style={{ background: "transparent" }}
         shadows
       >
-        <Scene />
+        <Scene scrollRef={scrollRef} />
       </Canvas>
     </div>
   );
