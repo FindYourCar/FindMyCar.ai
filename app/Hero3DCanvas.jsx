@@ -9,7 +9,7 @@
 
 import { useRef, useEffect, useMemo, Suspense } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { useGLTF, Environment, MeshReflectorMaterial } from "@react-three/drei";
+import { useGLTF, MeshReflectorMaterial } from "@react-three/drei";
 import * as THREE from "three";
 
 useGLTF.preload("/car.glb");
@@ -249,9 +249,9 @@ function GlowHalo() {
 
   useFrame(() => {
     if (!meshRef.current) return;
-    // Pulse between 0.06 and 0.22 opacity
+    // Pulse between 0.10 and 0.30 opacity — gold only, never white
     const t = performance.now() * 0.001;
-    meshRef.current.material.opacity = 0.14 + Math.sin(t * 1.1) * 0.08;
+    meshRef.current.material.opacity = 0.20 + Math.sin(t * 1.1) * 0.10;
   });
 
   return (
@@ -267,63 +267,56 @@ function GlowHalo() {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   CAR — loads GLB, applies materials, handles mouse+scroll rotation
+   CAR — loads GLB, applies materials, scroll-driven Y rotation
+   No mouse tracking. Scroll left-spins the car; decelerates on stop.
    ═══════════════════════════════════════════════════════════════════ */
 function Car() {
-  const groupRef    = useRef();
-  const { scene }   = useGLTF("/car.glb");
+  const groupRef         = useRef();
+  const { scene }        = useGLTF("/car.glb");
   const materialsApplied = useRef(false);
 
-  // Mouse + scroll state (refs so no re-render)
-  const mouse  = useRef({ x: 0 });        // normalised -1…+1
-  const scroll = useRef({ y: 0 });        // accumulated scroll delta
-
-  // Damped current values
-  const current = useRef({ rotY: 0, tiltX: 0, baseY: 0 });
+  // velocity (rad/s) injected by scroll events
+  const velocity = useRef(0);
+  // accumulated Y rotation
+  const rotY     = useRef(0);
 
   useEffect(() => {
-    const onMouseMove = (e) => {
-      mouse.current.x = (e.clientX / window.innerWidth) * 2 - 1;
+    const onScroll = () => {
+      // window.scroll fires on page scroll (not wheel delta).
+      // We derive a kick from the current scroll position change.
+      // Store last scrollY to compute delta each event.
+      const dy = window.scrollY - (onScroll._lastY ?? window.scrollY);
+      onScroll._lastY = window.scrollY;
+
+      // Each pixel scrolled down adds a leftward (negative) spin kick.
+      // Scale: 0.003 rad per pixel — snappy but not wild.
+      velocity.current -= dy * 0.003;
     };
-    const onScroll = (e) => {
-      // Clamp tilt -0.18…+0.18 rad
-      scroll.current.y = Math.max(-0.18, Math.min(0.18,
-        scroll.current.y + e.deltaY * 0.0004
-      ));
-    };
-    window.addEventListener("mousemove", onMouseMove, { passive: true });
-    window.addEventListener("wheel",     onScroll,     { passive: true });
-    return () => {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("wheel",     onScroll);
-    };
+
+    onScroll._lastY = window.scrollY;
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   useFrame((_, delta) => {
     if (!groupRef.current) return;
 
-    // Apply materials once after model is in scene
     if (!materialsApplied.current) {
       applyMaterials(scene);
       materialsApplied.current = true;
     }
 
-    const c   = current.current;
-    const α   = 1 - Math.pow(0.04, delta);  // exponential decay — luxurious damping
+    // Deceleration: multiply velocity by damping factor each frame.
+    // 0.88 per frame at 60 fps ≈ stops in ~0.5 s — sports-car feel.
+    velocity.current *= Math.pow(0.88, delta * 60);
 
-    // Base slow turntable
-    c.baseY += delta * (Math.PI * 2) / 20;
+    // Clamp max spin speed so it never looks broken
+    velocity.current = Math.max(-6, Math.min(6, velocity.current));
 
-    // Mouse-driven Y rotation offset (-0.6…+0.6 rad extra)
-    const targetRotY = mouse.current.x * 0.6;
-    c.rotY += (targetRotY - c.rotY) * α;
+    rotY.current += velocity.current * delta;
 
-    // Scroll-driven X tilt
-    c.tiltX += (scroll.current.y - c.tiltX) * α;
-
-    groupRef.current.rotation.y = c.baseY + c.rotY;
-    groupRef.current.rotation.x = c.tiltX;
-    groupRef.current.position.y = -0.12 + Math.sin(c.baseY * 0.8) * 0.04;
+    groupRef.current.rotation.y = rotY.current;
+    groupRef.current.position.y = -0.12 + Math.sin(rotY.current * 0.4) * 0.04;
   });
 
   return (
@@ -341,15 +334,15 @@ function Floor() {
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.72, 0]} receiveShadow>
       <planeGeometry args={[60, 60]} />
       <MeshReflectorMaterial
-        color="#050505"
-        metalness={0.9}
-        roughness={0.18}
-        mirror={0.8}
-        mixStrength={80}
-        mixBlur={1.2}
-        resolution={1024}
-        blur={[500, 200]}
-        depthScale={1.2}
+        color="#111111"
+        metalness={1.0}
+        roughness={0.2}
+        mirror={0.6}
+        mixStrength={40}
+        mixBlur={1.5}
+        resolution={512}
+        blur={[400, 200]}
+        depthScale={1.0}
         minDepthThreshold={0.4}
         maxDepthThreshold={1.4}
       />
@@ -358,41 +351,39 @@ function Floor() {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   LIGHTS — 5-point cinematic automotive rig
+   LIGHTS — exactly three lights as specified, no white sources
+   1. Ambient  — deep gold  #c9a84c,  intensity 0.3
+   2. Fill     — dark blue  #0a0a2e,  intensity 2.2, right side
+   3. Rim      — gold       #c9a84c,  intensity 2.0, directly behind
    ═══════════════════════════════════════════════════════════════════ */
 function Lights() {
   return (
     <>
-      <ambientLight intensity={0.06} />
+      {/* 1. AMBIENT — deep gold, low, keeps absolute blacks from crushing */}
+      <ambientLight color="#c9a84c" intensity={0.3} />
 
-      {/* KEY — strong white, front-left */}
+      {/* 2. FILL — dark blue, right side, creates cool depth */}
       <directionalLight
-        position={[-4.5, 6, 5]}
-        intensity={4.5}
-        color="#ffffff"
-        castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
-        shadow-bias={-0.0005}
+        position={[7, 3, 0]}
+        intensity={2.2}
+        color="#0a0a2e"
+        castShadow={false}
       />
-      {/* Soft secondary key to fill hood/roof */}
-      <directionalLight position={[-2, 4, 6]} intensity={1.8} color="#f0f4ff" />
 
-      {/* FILL — deep blue, right side */}
-      <directionalLight position={[7, 3, 0]} intensity={1.4} color="#1a3aff" />
-
-      {/* RIM — orange/amber, directly behind */}
-      <directionalLight position={[1.6, 3.5, -8]} intensity={3.5} color="#ff7700" />
-      <pointLight position={[1.6, 1.5, -5]} intensity={60} color="#ff5500" distance={8} decay={2} />
-
-      {/* UNDER — soft white from below */}
-      <pointLight position={[1.6, -0.55, 0]} intensity={14} color="#ddeeff" distance={5} decay={2} />
+      {/* 3. RIM — gold, directly behind the car, cinematic separation */}
+      <directionalLight
+        position={[1.6, 3.5, -8]}
+        intensity={2.0}
+        color="#c9a84c"
+        castShadow={false}
+      />
     </>
   );
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   SCENE
+   SCENE — sets THREE.js scene background + renderer clear to #000000.
+   No Environment preset (removes all white HDRI light contribution).
    ═══════════════════════════════════════════════════════════════════ */
 function Scene() {
   return (
@@ -402,7 +393,7 @@ function Scene() {
       <Floor />
       <GlowHalo />
       <Particles />
-      <Environment preset="studio" />
+      {/* Environment intentionally removed — no white HDRI contribution */}
     </Suspense>
   );
 }
@@ -435,6 +426,10 @@ export default function Hero3DCanvas() {
           outputColorSpace:    THREE.SRGBColorSpace,
         }}
         style={{ background: "#000000" }}
+        onCreated={({ gl, scene }) => {
+          gl.setClearColor(new THREE.Color("#000000"), 1);
+          scene.background = new THREE.Color("#000000");
+        }}
       >
         <Scene />
       </Canvas>
