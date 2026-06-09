@@ -215,7 +215,7 @@ export default function Hero3DCanvas() {
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: -1,          // sits behind ALL existing content
+        zIndex: 0,           // above transparent body, below UI (UI elements use z-index 10+)
         pointerEvents: "none", // never intercepts clicks/scrolls
       }}
     >

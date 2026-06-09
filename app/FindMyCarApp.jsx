@@ -2513,7 +2513,7 @@ useEffect(() => {
 
   return (
     
-    <div className="min-h-screen text-[#f5f1ea] relative" style={{ background: "#0a0908", fontFamily: "'Inter Tight', ui-sans-serif, system-ui" }}>
+    <div className="min-h-screen text-[#f5f1ea] relative" style={{ background: "transparent", fontFamily: "'Inter Tight', ui-sans-serif, system-ui", position: "relative", zIndex: 1 }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,800;0,9..144,900;1,9..144,400;1,9..144,500;1,9..144,600;1,9..144,700;1,9..144,800;1,9..144,900&family=Inter+Tight:wght@300;400;500;600;700&display=swap');
 
@@ -2958,8 +2958,10 @@ useEffect(() => {
         }
 
         .card-static {
-          background: linear-gradient(180deg, #161310 0%, #0f0d0b 100%);
-          border: 1px solid var(--border);
+          background: rgba(10, 9, 8, 0.45);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          border: 1px solid rgba(251,191,36,0.15);
           position: relative;
         }
         .card-static::before {
@@ -3363,7 +3365,7 @@ try {
       <section
         id="home-top"
         className="relative overflow-hidden dot-grid scroll-mt-24"
-        style={{ backgroundColor: "#0a0a0a" }}
+        style={{ backgroundColor: "transparent" }}
       >
         {/* ── Rotating video background — dual-layer crossfade ──
              ALL styles are INLINE so this works regardless of whether
