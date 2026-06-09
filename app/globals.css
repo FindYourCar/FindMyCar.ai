@@ -20,8 +20,8 @@
 }
 
 body {
-  /* Transparent so the fixed Hero3DCanvas shows through on the mockup branch */
-  background: transparent;
+  /* Pure black — blends seamlessly with the Hero3DCanvas black background */
+  background: #000000;
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
