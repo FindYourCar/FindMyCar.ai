@@ -1,184 +1,172 @@
 "use client";
 
-import { useRef, useEffect, Suspense } from "react";
+/*
+  ═══════════════════════════════════════════════════════════════════
+  Hero3DCanvas — BMW M5 G90 Cinematic Showroom
+  Car model: /public/car.glb  (31 MB, Blender export)
+  ═══════════════════════════════════════════════════════════════════
+*/
+
+import { useRef, Suspense } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import {
   useGLTF,
   Environment,
   MeshReflectorMaterial,
-  SpotLight,
 } from "@react-three/drei";
 import * as THREE from "three";
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   Model path — swap "/car.glb" for any other model under /public/
-   ─────────────────────────────────────────────────────────────────────────────*/
-const CAR_MODEL_PATH = "/car.glb";
-useGLTF.preload(CAR_MODEL_PATH);
+/* ── Preload so the model is ready before first paint ────────────── */
+useGLTF.preload("/car.glb");
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   CarModel
-   Slow, smooth Y-axis auto-rotation. No scroll dependency, no DOM effects.
-   ─────────────────────────────────────────────────────────────────────────────*/
-function CarModel() {
-  const groupRef = useRef();
-  const { scene } = useGLTF(CAR_MODEL_PATH);
-
-  // Gentle float bob
-  const clock = useRef(0);
+/* ══════════════════════════════════════════════════════════════════
+   CAR
+   Loads /public/car.glb, places it on the right half of the scene,
+   rotates slowly on Y (turntable).
+   ══════════════════════════════════════════════════════════════════ */
+function Car() {
+  const ref = useRef();
+  const { scene } = useGLTF("/car.glb");
 
   useFrame((_, delta) => {
-    if (!groupRef.current) return;
-    clock.current += delta;
-    // Turntable: full rotation every ~18 seconds
-    groupRef.current.rotation.y += delta * (Math.PI * 2) / 18;
-    // Subtle breathing float — ±0.04 units
-    groupRef.current.position.y = -0.38 + Math.sin(clock.current * 0.5) * 0.04;
+    if (!ref.current) return;
+    // Full rotation every 20 s — unhurried luxury turntable
+    ref.current.rotation.y += delta * (Math.PI * 2) / 20;
   });
 
   return (
-    <group ref={groupRef} scale={[1.18, 1.18, 1.18]} position={[0, -0.38, 0]}>
+    /*
+      X = +1.6  → shifts the car to the RIGHT half of the viewport.
+      Y = -0.12 → sits the car just above the reflective floor.
+      scale 1.2 → large enough to feel imposing; all 4 wheels visible.
+    */
+    <group ref={ref} position={[1.6, -0.12, 0]} scale={1.2}>
       <primitive object={scene} />
     </group>
   );
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   ShowroomFloor
-   Polished dark mirror plane using MeshReflectorMaterial.
-   Reflects the car like a luxury dealership floor.
-   ─────────────────────────────────────────────────────────────────────────────*/
-function ShowroomFloor() {
+/* ══════════════════════════════════════════════════════════════════
+   FLOOR
+   Polished black-marble showroom floor with live car reflection.
+   ══════════════════════════════════════════════════════════════════ */
+function Floor() {
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.72, 0]} receiveShadow>
-      <planeGeometry args={[50, 50]} />
+    <mesh
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={[0, -0.72, 0]}
+      receiveShadow
+    >
+      <planeGeometry args={[60, 60]} />
       <MeshReflectorMaterial
-        blur={[400, 100]}
+        color="#050505"
+        metalness={0.9}
+        roughness={0.18}
+        mirror={0.8}
+        mixStrength={80}
+        mixBlur={1.2}
         resolution={1024}
-        mixBlur={1}
-        mixStrength={60}
-        roughness={1}
+        blur={[500, 200]}
         depthScale={1.2}
         minDepthThreshold={0.4}
         maxDepthThreshold={1.4}
-        color="#050505"
-        metalness={0.9}
-        mirror={0.75}
       />
     </mesh>
   );
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   CinematicLights
-   ── Key light   : strong white from front-left  → illuminates body lines
-   ── Fill light  : soft blue from right          → depth + cool shadow
-   ── Rim light   : orange/red from rear          → cinematic separation glow
-   ── Under light : dim white from below          → undercarriage definition
-   ── Ambient     : very low so blacks stay black
-   ─────────────────────────────────────────────────────────────────────────────*/
-function CinematicLights() {
+/* ══════════════════════════════════════════════════════════════════
+   LIGHTS
+   5-point cinematic automotive rig:
+     1. Key   — strong white, front-left
+     2. Fill  — deep blue,   right side
+     3. Rim   — orange/amber, directly behind
+     4. Under — soft white,  below pointing up
+     5. Ambient — near-zero so blacks stay black
+   ══════════════════════════════════════════════════════════════════ */
+function Lights() {
   return (
     <>
-      {/* Ambient — barely there so the scene stays dark and dramatic */}
-      <ambientLight intensity={0.08} color="#ffffff" />
-
-      {/* KEY LIGHT — front-left, sharp white, defines paint and body lines */}
-      <SpotLight
-        position={[-5, 7, 6]}
-        angle={0.35}
-        penumbra={0.4}
-        intensity={180}
+      {/* 1. KEY — front-left, strong white, casts sharp shadows */}
+      <directionalLight
+        position={[-4.5, 6, 5]}
+        intensity={4.5}
         color="#ffffff"
         castShadow
-        shadow-mapSize={[2048, 2048]}
-        shadow-bias={-0.0001}
-        distance={22}
-        attenuation={6}
-        anglePower={4}
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
+        shadow-bias={-0.0005}
       />
 
-      {/* Secondary key fill — soften harsh key shadows on body panels */}
+      {/* Soft secondary front key to fill harsh shadows on hood/roof */}
       <directionalLight
-        position={[-3, 5, 5]}
-        intensity={1.6}
-        color="#f8f8ff"
+        position={[-2, 4, 6]}
+        intensity={1.8}
+        color="#f0f4ff"
         castShadow={false}
       />
 
-      {/* FILL LIGHT — right side, cool blue, creates depth and cool shadow */}
-      <SpotLight
-        position={[6, 4, -2]}
-        angle={0.45}
-        penumbra={0.7}
+      {/* 2. FILL — right side, deep blue, creates cool depth on shadow side */}
+      <directionalLight
+        position={[7, 3, 0]}
+        intensity={1.4}
+        color="#1a3aff"
+        castShadow={false}
+      />
+
+      {/* 3. RIM — directly behind, orange/amber, cinematic separation glow */}
+      <directionalLight
+        position={[1.6, 3.5, -8]}
+        intensity={3.5}
+        color="#ff7700"
+        castShadow={false}
+      />
+
+      {/* Rim accent — tight warm halo along rear panels */}
+      <pointLight
+        position={[1.6, 1.5, -5]}
         intensity={60}
-        color="#3a6bcc"
-        distance={20}
-        attenuation={8}
-        anglePower={3}
+        color="#ff5500"
+        distance={8}
+        decay={2}
       />
 
-      {/* RIM / BACK LIGHT — rear, warm orange-red, cinematic separation */}
-      <SpotLight
-        position={[1, 3.5, -7]}
-        angle={0.5}
-        penumbra={0.8}
-        intensity={90}
-        color="#ff4500"
-        distance={18}
-        attenuation={5}
-        anglePower={3}
-      />
-
-      {/* Rim accent — slight purple/magenta from rear-left for extra drama */}
+      {/* 4. UNDER — soft white from below, illuminates undercarriage + floor */}
       <pointLight
-        position={[-4, 2, -5]}
-        intensity={18}
-        color="#9b30ff"
-        distance={12}
+        position={[1.6, -0.55, 0]}
+        intensity={14}
+        color="#ddeeff"
+        distance={5}
+        decay={2}
       />
 
-      {/* UNDER LIGHT — low white from below, illuminates undercarriage + floor */}
-      <pointLight
-        position={[0, -0.5, 0]}
-        intensity={12}
-        color="#e8f0ff"
-        distance={6}
-      />
-
-      {/* Top studio softbox — diffused overhead for roof/hood highlights */}
-      <rectAreaLight
-        position={[0, 8, 1]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        width={8}
-        height={5}
-        intensity={3}
-        color="#ffffff"
-      />
+      {/* 5. AMBIENT — barely visible, keeps absolute blacks from crushing */}
+      <ambientLight intensity={0.06} color="#ffffff" />
     </>
   );
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   Scene
-   ─────────────────────────────────────────────────────────────────────────────*/
+/* ══════════════════════════════════════════════════════════════════
+   SCENE
+   ══════════════════════════════════════════════════════════════════ */
 function Scene() {
   return (
     <Suspense fallback={null}>
-      <CinematicLights />
-      <CarModel />
-      <ShowroomFloor />
-      {/* Studio HDRI gives paint + glass realistic environment reflections */}
+      <Lights />
+      <Car />
+      <Floor />
+      {/* Studio HDRI — realistic reflections on BMW paint + glass */}
       <Environment preset="studio" />
     </Suspense>
   );
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   Hero3DCanvas
-   Fixed, full-viewport, z-index:-1 so it NEVER touches page layout.
-   Pure black background — blends seamlessly into the dark site palette.
-   ─────────────────────────────────────────────────────────────────────────────*/
+/* ══════════════════════════════════════════════════════════════════
+   HERO 3D CANVAS
+   ─ position: fixed, full viewport, z-index: -1
+   ─ Never touches page layout. Never intercepts pointer events.
+   ─ Pure #000000 background — no gradients, no grey.
+   ══════════════════════════════════════════════════════════════════ */
 export default function Hero3DCanvas() {
   return (
     <div
@@ -194,15 +182,20 @@ export default function Hero3DCanvas() {
       }}
     >
       <Canvas
-        camera={{ position: [0, 1.4, 7.2], fov: 38 }}
+        shadows
+        camera={{
+          position: [0, 1.2, 7.5], // stepped back so all 4 wheels are in frame
+          fov: 40,                  // narrow FOV = premium, less distortion
+          near: 0.1,
+          far: 100,
+        }}
         gl={{
-          alpha: false,                                     // no transparency — pure black bg
+          alpha: false,
           antialias: true,
           toneMapping: THREE.ACESFilmicToneMapping,
-          toneMappingExposure: 1.35,                       // punchy cinematic exposure
+          toneMappingExposure: 1.5,
           outputColorSpace: THREE.SRGBColorSpace,
         }}
-        shadows="soft"
         style={{ background: "#000000" }}
       >
         <Scene />
