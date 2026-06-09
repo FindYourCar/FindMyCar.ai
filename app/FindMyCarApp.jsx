@@ -2533,7 +2533,7 @@ useEffect(() => {
         .font-display { font-family: 'Fraunces', Georgia, serif; font-optical-sizing: auto; letter-spacing: -0.02em; }
         .font-body { font-family: 'Inter Tight', ui-sans-serif, system-ui; }
 
-        body { background: #0a0908; color: #f5f1ea; }
+        body { background: transparent; color: #f5f1ea; }
 
         /* Force all headings to readable off-white by default */
         h1, h2, h3, h4, h5, h6 { color: #f9fafb; }
