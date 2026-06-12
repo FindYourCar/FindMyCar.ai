@@ -39,4 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-public/media/
+# media: big videos stay out of git (served from Cloudinary);
+# small production assets (bento images, 3D model) are tracked.
+public/media/*
+!public/media/markets/
+!public/media/bmw_x7_m60i.glb
+!public/media/bmw-x7.glb
+# local Claude Code permission grants stay local
+.claude/settings.local.json

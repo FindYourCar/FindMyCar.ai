@@ -1,0 +1,28 @@
+var MARKET_DATA={
+  nl:{flag:"🇳🇱",title:"The Dutch Market",subtitle:"Compact, electric, smart — Europe's EV pioneer.",
+    stats:[["24%","EV market share"],["21k+","Live listings"],["€ 24,800","Avg. transaction price"],["118,000+","EV charging points"]],
+    insight:"Compact hatchbacks dominate Amsterdam due to parking constraints. The Randstad corridor (Amsterdam–Rotterdam–Utrecht) sees 40% of all transactions. Private lease is declining — buyers are returning to ownership. Best window to buy: Q1 and Q3.",
+    cars:[["Tesla Model 3","Best-selling EV","€ 28,900"],["Volkswagen ID.3","Compact electric","€ 24,400"],["Toyota Yaris Hybrid","City favourite","€ 19,800"],["Škoda Octavia","Family all-rounder","€ 21,300"]],
+    prices:[["Avg. hatchback","€ 18,500"],["Avg. EV (used)","€ 26,200"],["Annual road tax (MRB, petrol)","€ 680"],["BPM on EVs","€ 0 · until end of 2025"]],
+    tips:["EVs are exempt from BPM import tax until end of 2025 — importing an EV is unusually cheap right now.","APK inspection is only ~€40; always ask for the full APK history before buying.","Check the kenteken (licence plate) on the RDW site for free official history."]},
+  be:{flag:"🇧🇪",title:"The Belgian Market",subtitle:"Cross-border intelligence — where ex-lease gems surface.",
+    stats:[["−€1,600","Antwerp vs Brussels gap"],["58%","Company-car share"],["21%","VAT on used (margin scheme)"],["3–4 yr","Ex-lease cycle"]],
+    insight:"Belgium's huge company-car fleet means exceptional ex-lease stock hits the market every 3–4 years — well-maintained, low-mileage premium brands at used prices. Antwerp dealers consistently undercut Brussels by €1,200–2,100 on identical stock. Cross-border EU purchase is fully legal.",
+    cars:[["Audi A4 (ex-lease)","Low mileage, full history","€ 26,900"],["BMW X1","Popular crossover","€ 27,500"],["Volvo XC40","Family safe pick","€ 28,200"],["Volkswagen Golf","Value benchmark","€ 19,400"]],
+    prices:[["Brussels avg.","€ 22,400"],["Antwerp avg.","€ 20,800 · best value"],["Ghent avg.","€ 21,500"],["Registration tax (EU resident)","€ 0"]],
+    tips:["Target ex-lease cars 3–4 years old — dealer-maintained with complete service records.","Buy in Antwerp, not Brussels: same spec averages €1,600 cheaper.","Ask for the Car-Pass — Belgium's mandatory official mileage certificate."]},
+  de:{flag:"🇩🇪",title:"The German Market",subtitle:"Autobahn-grade — performance where it belongs.",
+    stats:[["€ 2,400","Origin advantage vs NL"],["18,000+","Performance listings (200hp+)"],["∞","Autobahn speed limit"],["#1","Factory-certified programmes"]],
+    insight:"Germany is the origin market for BMW, Mercedes, Audi and Porsche — factory-certified pre-owned programmes offer the best provenance documentation in Europe. Munich and Stuttgart have the highest density of performance stock. Import to NL needs RDW registration + BPM — our advisor estimates it for you.",
+    cars:[["BMW 3 Series","Executive benchmark","€ 34,500"],["Mercedes C-Class","Comfort cruiser","€ 35,800"],["Audi A4 Avant","Estate favourite","€ 31,200"],["Porsche Macan","Performance SUV","€ 52,900"]],
+    prices:[["BMW 3 Series (2022, 68k km)","€ 34,500 · Munich"],["BPM import tax to NL (est.)","€ 2,800"],["RDW registration","€ 94"],["Est. landed cost in NL","€ 37,774"]],
+    tips:["Buy factory-certified (BMW Premium Selection, Mercedes Junge Sterne) for warranty + verified history.","Munich and Stuttgart have the deepest performance inventory — worth the trip.","Factor BPM + RDW (~€2,900 typical) before comparing German prices to Dutch ones."]},
+  pl:{flag:"🇵🇱",title:"The Polish Market",subtitle:"Currency advantage — the largest price delta of all four markets.",
+    stats:[["15–22%","Saving vs NL prices"],["€ 13,200","Avg. used car price"],["€ 120","Annual vehicle excise"],["PLN","Currency opportunity"]],
+    insight:"Poland offers the largest price delta of all four markets — especially on compact cars and value-brand SUVs. Currency fluctuation (PLN) creates additional windows of opportunity. Warsaw and Kraków have the most reliable dealer networks. Import to NL needs standard EU paperwork only.",
+    cars:[["Škoda Octavia","Value king","€ 11,800"],["Toyota Corolla","Reliability pick","€ 14,600"],["Volkswagen Passat","Motorway cruiser","€ 13,900"],["Opel Astra","Budget compact","€ 9,400"]],
+    prices:[["Škoda Octavia (2020, 91k km)","€ 11,800 · Warsaw"],["BPM import tax to NL (est.)","€ 640"],["Transport to NL","€ 520"],["Est. landed cost in NL","€ 13,094"]],
+    tips:["Stick to Warsaw and Kraków dealer networks for the most reliable provenance.","Watch the PLN/EUR rate — a weak złoty can add 3–5% extra saving overnight.","Always run a full history check; odometer fraud is the main risk in this market."]},
+};
+var MO_NAMES={nl:"Netherlands",be:"Belgium",de:"Germany",pl:"Poland"};
+

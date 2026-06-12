@@ -1,0 +1,177 @@
+<!-- ==================== CINEMATIC INTRO GATE ==================== -->
+<style>
+/* Gate shell */
+#introGate{
+  position:fixed;inset:0;z-index:9000;background:#050403;overflow:hidden;
+  display:flex;flex-direction:column;justify-content:space-between;
+}
+#introGate.gone{display:none}
+#gateVid{
+  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;
+  transform-origin:50% 42%;filter:saturate(1.05) contrast(1.04);
+  transition:transform 1.1s cubic-bezier(.55,0,.85,.4);
+}
+.gate-grade{
+  position:absolute;inset:0;z-index:1;pointer-events:none;
+  background:
+    radial-gradient(120% 90% at 18% 88%, rgba(5,4,3,0.72) 0%, rgba(5,4,3,0.18) 45%, transparent 70%),
+    linear-gradient(180deg, rgba(5,4,3,0.62) 0%, rgba(5,4,3,0.10) 30%, rgba(5,4,3,0.16) 62%, rgba(5,4,3,0.88) 100%);
+}
+/* Subtle film grain inside gate (body noise sits below gate z-index) */
+.gate-noise{
+  position:absolute;inset:0;z-index:2;pointer-events:none;opacity:.06;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='gn'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23gn)' opacity='0.6'/%3E%3C/svg%3E");
+}
+
+/* Top bar */
+.gate-top{
+  position:relative;z-index:3;display:flex;align-items:center;justify-content:space-between;
+  padding:26px clamp(22px,4.5vw,56px) 0;
+  animation:gateFadeDown 1s cubic-bezier(.16,1,.3,1) .25s both;
+}
+.gate-markets{font-family:'JetBrains Mono','Fira Code',monospace;font-size:11px;letter-spacing:.18em;color:var(--muted);display:flex;align-items:center;gap:10px}
+.gate-markets b{color:var(--text2);font-weight:500}
+
+/* Main copy block — bottom-left editorial */
+.gate-content{
+  position:relative;z-index:3;max-width:780px;
+  padding:0 clamp(22px,4.5vw,56px) clamp(30px,5.5vh,64px);
+  display:flex;flex-direction:column;gap:20px;
+}
+.gate-badge{
+  display:inline-flex;align-items:center;gap:9px;width:fit-content;
+  background:rgba(10,9,8,0.55);border:1px solid var(--border-warm);border-radius:999px;
+  padding:7px 16px;font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--text2);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  animation:gateFadeUp .9s cubic-bezier(.16,1,.3,1) .45s both;
+}
+.gate-title{
+  font-family:'Fraunces',Georgia,serif;font-weight:600;letter-spacing:-0.035em;line-height:1.04;
+  font-size:clamp(38px,6.2vw,76px);color:#f9fafb;margin:0;
+  animation:gateFadeUp 1s cubic-bezier(.16,1,.3,1) .58s both;
+}
+.gate-sub{
+  font-size:clamp(14px,1.35vw,16.5px);color:var(--text2);line-height:1.65;max-width:540px;margin:0;
+  animation:gateFadeUp 1s cubic-bezier(.16,1,.3,1) .72s both;
+}
+.gate-cta-row{
+  display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-top:6px;
+  animation:gateFadeUp 1s cubic-bezier(.16,1,.3,1) .86s both;
+}
+#exploreBtn{font-size:15px;padding:15px 30px;gap:11px}
+#exploreBtn svg{transition:transform .3s cubic-bezier(.2,.8,.2,1)}
+#exploreBtn:hover svg{transform:translateX(4px)}
+#exploreBtn:active{transform:scale(.97)}
+.gate-hint{
+  font-family:'JetBrains Mono','Fira Code',monospace;font-size:11px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:9px;
+}
+.gate-hint .ghd{width:5px;height:5px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px rgba(251,191,36,.7);animation:pulseA 2s ease-in-out infinite}
+
+/* Scroll cue */
+.gate-cue{
+  position:absolute;bottom:clamp(28px,5vh,58px);right:clamp(22px,4.5vw,56px);z-index:3;
+  display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--muted);
+  font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;
+  animation:gateFadeUp 1s ease 1.15s both;
+}
+.gate-cue .cue-line{width:1px;height:42px;background:linear-gradient(180deg,var(--amber),transparent);animation:cueSlide 1.8s ease-in-out infinite}
+@keyframes cueSlide{0%{transform:scaleY(.2);transform-origin:top;opacity:0}35%{transform:scaleY(1);opacity:1}100%{transform:scaleY(.2);transform-origin:bottom;opacity:0}}
+
+@keyframes gateFadeUp{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+@keyframes gateFadeDown{from{opacity:0;transform:translateY(-14px)}to{opacity:1;transform:none}}
+
+/* ── Acceleration FX layers ─────────────────────────────── */
+.gate-speedlines{position:absolute;inset:0;z-index:4;opacity:0;pointer-events:none;overflow:hidden}
+.gate-speedlines.on{opacity:1}
+.gate-speedlines span{
+  position:absolute;left:0;height:2px;width:22vw;border-radius:3px;
+  background:linear-gradient(90deg,transparent 0%,rgba(251,191,36,.0) 15%,rgba(251,191,36,.75) 60%,rgba(255,248,225,.95) 100%);
+  transform:translateX(-30vw);
+}
+.gate-speedlines.on span{animation:lineFly var(--dur,.5s) linear var(--del,0s) infinite}
+@keyframes lineFly{
+  from{transform:translateX(-30vw) scaleX(.4)}
+  to{transform:translateX(118vw) scaleX(1.8)}
+}
+.gate-vignette{
+  position:absolute;inset:0;z-index:4;pointer-events:none;opacity:0;transition:opacity .5s ease;
+  background:radial-gradient(75% 65% at 50% 48%, transparent 38%, rgba(5,4,3,.55) 78%, rgba(5,4,3,.9) 100%);
+}
+.gate-vignette.on{opacity:1}
+.gate-flash{
+  position:absolute;inset:0;z-index:5;pointer-events:none;opacity:0;
+  background:radial-gradient(ellipse 70% 55% at 50% 46%, rgba(255,247,220,.98) 0%, rgba(251,191,36,.5) 42%, transparent 75%);
+}
+
+/* Gate accelerating state */
+#introGate.accel #gateVid{transform:scale(1.32)}
+#introGate.accel .gate-content,
+#introGate.accel .gate-top,
+#introGate.accel .gate-cue{opacity:0;transform:translateY(18px);transition:opacity .35s ease,transform .45s cubic-bezier(.55,0,.85,.4)}
+#introGate.leave{
+  opacity:0;transform:scale(1.6);
+  transition:opacity .42s ease,transform .5s cubic-bezier(.55,0,.85,.4);
+}
+
+/* Arrival settle on the main page */
+body.arrive{animation:arriveSettle .75s cubic-bezier(.16,1,.3,1) both}
+@keyframes arriveSettle{
+  from{transform:scale(1.045);filter:blur(7px) brightness(1.25)}
+  to{transform:none;filter:none}
+}
+html.gate-lock,html.gate-lock body{overflow:hidden;height:100%}
+
+@media (prefers-reduced-motion: reduce){
+  .gate-speedlines,.gate-vignette,.gate-flash{display:none}
+  #gateVid{transition:none}
+  body.arrive{animation:none}
+  #introGate.leave{transform:none;transition:opacity .3s ease}
+}
+@media (max-width:640px){
+  .gate-cue{display:none}
+  .gate-content{padding-bottom:44px}
+}
+</style>
+
+<div id="introGate" role="dialog" aria-label="Welcome to FindMyCar">
+  <video id="gateVid" autoplay muted playsinline preload="auto" aria-hidden="true"></video>
+  <div class="gate-grade" aria-hidden="true"></div>
+  <div class="gate-noise" aria-hidden="true"></div>
+  <div class="gate-speedlines" id="gateLines" aria-hidden="true"></div>
+  <div class="gate-vignette" id="gateVignette" aria-hidden="true"></div>
+  <div class="gate-flash" id="gateFlash" aria-hidden="true"></div>
+
+  <div class="gate-top">
+    <div class="logo" aria-label="FindMyCar">
+      <svg width="34" height="34" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+        <defs><linearGradient id="glg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fde047"/><stop offset="100%" stop-color="#d97706"/></linearGradient></defs>
+        <circle cx="24" cy="24" r="21" stroke="url(#glg1)" stroke-width="2.5" fill="rgba(251,191,36,0.06)"/>
+        <path d="M14 27c0-2 1.4-5.8 3-7.4 1-1 7-1.1 9.5-.6 1.8.4 4.3 2.5 5.5 3.5 2.4.5 4 1.5 4 3.3 0 1.2-.6 2.2-1.6 2.2" stroke="url(#glg1)" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+        <circle cx="17.5" cy="30" r="2.6" fill="var(--amber)"/>
+        <circle cx="30.5" cy="30" r="2.6" fill="var(--amber)" opacity="0.7"/>
+      </svg>
+      <span class="logo-w">Find<em>My</em>Car</span>
+    </div>
+    <div class="gate-markets"><b>NL</b>&middot;<b>BE</b>&middot;<b>DE</b>&middot;<b>PL</b><span>&mdash;</span><span>4 live markets</span></div>
+  </div>
+
+  <div class="gate-content">
+    <div class="gate-badge"><span class="pulse" aria-hidden="true"></span> AI car advisor &middot; zero commission</div>
+    <h1 class="gate-title">Europe&rsquo;s car market,<br><em class="it grad">decoded for you.</em></h1>
+    <p class="gate-sub">FindMyCar is an independent AI advisor that searches live listings across the Netherlands, Belgium, Germany and Poland &mdash; and answers to you, not to dealers.</p>
+    <div class="gate-cta-row">
+      <button id="exploreBtn" class="btn-p" type="button">
+        Explore FindMyCar
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+      <div class="gate-hint"><span class="ghd" aria-hidden="true"></span> Click to accelerate</div>
+    </div>
+  </div>
+
+  <div class="gate-cue" aria-hidden="true">
+    <span>Enter</span>
+    <div class="cue-line"></div>
+  </div>
+</div>
+<!-- ==================== /INTRO GATE ==================== -->

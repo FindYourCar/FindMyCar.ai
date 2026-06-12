@@ -1,0 +1,70 @@
+.mkt-overlay{position:fixed;inset:0;z-index:320;display:none;align-items:flex-start;justify-content:center;padding:4vh 18px;background:rgba(5,4,3,0.78);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);overflow-y:auto}
+.mkt-overlay.open{display:flex;animation:fmcFade .25s ease}
+.mkt-overlay-panel{width:min(880px,100%);background:linear-gradient(180deg,#161310 0%,#0f0d0b 100%);border:1px solid var(--border-warm);border-radius:22px;overflow:hidden;box-shadow:0 50px 120px rgba(0,0,0,0.65);animation:fmcRise .38s cubic-bezier(.2,.8,.2,1)}
+.mo-hero{position:relative;height:240px;background-size:cover;background-position:center}
+.mo-hero-overlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,9,8,0.25) 0%,rgba(10,9,8,0.92) 100%)}
+.mo-hero-content{position:absolute;left:28px;right:28px;bottom:22px;z-index:2}
+.mo-flag{font-size:30px;margin-bottom:8px}
+.mo-title{font-size:clamp(24px,3.4vw,34px);font-weight:600;color:#fff;letter-spacing:-0.03em;line-height:1.1;margin:0}
+.mo-subtitle{margin:6px 0 0;font-size:13.5px;color:rgba(245,241,234,0.78)}
+.mo-close{position:absolute;top:16px;right:16px;z-index:3;width:34px;height:34px;border-radius:50%;border:1px solid rgba(245,241,234,0.25);background:rgba(10,9,8,0.55);backdrop-filter:blur(6px);color:#f5f1ea;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.mo-close:hover{border-color:var(--amber);color:var(--amber)}
+.mo-body{padding:24px 28px 28px}
+.mo-stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media(max-width:640px){.mo-stats-row{grid-template-columns:repeat(2,1fr)}}
+.mo-stat{background:rgba(245,241,234,0.03);border:1px solid var(--border);border-radius:13px;padding:14px}
+.mo-stat-n{font-family:'Fraunces',Georgia,serif;font-size:21px;font-weight:600;color:var(--amber);line-height:1.1}
+.mo-stat-l{font-size:10.5px;color:var(--muted);margin-top:4px;line-height:1.4}
+.mo-insight-box{margin-top:14px;padding:16px 18px;background:rgba(251,191,36,0.05);border:1px solid rgba(251,191,36,0.18);border-radius:14px}
+.mo-insight-label{display:flex;align-items:center;gap:8px;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--amber);font-weight:600;margin-bottom:8px}
+.mo-pulse{width:7px;height:7px;border-radius:50%;background:var(--amber);box-shadow:0 0 9px rgba(251,191,36,0.7);animation:pulseA 2s ease-in-out infinite}
+.mo-insight-box p{margin:0;font-size:13px;line-height:1.65;color:var(--text2)}
+.mo-section-title{font-family:'Fraunces',Georgia,serif;font-size:16px;font-weight:600;color:#f9fafb;margin:24px 0 12px}
+.mo-cars-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media(max-width:560px){.mo-cars-grid{grid-template-columns:1fr}}
+.mo-car{display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(245,241,234,0.03);border:1px solid var(--border);border-radius:12px;padding:12px 15px}
+.mo-car-nm{font-size:13px;font-weight:600;color:var(--text)}
+.mo-car-tag{font-size:10.5px;color:var(--muted);margin-top:2px}
+.mo-car-pr{font-family:'Fraunces',Georgia,serif;font-size:15px;font-weight:600;color:var(--amber);white-space:nowrap}
+.mo-price-table{border:1px solid var(--border);border-radius:13px;overflow:hidden}
+.mo-price-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px;font-size:12.5px;color:var(--muted);border-bottom:1px solid rgba(245,241,234,0.05)}
+.mo-price-row:last-child{border-bottom:none}
+.mo-price-row b{color:var(--text);font-weight:500}
+.mo-price-row .val{color:var(--text);font-weight:600;white-space:nowrap}
+.mo-tips{display:flex;flex-direction:column;gap:8px}
+.mo-tip{display:flex;gap:10px;align-items:flex-start;font-size:12.5px;line-height:1.6;color:var(--text2);background:rgba(245,241,234,0.03);border:1px solid var(--border);border-radius:12px;padding:11px 14px}
+.mo-tip svg{flex-shrink:0;color:var(--amber);margin-top:2px}
+.mo-cta{margin-top:22px;display:flex;justify-content:center}
+.mo-cta-btn{font-size:13.5px;padding:12px 26px}
+body.mo-lock{overflow:hidden}
+
+/* ══════ Price stepper (Cost Calculator) ══════ */
+.price-stepper{display:flex;align-items:center;gap:0;border:1px solid rgba(255,255,255,0.1);border-radius:10px;overflow:hidden}
+.stepper-btn{width:44px;height:44px;background:rgba(251,191,36,0.08);border:none;border-right:1px solid rgba(255,255,255,0.08);color:#fbbf24;font-size:20px;font-weight:300;cursor:pointer;transition:background 0.2s;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:inherit}
+.stepper-btn:last-child{border-right:none;border-left:1px solid rgba(255,255,255,0.08)}
+.stepper-btn:hover{background:rgba(251,191,36,0.18)}
+.stepper-btn:active{background:rgba(251,191,36,0.28)}
+.price-stepper input{flex:1;border:none !important;border-radius:0 !important;text-align:center;font-size:16px;font-weight:600;color:#f5f1ea;background:rgba(255,255,255,0.04);min-width:0}
+.price-stepper input:focus{border:none !important}
+.stepper-hint{font-size:11px;color:#5e574f;margin-top:5px}
+
+/* ══════ model-viewer: clean transparent, no box ══════ */
+model-viewer{background:transparent !important;--poster-color:transparent !important;outline:none !important;border:none !important}
+#bmw-j,#bmw-hero{background:transparent !important;--poster-color:transparent !important}
+model-viewer::part(default-progress-bar){display:none}
+model-viewer::part(default-ar-button){display:none}
+model-viewer::part(default-progress-mask){display:none}
+#bmw-j{position:absolute;inset:0;z-index:2;cursor:grab}
+#bmw-j:active{cursor:grabbing}
+
+/* ══════ Headlight / taillight / ground glow ══════ */
+.car-headlight-l,.car-headlight-r{position:absolute;bottom:30%;width:160px;height:100px;pointer-events:none;z-index:4;border-radius:50%;filter:blur(26px);animation:hlPulse 3.5s ease-in-out infinite}
+.car-headlight-l{left:10%;background:radial-gradient(ellipse,rgba(220,235,255,0.6) 0%,rgba(180,210,255,0.28) 40%,transparent 70%)}
+.car-headlight-r{right:10%;background:radial-gradient(ellipse,rgba(220,235,255,0.6) 0%,rgba(180,210,255,0.28) 40%,transparent 70%)}
+.car-taillight-l,.car-taillight-r{position:absolute;bottom:32%;width:90px;height:70px;pointer-events:none;z-index:4;border-radius:50%;filter:blur(20px);animation:tlPulse 60s linear infinite}
+.car-taillight-l{left:14%;background:radial-gradient(ellipse,rgba(255,25,25,0.75) 0%,rgba(200,0,0,0.35) 45%,transparent 70%)}
+.car-taillight-r{right:14%;background:radial-gradient(ellipse,rgba(255,25,25,0.75) 0%,rgba(200,0,0,0.35) 45%,transparent 70%)}
+.car-ground-glow{position:absolute;bottom:10%;left:50%;transform:translateX(-50%);width:440px;height:55px;background:radial-gradient(ellipse,rgba(251,191,36,0.13) 0%,rgba(217,119,6,0.06) 50%,transparent 70%);filter:blur(16px);pointer-events:none;z-index:3;border-radius:50%}
+@keyframes hlPulse{0%,100%{opacity:0.65}50%{opacity:1}}
+@keyframes tlPulse{0%,100%{opacity:0.7}25%{opacity:0.95}50%{opacity:0.75}75%{opacity:0.9}}
+@media(prefers-reduced-motion:reduce){.car-headlight-l,.car-headlight-r,.car-taillight-l,.car-taillight-r{animation:none}}

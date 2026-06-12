@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FindMyCar — Garage (Design Preview)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Inter+Tight:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --bg: #0a0908;
+    --bg-2: #141210;
+    --bg-3: #1c1916;
+    --border: #2a2520;
+    --border-warm: rgba(251,191,36,0.25);
+    --text: #f5f1ea;
+    --muted: #8a8178;
+    --amber: #fbbf24;
+    --bronze: #d97706;
+    --deep: #92400e;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter Tight', ui-sans-serif, system-ui;
+    -webkit-font-smoothing: antialiased;
+    position: relative;
+    overflow-x: hidden;
+  }
+  h1, h2, h3, h4 { color: #f9fafb; margin: 0; }
+  a { color: inherit; text-decoration: none; }
+  button { font-family: inherit; cursor: pointer; }
+
+  .font-display { font-family: 'Fraunces', Georgia, serif; font-optical-sizing: auto; letter-spacing: -0.02em; }
+  .amber-text { color: var(--amber); }
+  .text-muted { color: var(--muted); }
+
+  /* ---- preview-only banner (NOT part of the design; marks this as a shell) ---- */
+  .shell-banner {
+    position: sticky; top: 0; z-index: 60;
+    background: linear-gradient(90deg, #1c1916, #141210);
+    border-bottom: 1px solid var(--border-warm);
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+    padding: 7px 14px;
+    letter-spacing: 0.04em;
+  }
+  .shell-banner strong { color: var(--amber); font-weight: 600; }
+
+  /* ---- grain texture (matches main app) ---- */
+  .grain::after {
+    content: '';
+    position: fixed; inset: 0; pointer-events: none; z-index: 1;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
+    opacity: 0.08; mix-blend-mode: overlay;
+  }
+  .glow-orb { position: absolute; border-radius: 9999px; filter: blur(120px); pointer-events: none; }
+
+  /* ---- layout shell ---- */
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 2; }
+
+  /* ---- nav ---- */
+  nav.top {
+    position: sticky; top: 33px; z-index: 40;
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    background: rgba(10,9,8,0.7);
+    border-bottom: 1px solid var(--border);
+  }
+  nav.top .inner { max-width: 1180px; margin: 0 auto; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo .word { font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 20px; letter-spacing: -0.02em; color: #f9fafb; }
+  .logo .word em { font-style: italic; color: var(--amber); }
+  .navlinks { display: none; align-items: center; gap: 4px; }
+  @media (min-width: 768px) { .navlinks { display: flex; } }
+  .navlinks a { font-size: 14px; color: var(--muted); padding: 8px 14px; border-radius: 999px; transition: all .25s ease; }
+  .navlinks a:hover { color: var(--text); background: rgba(245,241,234,0.04); }
+  .navlinks a.active { color: var(--amber); background: rgba(251,191,36,0.08); font-weight: 500; }
+
+  /* ---- buttons & pills (matches main app tokens) ---- */
+  .btn-primary {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: linear-gradient(135deg, #fbbf24 0%, #d97706 50%, #92400e 100%);
+    color: #1a0f00; font-weight: 600; font-size: 14px;
+    border: 1px solid rgba(251,191,36,0.4);
+    box-shadow: 0 8px 30px rgba(217,119,6,0.35), inset 0 1px 0 rgba(255,255,255,0.4);
+    border-radius: 999px; padding: 10px 20px;
+    transition: all .3s cubic-bezier(.2,.8,.2,1);
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 12px 40px rgba(217,119,6,0.5), inset 0 1px 0 rgba(255,255,255,0.5); }
+
+  .btn-ghost {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(245,241,234,0.03); border: 1px solid var(--border); color: var(--text);
+    border-radius: 999px; padding: 10px 18px; font-size: 14px; font-weight: 500;
+    transition: all .3s ease;
+  }
+  .btn-ghost:hover { background: rgba(251,191,36,0.08); border-color: var(--border-warm); }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(245,241,234,0.04); border: 1px solid var(--border); color: var(--text);
+    border-radius: 999px; padding: 7px 14px; font-size: 12.5px; font-weight: 500;
+    transition: all .25s ease; white-space: nowrap;
+  }
+  .pill:hover { border-color: rgba(251,191,36,0.5); background: rgba(251,191,36,0.06); color: var(--amber); }
+  .pill-active { background: linear-gradient(135deg, #fbbf24, #d97706) !important; border-color: transparent !important; color: #1a0f00 !important; font-weight: 600; }
+  .pill svg { width: 13px; height: 13px; }
+
+  /* ---- header / hero strip ---- */
+  .head { padding: 56px 0 36px; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 24px; }
+  .head h1 { font-size: clamp(32px, 5vw, 46px); line-height: 1.05; }
+  .head .eyebrow { font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .head .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 12px rgba(251,191,36,0.7); }
+  .head p.sub { color: var(--muted); font-size: 15px; max-width: 46ch; margin-top: 12px; line-height: 1.6; }
+
+  /* ---- stat cards ---- */
+  .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 48px; }
+  @media (min-width: 768px) { .stat-grid { grid-template-columns: repeat(4, 1fr); } }
+  .stat-card {
+    background: linear-gradient(180deg, #161310 0%, #0f0d0b 100%);
+    border: 1px solid var(--border);
+    border-radius: 16px; padding: 20px; position: relative; overflow: hidden;
+    transition: all .4s cubic-bezier(.2,.8,.2,1);
+  }
+  .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(251,191,36,0.3), transparent); }
+  .stat-card:hover { border-color: rgba(251,191,36,0.3); transform: translateY(-3px); box-shadow: 0 20px 50px rgba(0,0,0,0.5), 0 0 50px rgba(251,191,36,0.07); }
+  .stat-card .icn { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: rgba(251,191,36,0.1); color: var(--amber); margin-bottom: 14px; }
+  .stat-card .icn svg { width: 17px; height: 17px; }
+  .stat-card .num { font-family: 'Fraunces', Georgia, serif; font-size: 28px; font-weight: 600; letter-spacing: -0.01em; color: #f9fafb; }
+  .stat-card .lbl { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+  .stat-card .delta { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 600; margin-top: 10px; padding: 3px 9px; border-radius: 999px; }
+  .delta.down { color: #86efac; background: rgba(34,197,94,0.12); }
+  .delta.flat { color: var(--muted); background: rgba(245,241,234,0.05); }
+  .delta svg { width: 11px; height: 11px; }
+
+  /* ---- section headers ---- */
+  .sect-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
+  .sect-head h2 { font-size: 23px; }
+  .sect-head .count { font-size: 13px; color: var(--muted); }
+
+  /* ---- car cards ---- */
+  .car-grid { display: grid; grid-template-columns: 1fr; gap: 18px; margin-bottom: 56px; }
+  @media (min-width: 720px) { .car-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (min-width: 1080px) { .car-grid { grid-template-columns: repeat(3, 1fr); } }
+
+  .car-card {
+    background: linear-gradient(180deg, #161310 0%, #0f0d0b 100%);
+    border: 1px solid var(--border);
+    border-radius: 18px; overflow: hidden; position: relative;
+    transition: all .4s cubic-bezier(.2,.8,.2,1);
+    display: flex; flex-direction: column;
+  }
+  .car-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; z-index: 2; background: linear-gradient(90deg, transparent, rgba(251,191,36,0.3), transparent); }
+  .car-card:hover { border-color: rgba(251,191,36,0.3); transform: translateY(-5px); box-shadow: 0 24px 60px rgba(0,0,0,0.55), 0 0 50px rgba(251,191,36,0.1); }
+
+  .car-art { position: relative; height: 148px; overflow: hidden; }
+  .car-art .bg { position: absolute; inset: 0; }
+  .car-art .scrim { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 110%, rgba(0,0,0,0.65) 0%, transparent 60%); }
+  .car-art svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .car-art .badge {
+    position: absolute; top: 12px; left: 12px; z-index: 3;
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 5px 10px; border-radius: 999px;
+    background: rgba(10,9,8,0.6); backdrop-filter: blur(8px);
+    border: 1px solid rgba(251,191,36,0.35); color: var(--amber);
+  }
+  .car-art .badge svg { width: 11px; height: 11px; }
+  .save-btn {
+    position: absolute; top: 12px; right: 12px; z-index: 3;
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(10,9,8,0.55); backdrop-filter: blur(8px);
+    border: 1px solid rgba(245,241,234,0.12); color: var(--amber);
+    transition: all .25s ease;
+  }
+  .save-btn:hover { border-color: rgba(251,191,36,0.5); background: rgba(10,9,8,0.8); transform: scale(1.06); }
+  .save-btn svg { width: 15px; height: 15px; }
+
+  .car-body { padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 14px; flex: 1; }
+  .car-title { font-family: 'Fraunces', Georgia, serif; font-size: 19px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; }
+  .car-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); }
+  .car-meta span { display: inline-flex; align-items: center; gap: 5px; }
+  .car-meta svg { width: 13px; height: 13px; opacity: 0.75; }
+
+  .price-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; padding-top: 4px; border-top: 1px solid var(--border); }
+  .price-now { font-family: 'Fraunces', Georgia, serif; font-size: 22px; font-weight: 600; color: #f9fafb; }
+  .price-was { font-size: 12px; color: var(--muted); text-decoration: line-through; margin-left: 6px; }
+  .price-delta { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 700; padding: 4px 9px; border-radius: 999px; }
+  .price-delta.down { color: #86efac; background: rgba(34,197,94,0.12); }
+  .price-delta.up { color: #fca5a5; background: rgba(239,68,68,0.12); }
+  .price-delta svg { width: 11px; height: 11px; }
+
+  .match-row { display: flex; align-items: center; gap: 10px; }
+  .match-track { flex: 1; height: 5px; border-radius: 999px; background: rgba(245,241,234,0.06); overflow: hidden; }
+  .match-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--bronze), var(--amber)); }
+  .match-label { font-size: 11.5px; font-weight: 600; color: var(--amber); white-space: nowrap; }
+
+  .car-actions { display: flex; gap: 8px; }
+  .car-actions button {
+    flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    font-size: 12.5px; font-weight: 500; padding: 9px 10px; border-radius: 10px;
+    border: 1px solid var(--border); background: rgba(245,241,234,0.03); color: var(--text);
+    transition: all .25s ease;
+  }
+  .car-actions button:hover { border-color: var(--border-warm); background: rgba(251,191,36,0.07); color: var(--amber); }
+  .car-actions button svg { width: 14px; height: 14px; }
+  .car-actions button.danger:hover { border-color: rgba(239,68,68,0.35); background: rgba(239,68,68,0.08); color: #fca5a5; }
+
+  /* ---- price intelligence panel ---- */
+  .panel {
+    background: linear-gradient(180deg, #161310 0%, #0f0d0b 100%);
+    border: 1px solid var(--border); border-radius: 20px;
+    padding: 28px; margin-bottom: 56px; position: relative;
+    display: grid; grid-template-columns: 1fr; gap: 28px;
+  }
+  .panel::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; border-radius: 20px 20px 0 0; background: linear-gradient(90deg, transparent, rgba(251,191,36,0.3), transparent); }
+  @media (min-width: 880px) { .panel { grid-template-columns: 1.3fr 1fr; align-items: center; } }
+
+  .panel .eyebrow-sm { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 7px; margin-bottom: 10px; }
+  .panel .eyebrow-sm svg { width: 13px; height: 13px; color: var(--amber); }
+  .panel h3 { font-family: 'Fraunces', Georgia, serif; font-size: 24px; font-weight: 600; margin-bottom: 8px; }
+  .panel p { color: var(--muted); font-size: 14px; line-height: 1.65; max-width: 46ch; }
+  .panel .callout { display: flex; align-items: center; gap: 14px; margin-top: 20px; }
+  .callout .big { font-family: 'Fraunces', Georgia, serif; font-size: 32px; font-weight: 600; color: #86efac; }
+  .callout .meta { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+
+  .chart-card { background: rgba(245,241,234,0.025); border: 1px solid var(--border); border-radius: 16px; padding: 18px 18px 14px; }
+  .chart-card .chart-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .chart-card .chart-head .t { font-size: 12.5px; font-weight: 600; color: var(--text); }
+  .chart-card .chart-head .v { font-family: 'Fraunces', Georgia, serif; font-size: 17px; color: var(--amber); }
+  .chart-axis { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--muted); margin-top: 6px; padding: 0 4px; }
+  .sr-data-table { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  /* ---- CTA banner ---- */
+  .cta-banner {
+    position: relative; overflow: hidden; border-radius: 22px;
+    border: 1px solid var(--border-warm);
+    background: linear-gradient(135deg, rgba(251,191,36,0.1), rgba(217,119,6,0.04) 50%, transparent);
+    padding: 40px 32px; text-align: center; margin-bottom: 64px;
+  }
+  .cta-banner h2 { font-family: 'Fraunces', Georgia, serif; font-size: clamp(24px, 4vw, 32px); margin-bottom: 10px; }
+  .cta-banner p { color: var(--muted); font-size: 14.5px; max-width: 50ch; margin: 0 auto 22px; line-height: 1.6; }
+
+  footer { border-top: 1px solid var(--border); padding: 26px 0 40px; text-align: center; color: var(--muted); font-size: 12.5px; }
+  footer .amber-text { font-weight: 600; }
+
+  /* ---- motion & accessibility ---- */
+  .fade-up { animation: fadeUp .7s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(14px);} to { opacity: 1; transform: none; } }
+  :focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; border-radius: 6px; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--bronze); }
+</style>
+</head>
+<body class="grain">
+
+  <div class="shell-banner">DESIGN SHELL — <strong>not wired to live data</strong> · concept exploration for a "Garage" feature · built with the UI/UX Pro Max skill + FindMyCar's existing visual language</div>
+
+  <div class="glow-orb" style="width:560px;height:560px;top:-220px;right:-180px;background:rgba(251,191,36,0.10);"></div>
+  <div class="glow-orb" style="width:480px;height:480px;top:480px;left:-220px;background:rgba(217,119,6,0.07);"></div>
+
+  <nav class="top">
+    <div class="inner">
+      <a href="#" class="logo">
+        <svg width="34" height="34" viewBox="0 0 48 48" aria-hidden="true">
+          <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fde047"/><stop offset="50%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#d97706"/></linearGradient></defs>
+          <circle cx="24" cy="24" r="21" fill="none" stroke="url(#lg)" stroke-width="2.4" opacity="0.55"/>
+          <path d="M13 27 L16 19 Q17 17 20 17 L28 17 Q31 17 32 19 L35 27 Z" fill="none" stroke="url(#lg)" stroke-width="2"/>
+          <circle cx="18.5" cy="29" r="2.6" fill="#0a0908" stroke="#fde047" stroke-width="1.2"/>
+          <circle cx="29.5" cy="29" r="2.6" fill="#0a0908" stroke="#fde047" stroke-width="1.2"/>
+        </svg>
+        <span class="word">Find<em>My</em>Car</span>
+      </a>
+      <div class="navlinks">
+        <a href="#">Discover</a>
+        <a href="#" class="active">Garage</a>
+        <a href="#">Compare</a>
+        <a href="#">Markets</a>
+      </div>
+      <button class="btn-primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M12 5v14M5 12h14"/></svg>
+        Add a car
+      </button>
+    </div>
+  </nav>
+
+  <main class="wrap">
+
+    <!-- ============ HEADER ============ -->
+    <header class="head fade-up">
+      <div>
+        <div class="eyebrow"><span class="dot"></span> Your Garage · 3 vehicles tracked</div>
+        <h1 class="font-display">Everything you're<br/>watching, in one place.</h1>
+        <p class="sub">Saved cars, live price moves and match scores — gathered from across the Netherlands, Germany and Belgium and refreshed daily.</p>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <span class="pill pill-active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"/></svg>
+          All saved
+        </span>
+        <span class="pill">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8M21 7v6h-6"/></svg>
+          Price drops
+        </span>
+        <span class="pill">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          Recently viewed
+        </span>
+      </div>
+    </header>
+
+    <!-- ============ STAT CARDS ============ -->
+    <section class="stat-grid fade-up" aria-label="Garage summary statistics">
+      <div class="stat-card">
+        <div class="icn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14M6 17l1.5-5.5a2 2 0 0 1 2-1.5h5a2 2 0 0 1 2 1.5L18 17M5 17a2 2 0 1 0 4 0M15 17a2 2 0 1 0 4 0"/></svg></div>
+        <div class="num">3</div>
+        <div class="lbl">Cars tracked</div>
+        <span class="delta flat">Across 3 markets</span>
+      </div>
+      <div class="stat-card">
+        <div class="icn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+        <div class="num">−€1,750</div>
+        <div class="lbl">Total saved this month</div>
+        <span class="delta down">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8M21 7v6h-6"/></svg>
+          2 of 3 dropped
+        </span>
+      </div>
+      <div class="stat-card">
+        <div class="icn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2.5 2.5"/></svg></div>
+        <div class="num">93%</div>
+        <div class="lbl">Average match score</div>
+        <span class="delta flat">Based on your last 12 chats</span>
+      </div>
+      <div class="stat-card">
+        <div class="icn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></div>
+        <div class="num">NL · DE · BE</div>
+        <div class="lbl">Markets watched</div>
+        <span class="delta flat">Add Poland with one tap</span>
+      </div>
+    </section>
+
+    <!-- ============ SAVED CARS ============ -->
+    <section aria-label="Saved vehicles">
+      <div class="sect-head">
+        <h2 class="font-display">Saved vehicles</h2>
+        <span class="count">3 of 3 shown · sorted by match score</span>
+      </div>
+      <div class="car-grid">
+
+        <!-- Car 1 -->
+        <article class="car-card">
+          <div class="car-art">
+            <div class="bg" style="background: linear-gradient(135deg, rgba(251,191,36,0.16), rgba(146,64,14,0.35) 60%, #0f0d0b);"></div>
+            <svg viewBox="0 0 400 200" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+              <ellipse cx="200" cy="150" rx="170" ry="14" fill="#000" opacity="0.35"/>
+              <path d="M70 130 Q90 90 150 84 L250 84 Q310 90 330 130 L330 150 L70 150 Z" fill="none" stroke="#fbbf24" stroke-width="2" opacity="0.85"/>
+              <path d="M150 84 L168 64 L232 64 L250 84" fill="none" stroke="#fbbf24" stroke-width="2" opacity="0.6"/>
+              <circle cx="120" cy="150" r="20" fill="#0a0908" stroke="#fde047" stroke-width="2"/>
+              <circle cx="280" cy="150" r="20" fill="#0a0908" stroke="#fde047" stroke-width="2"/>
+            </svg>
+            <div class="scrim"></div>
+            <span class="badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8M21 7v6h-6"/></svg>
+              Price drop
+            </span>
+            <button class="save-btn" aria-label="Remove from saved (currently saved)" aria-pressed="true">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.6-10-9.3C0.4 8.6 2 5 5.6 5c2 0 3.6 1 4.4 2.6C10.8 6 12.4 5 14.4 5 18 5 19.6 8.6 18 11.7 17.5 5.4 12 21 12 21z"/></svg>
+            </button>
+          </div>
+          <div class="car-body">
+            <div>
+              <h3 class="car-title">Volkswagen Golf GTI</h3>
+              <div class="car-meta" style="margin-top:6px;">
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>2019 · Mk7</span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2.5 2.5"/></svg>64,200 km</span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Rotterdam, NL</span>
+              </div>
+            </div>
+            <div class="match-row">
+              <div class="match-track"><div class="match-fill" style="width:96%"></div></div>
+              <span class="match-label">96% match</span>
+            </div>
+            <div class="price-row">
+              <div>
+                <span class="price-now">€18,400</span>
+                <span class="price-was">€19,000</span>
+              </div>
+              <span class="price-delta down">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7l10 10M17 7v10H7"/></svg>
+                −€600 · 6 wks
+              </span>
+            </div>
+            <div class="car-actions">
+              <button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Compare</button>
+              <button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3h7v7M21 3l-9 9M21 14v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h6"/></svg>View listing</button>
+              <button class="danger" aria-label="Remove Volkswagen Golf GTI from garage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+            </div>
+          </div>
+        </article>
+
+        <!-- Car 2 -->
+        <article class="car-card">
+          <div class="car-art">
+            <div class="bg" style="background: linear-gradient(135deg, rgba(245,241,234,0.10), rgba(42,37,32,0.6) 60%, #0f0d0b);"></div>
+            <svg viewBox="0 0 400 200" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+              <ellipse cx="200" cy="150" rx="170" ry="14" fill="#000" opacity="0.35"/>
+              <path d="M64 132 Q88 88 152 82 L256 82 Q316 92 336 132 L336 150 L64 150 Z" fill="none" stroke="#f5f1ea" stroke-width="2" opacity="0.7"/>
+              <path d="M152 82 L172 60 L240 60 L256 82" fill="none" stroke="#f5f1ea" stroke-width="2" opacity="0.5"/>
+              <circle cx="120" cy="150" r="20" fill="#0a0908" stroke="#d4d0c8" stroke-width="2"/>
+              <circle cx="284" cy="150" r="20" fill="#0a0908" stroke="#d4d0c8" stroke-width="2"/>
+            </svg>
+            <div class="scrim"></div>
+            <span class="badge" style="color:#cbd5e1; border-color:rgba(203,213,225,0.3);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2.5 2.5"/></svg>
+              Watching
+            </span>
+            <button class="save-btn" aria-label="Remove from saved (currently saved)" aria-pressed="true">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.6-10-9.3C0.4 8.6 2 5 5.6 5c2 0 3.6 1 4.4 2.6C10.8 6 12.4 5 14.4 5 18 5 19.6 8.6 18 11.7 17.5 5.4 12 21 12 21z"/></svg>
+            </button>
+          </div>
+          <div class="car-body">
+            <div>
+              <h3 class="car-title">BMW 3 Series 320d</h3>
+              <div class="car-meta" style="margin-top:6px;">
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>2020 · G20</span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2.5 2.5"/></svg>41,800 km</span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Munich, DE</span>
+              </div>
+            </div>
+            <div class="match-row">
+              <div class="match-track"><div class="match-fill" style="width:89%"></div></div>
+              <span class="match-label">89% match</span>
+            </div>
+            <div class="price-row">
+              <div>
+                <span class="price-now">€24,900</span>
+                <span class="price-was">€24,600</span>
+              </div>
+              <span class="price-delta up">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17l10-10M7 7h10v10"/></svg>
+                +€300 · 2 wks
+              </span>
+            </div>
+            <div class="car-actions">
+              <button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Compare</button>
+              <button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3h7v7M21 3l-9 9M21 14v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h6"/></svg>View listing</button>
+              <button class="danger" aria-label="Remove BMW 3 Series 320d from garage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+            </div>
+          </div>
+        </article>
+
+        <!-- Car 3 -->
+        <article class="car-card">
+          <div class="car-art">
+            <div class="bg" style="background: linear-gradient(135deg, rgba(34,197,94,0.14), rgba(20,18,16,0.7) 60%, #0f0d0b);"></div>
+            <svg viewBox="0 0 400 200" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+              <ellipse cx="200" cy="150" rx="170" ry="14" fill="#000" opacity="0.35"/>
+              <path d="M68 130 Q92 92 154 86 L252 86 Q312 94 332 130 L332 150 L68 150 Z" fill="none" stroke="#86efac" stroke-width="2" opacity="0.75"/>
+              <path d="M154 86 L174 66 L238 66 L252 86" fill="none" stroke="#86efac" stroke-width="2" opacity="0.55"/>
+              <circle cx="122" cy="150" r="20" fill="#0a0908" stroke="#bbf7d0" stroke-width="2"/>
+              <circle cx="282" cy="150" r="20" fill="#0a0908" stroke="#bbf7d0" stroke-width="2"/>
+            </svg>
+            <div class="scrim"></div>
+            <span class="badge" style="color:#86efac; border-color:rgba(134,239,172,0.35);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.5 6.5L21 9l-5 4.5L17.5 21 12 17.5 6.5 21 8 13.5 3 9l6.5-0.5z"/></svg>
+              Best deal
+            </span>
+            <button class="save-btn" aria-label="Remove from saved (currently saved)" aria-pressed="true">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.6-10-9.3C0.4 8.6 2 5 5.6 5c2 0 3.6 1 4.4 2.6C10.8 6 12.4 5 14.4 5 18 5 19.6 8.6 18 11.7 17.5 5.4 12 21 12 21z"/></svg>
+            </button>
+          </div>
+          <div class="car-body">
+            <div>
+              <h3 class="car-title">Toyota Corolla Hybrid</h3>
+              <div class="car-meta" style="margin-top:6px;">
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>2021 · XII</span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2.5 2.5"/></svg>28,500 km</span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Antwerp, BE</span>
+              </div>
+            </div>
+            <div class="match-row">
+              <div class="match-track"><div class="match-fill" style="width:93%"></div></div>
+              <span class="match-label">93% match</span>
+            </div>
+            <div class="price-row">
+              <div>
+                <span class="price-now">€21,200</span>
+                <span class="price-was">€22,350</span>
+              </div>
+              <span class="price-delta down">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7l10 10M17 7v10H7"/></svg>
+                −€1,150 · 4 wks
+              </span>
+            </div>
+            <div class="car-actions">
+              <button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Compare</button>
+              <button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3h7v7M21 3l-9 9M21 14v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h6"/></svg>View listing</button>
+              <button class="danger" aria-label="Remove Toyota Corolla Hybrid from garage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+            </div>
+          </div>
+        </article>
+
+      </div>
+    </section>
+
+    <!-- ============ PRICE INTELLIGENCE PANEL ============ -->
+    <section class="panel" aria-label="Price intelligence">
+      <div>
+        <div class="eyebrow-sm">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+          Price intelligence
+        </div>
+        <h3 class="font-display">Your Golf GTI dropped €600 in six weeks.</h3>
+        <p>We track every saved listing daily across NL, DE and BE dealer networks, so you know whether to act now or hold out for a better window.</p>
+        <div class="callout">
+          <span class="big">−3.2%</span>
+          <span class="meta">vs. comparable Mk7 GTI listings<br/>in the Netherlands this quarter</span>
+        </div>
+      </div>
+      <div>
+        <div class="chart-card">
+          <div class="chart-head">
+            <span class="t">Volkswagen Golf GTI · Rotterdam listing</span>
+            <span class="v">€18,400</span>
+          </div>
+          <svg viewBox="0 0 600 190" width="100%" height="170" role="img" aria-labelledby="chart-title chart-desc" preserveAspectRatio="none">
+            <title id="chart-title">Six-week asking price trend for the saved Volkswagen Golf GTI</title>
+            <desc id="chart-desc">Price moved from 19,000 euros in week 1 down to 18,400 euros in week 6, with a small rebound in week 3.</desc>
+            <defs>
+              <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.28"/>
+                <stop offset="100%" stop-color="#fbbf24" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <!-- gridlines (subtle, per a11y guidance: don't rely on color alone — gridlines + direct labels) -->
+            <line x1="0" y1="40" x2="600" y2="40" stroke="rgba(245,241,234,0.05)" stroke-width="1"/>
+            <line x1="0" y1="92" x2="600" y2="92" stroke="rgba(245,241,234,0.05)" stroke-width="1"/>
+            <line x1="0" y1="144" x2="600" y2="144" stroke="rgba(245,241,234,0.05)" stroke-width="1"/>
+            <!-- area -->
+            <path d="M50,55 L152,72 L254,60 L356,98 L458,88 L560,138 L560,178 L50,178 Z" fill="url(#areaFill)"/>
+            <!-- line -->
+            <path d="M50,55 L152,72 L254,60 L356,98 L458,88 L560,138" fill="none" stroke="#fbbf24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- points -->
+            <circle cx="50" cy="55" r="4" fill="#0f0d0b" stroke="#fbbf24" stroke-width="2.5"/>
+            <circle cx="152" cy="72" r="4" fill="#0f0d0b" stroke="#fbbf24" stroke-width="2.5"/>
+            <circle cx="254" cy="60" r="4" fill="#0f0d0b" stroke="#fbbf24" stroke-width="2.5"/>
+            <circle cx="356" cy="98" r="4" fill="#0f0d0b" stroke="#fbbf24" stroke-width="2.5"/>
+            <circle cx="458" cy="88" r="4" fill="#0f0d0b" stroke="#fbbf24" stroke-width="2.5"/>
+            <circle cx="560" cy="138" r="6" fill="#fbbf24" stroke="#1a0f00" stroke-width="2"/>
+            <text x="560" y="124" text-anchor="end" font-size="12" font-weight="600" fill="#fbbf24" font-family="'Inter Tight', sans-serif">€18,400</text>
+            <text x="50" y="44" text-anchor="start" font-size="11" fill="#8a8178" font-family="'Inter Tight', sans-serif">€19,000</text>
+          </svg>
+          <div class="chart-axis">
+            <span>Wk 1</span><span>Wk 2</span><span>Wk 3</span><span>Wk 4</span><span>Wk 5</span><span>Wk 6 · now</span>
+          </div>
+          <!-- accessible data table fallback (visually hidden, screen-reader only) -->
+          <table class="sr-data-table">
+            <caption>Weekly asking price for the saved Volkswagen Golf GTI listing</caption>
+            <thead><tr><th scope="col">Week</th><th scope="col">Asking price (EUR)</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Week 1</th><td>19,000</td></tr>
+              <tr><th scope="row">Week 2</th><td>18,820</td></tr>
+              <tr><th scope="row">Week 3</th><td>18,900</td></tr>
+              <tr><th scope="row">Week 4</th><td>18,560</td></tr>
+              <tr><th scope="row">Week 5</th><td>18,640</td></tr>
+              <tr><th scope="row">Week 6</th><td>18,400</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ CTA BANNER ============ -->
+    <section class="cta-banner">
+      <h2 class="font-display">Still hunting for the right one?</h2>
+      <p>Tell the assistant what you're after — budget, body style, must-haves — and we'll start tracking fresh matches the moment they appear across your chosen markets.</p>
+      <button class="btn-primary" style="padding:13px 28px; font-size:15px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M5 3v4M3 5h4M6 17v4M4 19h4M13 3l1.9 4.9L20 9l-5.1 1.9L13 16l-1.9-5.1L6 9l5.1-1.9L13 3z"/></svg>
+        Start a new search
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+    </section>
+
+  </main>
+
+  <footer>
+    Design shell for <span class="amber-text">FindMyCar — Garage</span> · generated as a UI exploration, no live data or backend wired up · automotive intelligence for Europe
+  </footer>
+
+</body>
+</html>

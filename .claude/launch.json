@@ -1,0 +1,53 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "garage-preview",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "-y",
+        "serve",
+        "public",
+        "-l",
+        "4319"
+      ],
+      "port": 4319
+    },
+    {
+      "name": "vision-preview",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "-y",
+        "serve",
+        "findmycar-vision",
+        "-l",
+        "4321"
+      ],
+      "port": 4321
+    },
+    {
+      "name": "garage-preview-alt",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "-y",
+        "serve",
+        "public",
+        "-l",
+        "4323"
+      ],
+      "port": 4323
+    },
+    {
+      "name": "next-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--",
+        "-p",
+        "3005"
+      ],
+      "port": 3005
+    }
+  ]
+}

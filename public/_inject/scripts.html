@@ -1,0 +1,211 @@
+<!-- ==================== GATE + SHOWROOM SCRIPTS ==================== -->
+<script>
+(function(){
+  const gate = document.getElementById('introGate');
+  if (!gate) return;
+  const gateVid = document.getElementById('gateVid');
+  const lines = document.getElementById('gateLines');
+  const vignette = document.getElementById('gateVignette');
+  const flash = document.getElementById('gateFlash');
+  const btn = document.getElementById('exploreBtn');
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  document.documentElement.classList.add('gate-lock');
+
+  // Pause the main hero video while the gate is up (it autoplays from page script)
+  const mainHero = document.getElementById('hero-vid');
+  setTimeout(() => { if (mainHero && gate && !gate.classList.contains('gone')) mainHero.pause(); }, 60);
+
+  // Gate video: random start, cycle on end
+  const srcs = Array.from({ length: 7 }, (_, i) => `./media/Hero/Hero-0${i + 1}.mp4`);
+  let cur = Math.floor(Math.random() * srcs.length);
+  function playGateVid(i){ gateVid.src = srcs[i]; gateVid.play().catch(()=>{}); }
+  gateVid.addEventListener('ended', () => { if (accelerating) return; cur = (cur + 1) % srcs.length; playGateVid(cur); });
+  gateVid.loop = false;
+  playGateVid(cur);
+
+  // Build speed-line streaks
+  for (let i = 0; i < 30; i++) {
+    const s = document.createElement('span');
+    s.style.top = (Math.random() * 100) + '%';
+    s.style.setProperty('--dur', (0.32 + Math.random() * 0.4).toFixed(2) + 's');
+    s.style.setProperty('--del', (Math.random() * 0.5).toFixed(2) + 's');
+    s.style.opacity = (0.35 + Math.random() * 0.65).toFixed(2);
+    s.style.height = (1 + Math.random() * 2.4).toFixed(1) + 'px';
+    lines.appendChild(s);
+  }
+
+  let accelerating = false;
+  function explore(){
+    if (accelerating) return;
+    accelerating = true;
+
+    const finish = () => {
+      gate.classList.add('leave');
+      document.documentElement.classList.remove('gate-lock');
+      window.scrollTo(0, 0);
+      document.body.classList.add('arrive');
+      if (mainHero) mainHero.play().catch(()=>{});
+      // Kick the hero reveal animations now that the page is visible
+      document.querySelectorAll('.hero [data-r]').forEach((el, i) => {
+        setTimeout(() => el.classList.add('vis'), 120 + i * 110);
+      });
+      setTimeout(() => { gate.classList.add('gone'); gateVid.pause(); gateVid.removeAttribute('src'); gateVid.load(); }, 550);
+      setTimeout(() => document.body.classList.remove('arrive'), 1000);
+    };
+
+    if (reduced) { finish(); return; }
+
+    // Phase 1 — throttle down: hide copy, ramp video speed, zoom in
+    gate.classList.add('accel');
+    try { gateVid.playbackRate = 2.5; } catch(e){}
+    setTimeout(() => { lines.classList.add('on'); vignette.classList.add('on'); }, 140);
+
+    // Phase 2 — flash at peak speed
+    setTimeout(() => {
+      flash.animate(
+        [{ opacity: 0 }, { opacity: 0.95, offset: 0.45 }, { opacity: 0 }],
+        { duration: 480, easing: 'ease-out' }
+      );
+    }, 820);
+
+    // Phase 3 — leave the gate, settle into the page
+    setTimeout(finish, 1020);
+  }
+
+  btn.addEventListener('click', explore);
+  // Scroll intent also launches
+  gate.addEventListener('wheel', (e) => { if (e.deltaY > 12) explore(); }, { passive: true });
+  let touchY = null;
+  gate.addEventListener('touchstart', (e) => { touchY = e.touches[0].clientY; }, { passive: true });
+  gate.addEventListener('touchmove', (e) => {
+    if (touchY !== null && touchY - e.touches[0].clientY > 36) { explore(); touchY = null; }
+  }, { passive: true });
+  window.addEventListener('keydown', (e) => {
+    if (!gate.classList.contains('gone') && (e.key === 'Enter' || e.key === ' ') && document.activeElement !== btn) explore();
+  });
+  btn.focus({ preventScroll: true });
+})();
+</script>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+const stage = document.getElementById('shroomStage');
+if (stage) {
+  let started = false;
+  const io = new IntersectionObserver((entries) => {
+    if (entries.some(e => e.isIntersecting) && !started) { started = true; io.disconnect(); init(); }
+  }, { rootMargin: '300px' });
+  io.observe(stage);
+
+  async function init() {
+    const THREE = await import('three');
+    const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
+    const { DRACOLoader } = await import('three/addons/loaders/DRACOLoader.js');
+    const { OrbitControls } = await import('three/addons/controls/OrbitControls.js');
+    const { RoomEnvironment } = await import('three/addons/environments/RoomEnvironment.js');
+
+    const loadEl = document.getElementById('shroomLoad');
+    const pctEl = document.getElementById('shroomPct');
+    const hintEl = document.getElementById('shroomHint');
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(stage.clientWidth, stage.clientHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.NoToneMapping; // keep original material colors untouched
+    stage.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+    const camera = new THREE.PerspectiveCamera(38, stage.clientWidth / stage.clientHeight, 0.1, 2000);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+    const key = new THREE.DirectionalLight(0xffffff, 1.6);
+    key.position.set(5, 8, 6);
+    scene.add(key);
+    const rim = new THREE.DirectionalLight(0xfff3d6, 0.7);
+    rim.position.set(-6, 4, -5);
+    scene.add(rim);
+
+    const draco = new DRACOLoader();
+    draco.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+    const loader = new GLTFLoader();
+    loader.setDRACOLoader(draco);
+
+    loader.load('./media/bmw_x7_m60i.glb',
+      (gltf) => {
+        const model = gltf.scene;
+        // Center and frame — materials untouched
+        const box = new THREE.Box3().setFromObject(model);
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
+        model.position.sub(center);
+        const pivot = new THREE.Group();
+        pivot.add(model);
+        scene.add(pivot);
+
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const dist = maxDim * 0.95;
+        camera.position.set(-dist * 0.85, maxDim * 0.28, -dist * 0.85);
+        camera.lookAt(0, 0, 0);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 0, 0);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.06;
+        controls.enablePan = false;
+        controls.enableZoom = false;
+        controls.minPolarAngle = Math.PI * 0.18;
+        controls.maxPolarAngle = Math.PI * 0.56;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 1.1;
+
+        let idleTimer = null;
+        renderer.domElement.addEventListener('pointerdown', () => {
+          controls.autoRotate = false;
+          hintEl.classList.add('hide');
+          clearTimeout(idleTimer);
+          idleTimer = setTimeout(() => { controls.autoRotate = true; }, 3500);
+        });
+
+        loadEl.classList.add('done');
+
+        let visible = true;
+        new IntersectionObserver((en) => { visible = en.some(e => e.isIntersecting); })
+          .observe(stage);
+
+        renderer.setAnimationLoop(() => {
+          if (!visible) return;
+          controls.update();
+          renderer.render(scene, camera);
+        });
+      },
+      (xhr) => {
+        if (xhr.lengthComputable && pctEl) pctEl.textContent = Math.round(xhr.loaded / xhr.total * 100) + '%';
+      },
+      (err) => {
+        console.error('Showroom model failed to load', err);
+        if (loadEl) loadEl.querySelector('.shroom-load-txt').innerHTML = 'Model unavailable';
+      }
+    );
+
+    new ResizeObserver(() => {
+      const w = stage.clientWidth, h = stage.clientHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    }).observe(stage);
+  }
+}
+</script>
+<!-- ==================== /SCRIPTS ==================== -->

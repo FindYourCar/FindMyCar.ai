@@ -1,0 +1,58 @@
+<!-- ==================== CTA ==================== -->
+<section class="cta-section" id="contact">
+  <div class="cta-glow" aria-hidden="true"></div>
+  <div class="cta-in">
+    <div class="eyebrow" style="justify-content:center;margin-bottom:14px"><span class="ey-dot"></span> Ready to find your car?</div>
+    <h2 class="cta-title fd" data-r>Your next car is<br><em class="it grad">already out there.</em></h2>
+    <p class="cta-sub" data-r>Start a conversation with the AI advisor. No account required. No spam. Just better car discovery.</p>
+    <div class="cta-form" data-r>
+      <input type="email" class="cta-inp" placeholder="you@example.com" aria-label="Email for early access">
+      <button class="btn-p" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        Get early access
+      </button>
+    </div>
+    <p class="cta-note">No spam. Unsubscribe any time.</p>
+  </div>
+</section>
+
+</main>
+
+<!-- FOOTER -->
+
+<!-- MARKET DETAIL OVERLAY -->
+<div class="mkt-overlay" id="mkt-overlay" onclick="if(event.target===this)closeMarket()">
+  <div class="mkt-overlay-panel" id="mkt-overlay-panel" role="dialog" aria-modal="true" aria-labelledby="mo-title">
+    <div class="mo-hero" id="mo-hero-img">
+      <div class="mo-hero-overlay"></div>
+      <div class="mo-hero-content">
+        <div class="mo-flag" id="mo-flag"></div>
+        <h2 class="mo-title fd" id="mo-title"></h2>
+        <p class="mo-subtitle" id="mo-subtitle"></p>
+      </div>
+      <button class="mo-close" onclick="closeMarket()" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="mo-body">
+      <div class="mo-stats-row" id="mo-stats"></div>
+      <div class="mo-insight-box">
+        <div class="mo-insight-label"><span class="mo-pulse"></span> AI Market Insight</div>
+        <p id="mo-insight"></p>
+      </div>
+      <div class="mo-section-title">Most Popular Right Now</div>
+      <div class="mo-cars-grid" id="mo-cars"></div>
+      <div class="mo-section-title">Price Landscape</div>
+      <div class="mo-price-table" id="mo-prices"></div>
+      <div class="mo-section-title">Buying Tips for This Market</div>
+      <div class="mo-tips" id="mo-tips"></div>
+      <div class="mo-cta">
+        <button class="mo-cta-btn btn-p" id="mo-cta-btn" type="button">
+          Search this market
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+

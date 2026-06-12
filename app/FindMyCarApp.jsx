@@ -9,6 +9,12 @@ import {
   Clock, History, Bookmark, Phone, MessageSquare, Plus, Trash2, FileText
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import CinematicIntro from "./components/CinematicIntro";
+import MarketsBento from "./components/MarketsBento";
+import HowItWorksSection from "./components/HowItWorksSection";
+import Showroom from "./components/Showroom";
+import TrustSection from "./components/TrustSection";
+import LuxCursor from "./components/LuxCursor";
 
 /* ============================================================
    VEHICLE TAXONOMY — generalised make / model / trim classification
@@ -2020,6 +2026,9 @@ export default function App() {
   const [authUser, setAuthUser] = useState(null);
   const [authModalMode, setAuthModalMode] = useState("signup");
   const [toast, setToast] = useState({ type: "", message: "", visible: false });
+  // Cinematic intro gate — shows once per page load, then reveals the app
+  const [introDone, setIntroDone] = useState(false);
+  const [arriving, setArriving] = useState(false);
   const t = useT(language);
 const normalizeExternalListing = (raw) => {
   return {
@@ -2513,8 +2522,49 @@ useEffect(() => {
 
   return (
     
-    <div className="min-h-screen text-[#f5f1ea] relative" style={{ background: "#0a0908", fontFamily: "'Inter Tight', ui-sans-serif, system-ui" }}>
+    <div className={`min-h-screen text-[#f5f1ea] relative ${arriving ? "fmc-arrive" : ""}`} style={{ background: "#0a0908", fontFamily: "'Inter Tight', ui-sans-serif, system-ui" }}>
+      <LuxCursor />
+      {!introDone && (
+        <CinematicIntro
+          onDone={({ instant } = {}) => {
+            setIntroDone(true);
+            if (!instant) {
+              setArriving(true);
+              window.setTimeout(() => setArriving(false), 900);
+            }
+          }}
+        />
+      )}
       <style>{`
+        .fmc-arrive{animation:fmcArrive .8s cubic-bezier(.16,1,.3,1) both;will-change:transform,opacity}
+        @keyframes fmcArrive{from{transform:scale(1.035);opacity:.72}to{transform:none;opacity:1}}
+        @media (prefers-reduced-motion: reduce){.fmc-arrive{animation:none}}
+
+        /* ── Premium hover language ─────────────────────────────────
+           Border brightens toward gold, soft bloom underneath, small
+           lift. Shared across nav, pills, cards and CTAs. */
+        .fmc-navbtn{position:relative;transition:color .25s ease,background .3s ease}
+        .fmc-navbtn::after{
+          content:'';position:absolute;left:16px;right:16px;bottom:5px;height:2px;border-radius:999px;
+          background:linear-gradient(90deg,transparent,rgba(251,191,36,.85),transparent);
+          transform:scaleX(0);transform-origin:center;transition:transform .32s cubic-bezier(.2,.8,.2,1);
+        }
+        .fmc-navbtn:hover,.fmc-navbtn:focus-visible{color:#f5f1ea;background:rgba(251,191,36,.07)}
+        .fmc-navbtn:hover::after,.fmc-navbtn:focus-visible::after{transform:scaleX(1)}
+
+        .step-card-hover:hover{border-color:rgba(251,191,36,.38)}
+
+        /* Cursor-proximity spotlight on large cards (set by LuxCursor) */
+        .fmc-spot-on{position:relative}
+        .fmc-spot-on::after{
+          content:'';position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;
+          background:radial-gradient(240px circle at var(--fmc-mx,50%) var(--fmc-my,50%),rgba(251,191,36,.07),transparent 65%);
+        }
+        @media (prefers-reduced-motion: reduce){
+          .fmc-navbtn::after{transition:none}
+          .pill:hover,.btn-primary:hover,.btn-ghost:hover{transform:none}
+          .fmc-spot-on::after{display:none}
+        }
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,800;0,9..144,900;1,9..144,400;1,9..144,500;1,9..144,600;1,9..144,700;1,9..144,800;1,9..144,900&family=Inter+Tight:wght@300;400;500;600;700&display=swap');
 
         :root {
@@ -2923,8 +2973,8 @@ useEffect(() => {
           transition: all .3s cubic-bezier(.2,.8,.2,1);
         }
         .btn-primary:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 12px 40px rgba(217,119,6,0.5), inset 0 1px 0 rgba(255,255,255,0.5);
+          transform: translateY(-2px);
+          box-shadow: 0 14px 44px rgba(217,119,6,0.5), 0 0 24px rgba(251,191,36,0.18), inset 0 1px 0 rgba(255,255,255,0.5);
         }
 
         .btn-ghost {
@@ -2935,7 +2985,10 @@ useEffect(() => {
         }
         .btn-ghost:hover {
           background: rgba(251,191,36,0.08);
-          border-color: var(--border-warm);
+          border-color: rgba(251,191,36,0.4);
+          color: #fbbf24;
+          transform: translateY(-1px);
+          box-shadow: 0 6px 20px rgba(0,0,0,0.35), 0 0 16px rgba(251,191,36,0.10);
         }
 
         /* Premium card */
@@ -2952,9 +3005,13 @@ useEffect(() => {
           background: linear-gradient(90deg, transparent, rgba(251,191,36,0.3), transparent);
         }
         .card:hover {
-          border-color: rgba(251,191,36,0.3);
+          border-color: rgba(251,191,36,0.38);
           transform: translateY(-3px);
-          box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 60px rgba(251,191,36,0.08);
+          box-shadow: 0 20px 60px rgba(0,0,0,0.55), 0 0 60px rgba(251,191,36,0.10), inset 0 1px 0 rgba(251,191,36,0.08);
+        }
+        .pill:hover {
+          box-shadow: 0 0 18px rgba(251,191,36,0.12), inset 0 0 12px rgba(251,191,36,0.05);
+          transform: translateY(-1px);
         }
 
         .card-static {
@@ -3143,9 +3200,10 @@ function Nav({ setView, shortlist, compareList, setShowShortlist, setShowCompare
   // home page as a section and gets scrolled to via smoothScrollTo.
   const goDiscover = () => smoothScrollTo ? smoothScrollTo("home-top",      "home") : setView("home");
   const goHow      = () => smoothScrollTo ? smoothScrollTo("home-how",      "home") : setView("about");
-  const goFaq      = () => smoothScrollTo ? smoothScrollTo("home-faq",      "home") : setView("faq");
+  const goMarkets  = () => smoothScrollTo ? smoothScrollTo("home-markets",  "home") : setView("home");
+  const goShowroom = () => smoothScrollTo ? smoothScrollTo("home-showroom", "home") : setView("home");
+  const goWhy      = () => smoothScrollTo ? smoothScrollTo("home-why",      "home") : setView("home");
   const goContact  = () => setView("contact");
-  const goCalc     = () => smoothNavigate ? smoothNavigate("calculator") : setView("calculator");
 
   return (
     <nav className="sticky top-0 z-40 backdrop-blur-xl" style={{ background: "rgba(10,9,8,0.7)", borderBottom: "1px solid var(--border)" }}>
@@ -3157,8 +3215,9 @@ function Nav({ setView, shortlist, compareList, setShowShortlist, setShowCompare
         <div className="hidden md:flex items-center gap-1">
           <NavBtn onClick={goDiscover}>{t.nav.discover}</NavBtn>
           <NavBtn onClick={goHow}>{t.nav.how}</NavBtn>
-          <NavBtn onClick={goCalc}>{t.nav.calculator}</NavBtn>
-          <NavBtn onClick={goFaq}>{t.nav.faq}</NavBtn>
+          <NavBtn onClick={goMarkets}>Markets</NavBtn>
+          <NavBtn onClick={goShowroom}>Showroom</NavBtn>
+          <NavBtn onClick={goWhy}>Why us</NavBtn>
           <NavBtn onClick={goContact}>{t.nav.contact}</NavBtn>
         </div>
 
@@ -3245,7 +3304,7 @@ function Nav({ setView, shortlist, compareList, setShowShortlist, setShowCompare
 
 function NavBtn({ children, onClick }) {
   return (
-    <button onClick={onClick} className="px-4 py-2 rounded-full text-sm font-medium text-muted hover:text-[#f5f1ea] transition" style={{ transition: "color .25s" }}>
+    <button onClick={onClick} className="fmc-navbtn px-4 py-2 rounded-full text-sm font-medium text-muted">
       {children}
     </button>
   );
@@ -3699,709 +3758,82 @@ try {
       </section>
 
       {/* ============================================================
-          EUROPE COMMAND LAYER — immersive scroll-driven market system
+          PAGE SPINE — floating progress rail
           ============================================================ */}
       {(() => {
-        // Track which section is active via intersection — includes hero ("home")
-        const [activeMarket, setActiveMarket] = React.useState("home");
-        const marketRefs = React.useRef({});
-        const heroRef = React.useRef(null);
+        const [activeSpot, setActiveSpot] = React.useState("home");
 
         React.useEffect(() => {
-          const observers = [];
-
-          // Observe the hero section
-          const heroEl = document.getElementById("home-top");
-          if (heroEl) {
+          const SPOTS = [
+            ["home-top", "home"],
+            ["home-markets", "markets"],
+            ["home-how", "journey"],
+            ["home-showroom", "showroom"],
+            ["home-why", "why"],
+            ["home-faq", "why"],
+          ];
+          const observers = SPOTS.map(([id, code]) => {
+            const el = document.getElementById(id);
+            if (!el) return null;
             const obs = new IntersectionObserver(
-              ([entry]) => { if (entry.isIntersecting) setActiveMarket("home"); },
-              { threshold: 0.3, rootMargin: "-10% 0px -10% 0px" }
-            );
-            obs.observe(heroEl);
-            observers.push(obs);
-          }
-
-          // Observe each market section
-          MARKET_ORDER.forEach(code => {
-            const el = marketRefs.current[code];
-            if (!el) return;
-            const obs = new IntersectionObserver(
-              ([entry]) => { if (entry.isIntersecting) setActiveMarket(code); },
-              { threshold: 0.35, rootMargin: "-10% 0px -10% 0px" }
+              ([entry]) => { if (entry.isIntersecting) setActiveSpot(code); },
+              { threshold: 0.25, rootMargin: "-10% 0px -10% 0px" }
             );
             obs.observe(el);
-            observers.push(obs);
-          });
-
-          // Observe the journey / how-it-works section
-          const journeyEl = document.getElementById("home-how");
-          if (journeyEl) {
-            const obs = new IntersectionObserver(
-              ([entry]) => { if (entry.isIntersecting) setActiveMarket("journey"); },
-              { threshold: 0.2, rootMargin: "-10% 0px -10% 0px" }
-            );
-            obs.observe(journeyEl);
-            observers.push(obs);
-          }
-          // Also observe FAQ as part of journey
-          const faqEl = document.getElementById("home-faq");
-          if (faqEl) {
-            const obs = new IntersectionObserver(
-              ([entry]) => { if (entry.isIntersecting) setActiveMarket("journey"); },
-              { threshold: 0.2, rootMargin: "-10% 0px -10% 0px" }
-            );
-            obs.observe(faqEl);
-            observers.push(obs);
-          }
-
+            return obs;
+          }).filter(Boolean);
           return () => observers.forEach(o => o.disconnect());
         }, []);
 
-        const scrollToSection = (code) => {
-          if (code === "home") {
-            const el = document.getElementById("home-top");
-            if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-            return;
-          }
-          if (code === "journey") {
-            const el = document.getElementById("home-how");
-            if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-            return;
-          }
-          const el = marketRefs.current[code];
-          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-        };
-
-        // All spine items: Home, 4 markets, then Journey
         const SPINE_ITEMS = [
-          { code: "home", label: "Home", flag: "✦", color: "#fbbf24", colorGlow: "rgba(251,191,36,0.5)" },
-          ...MARKET_ORDER.map(code => ({
-            code,
-            label: COUNTRIES[code].name,
-            flag: COUNTRIES[code].flag,
-            color: MARKET_CHAPTERS[code].color,
-            colorGlow: MARKET_CHAPTERS[code].colorGlow,
-          })),
-          { code: "journey", label: "Journey", flag: "◈", color: "#fbbf24", colorGlow: "rgba(251,191,36,0.4)" },
+          { code: "home", label: "Home", flag: "✦", target: "home-top" },
+          { code: "markets", label: "Markets", flag: "◳", target: "home-markets" },
+          { code: "journey", label: "Journey", flag: "◈", target: "home-how" },
+          { code: "showroom", label: "Showroom", flag: "◇", target: "home-showroom" },
+          { code: "why", label: "Why us", flag: "◆", target: "home-why" },
         ];
 
         return (
-          <>
-            {/* ── Floating spine / progress rail ─────────────────── */}
-            <div className="market-spine">
-              {SPINE_ITEMS.map((item, i) => {
-                const isActive = activeMarket === item.code;
-                return (
-                  <React.Fragment key={item.code}>
-                    {i > 0 && (
-                      <div className="spine-line"
-                        style={{ background: isActive ? item.color + "40" : undefined }}
-                      />
-                    )}
-                    <div
-                      className={`spine-dot ${isActive ? "active" : ""}`}
-                      style={{
-                        "--spine-color": item.color,
-                        "--spine-glow": item.colorGlow,
-                      }}
-                      onClick={() => scrollToSection(item.code)}
-                      title={item.label}
-                    >
-                      <span className="spine-label">{item.flag} {item.label}</span>
-                    </div>
-                  </React.Fragment>
-                );
-              })}
-            </div>
-
-            {/* ── Section header ───────────────────────────────── */}
-            <div className="text-center py-20 px-6">
-              <div className="text-[10px] uppercase tracking-[0.3em] amber-text mb-4 font-bold">Europe Command Layer</div>
-              <h2 className="font-display text-4xl md:text-5xl font-semibold tracking-tight mb-4">
-                Four operating <span className="italic font-light">environments.</span>
-              </h2>
-              <p className="text-muted max-w-lg mx-auto text-sm">Scroll to enter each market. The platform adapts its intelligence, pricing logic, and recommendations to where you are.</p>
-              <div className="flex justify-center mt-6">
-                <ArrowDown className="w-5 h-5 text-muted animate-bounce" />
-              </div>
-            </div>
-
-            {/* ── Netherlands ────────────────────────────────────── */}
-            <div
-              ref={el => { marketRefs.current.NL = el; }}
-              id="market-nl"
-              className="market-env scroll-mt-20"
-              style={{ background: "linear-gradient(180deg, rgba(255,107,43,0.04) 0%, rgba(10,9,8,1) 100%)" }}
-            >
-              {/* Ambient — city grid pattern */}
-              <div className="market-env-bg">
-                <svg className="w-full h-full" viewBox="0 0 800 600" preserveAspectRatio="none" style={{ opacity: 0.12 }}>
-                  {Array.from({length: 15}, (_, i) => (
-                    <React.Fragment key={i}>
-                      <line x1={50 + i * 50} y1="0" x2={50 + i * 50} y2="600" stroke="#FF6B2B" strokeWidth="0.5" opacity="0.3" />
-                      <line x1="0" y1={40 + i * 40} x2="800" y2={40 + i * 40} stroke="#FF6B2B" strokeWidth="0.5" opacity="0.2" />
-                    </React.Fragment>
-                  ))}
-                  {["Amsterdam","Rotterdam","Utrecht","Den Haag"].map((city, i) => {
-                    const positions = [[400,180],[350,320],[420,280],[320,250]];
-                    const [cx,cy] = positions[i];
-                    return (
-                      <g key={city}>
-                        <circle cx={cx} cy={cy} r="4" fill="#FF6B2B" className="city-grid-dot" style={{ animationDelay: `${i*0.7}s` }} />
-                        <circle cx={cx} cy={cy} r="12" fill="none" stroke="#FF6B2B" strokeWidth="0.5" className="city-grid-dot" style={{ animationDelay: `${i*0.7+0.3}s` }} />
-                      </g>
-                    );
-                  })}
-                </svg>
-                <div style={{ position:"absolute", bottom:0, left:0, right:0, height:"40%", background:"linear-gradient(to top, #0a0908, transparent)", pointerEvents:"none" }} />
-              </div>
-
-              <div className="market-env-content max-w-6xl mx-auto px-6 py-20">
-                <div className="flex items-center gap-4 mb-3">
-                  <span className="text-6xl">🇳🇱</span>
-                  <div>
-                    <div className="text-[10px] uppercase tracking-[0.3em] font-bold" style={{ color: "#FF6B2B" }}>Operating Environment</div>
-                    <h3 className="font-display text-4xl md:text-5xl font-semibold tracking-tight">Netherlands</h3>
-                  </div>
-                </div>
-                <p className="text-lg mb-2" style={{ color: "#FF6B2B" }}>Smart. Compact. EV-ready.</p>
-                <p className="text-muted text-sm max-w-2xl mb-10">{MARKET_CHAPTERS.NL.description}</p>
-
-                {/* ── Signature: Urban Mobility Selector ─────────── */}
-                <div className="grid md:grid-cols-3 gap-4 mb-10">
-                  {[
-                    { icon: Zap, label: "Electric", sub: "Zero road tax · 300km range", highlight: true, stat: "24% market share" },
-                    { icon: Fuel, label: "Hybrid", sub: "50% tax discount · City + highway", highlight: false, stat: "Best of both" },
-                    { icon: Car, label: "Hatchback", sub: "Easy parking · Low fuel cost", highlight: false, stat: "Most popular" },
-                  ].map((opt, i) => (
-                    <button key={i}
-                      className="sig-panel p-6 text-left group cursor-pointer"
-                      style={{ "--sig-color": "#FF6B2B30", "--sig-glow": "rgba(255,107,43,0.15)" }}
-                      onClick={() => { sendMessage(`Best ${opt.label.toLowerCase()} car for Dutch city life?`); document.getElementById("home-top")?.scrollIntoView({ behavior:"smooth" }); }}
-                    >
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
-                          style={{ background: opt.highlight ? "linear-gradient(135deg, #FF6B2B, #CC5522)" : "rgba(255,107,43,0.1)", border: opt.highlight ? "none" : "1px solid rgba(255,107,43,0.2)" }}>
-                          <opt.icon className="w-5 h-5" style={{ color: opt.highlight ? "#0a0908" : "#FF6B2B" }} />
-                        </div>
-                        <ArrowRight className="w-4 h-4 text-muted opacity-0 group-hover:opacity-100 transition" />
-                      </div>
-                      <div className="font-display text-xl font-semibold mb-1">{opt.label}</div>
-                      <div className="text-xs text-muted mb-3">{opt.sub}</div>
-                      <div className="text-[10px] uppercase tracking-wider font-bold" style={{ color: "#FF6B2B" }}>{opt.stat}</div>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Stats + chips */}
-                <div className="flex flex-wrap gap-3 mb-6">
-                  {Object.entries(MARKET_CHAPTERS.NL.stats).map(([k, v]) => (
-                    <div key={k} className="px-4 py-2 rounded-xl text-xs"
-                      style={{ background: "rgba(255,107,43,0.06)", border: "1px solid rgba(255,107,43,0.15)" }}>
-                      <span className="text-muted uppercase tracking-wider text-[9px]">{k.replace(/([A-Z])/g, " $1")}: </span>
-                      <span className="font-semibold" style={{ color: "#FF6B2B" }}>{v}</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {MARKET_CHAPTERS.NL.chips.map((chip, i) => (
-                    <button key={chip}
-                      className="chip-enter px-3 py-1.5 rounded-full text-[11px] font-medium transition-all hover:scale-105"
-                      style={{ animationDelay: `${i*0.08}s`, background: "rgba(255,107,43,0.08)", border: "1px solid rgba(255,107,43,0.2)", color: "#f5f1ea" }}
-                      onClick={() => { sendMessage(chip); document.getElementById("home-top")?.scrollIntoView({ behavior:"smooth" }); }}
-                    >
-                      <span className="mr-1">💬</span> {chip}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* ── Belgium ────────────────────────────────────────── */}
-            <div
-              ref={el => { marketRefs.current.BE = el; }}
-              id="market-be"
-              className="market-env scroll-mt-20"
-              style={{ background: "linear-gradient(180deg, rgba(255,215,0,0.03) 0%, rgba(10,9,8,1) 100%)" }}
-            >
-              <div className="market-env-bg">
-                {/* Cross-border flow lines */}
-                <svg className="w-full h-full" viewBox="0 0 800 600" preserveAspectRatio="none" style={{ opacity: 0.15 }}>
-                  {[
-                    { from:[100,300], to:[400,250], label:"FR→BE" },
-                    { from:[700,200], to:[400,250], label:"DE→BE" },
-                    { from:[500,100], to:[400,250], label:"NL→BE" },
-                  ].map((flow, i) => (
-                    <g key={i}>
-                      <line x1={flow.from[0]} y1={flow.from[1]} x2={flow.to[0]} y2={flow.to[1]}
-                        stroke="#FFD700" strokeWidth="1" strokeDasharray="8 4"
-                        style={{ animation: `flowLine 4s linear infinite`, animationDelay: `${i*1.2}s` }} />
-                      <circle cx={flow.to[0]} cy={flow.to[1]} r="6" fill="#FFD700" opacity="0.5" />
-                    </g>
-                  ))}
-                  <circle cx="400" cy="250" r="20" fill="none" stroke="#FFD700" strokeWidth="1" opacity="0.3" />
-                  <text x="400" y="255" textAnchor="middle" fill="#FFD700" fontSize="8" opacity="0.6">Brussels</text>
-                </svg>
-              </div>
-
-              <div className="market-env-content max-w-6xl mx-auto px-6 py-20">
-                <div className="flex items-center gap-4 mb-3">
-                  <span className="text-6xl">🇧🇪</span>
-                  <div>
-                    <div className="text-[10px] uppercase tracking-[0.3em] font-bold" style={{ color: "#FFD700" }}>Operating Environment</div>
-                    <h3 className="font-display text-4xl md:text-5xl font-semibold tracking-tight">Belgium</h3>
-                  </div>
-                </div>
-                <p className="text-lg mb-2" style={{ color: "#FFD700" }}>Cross-border. Value-smart.</p>
-                <p className="text-muted text-sm max-w-2xl mb-10">{MARKET_CHAPTERS.BE.description}</p>
-
-                {/* ── Signature: Cross-Border Comparison Engine ──── */}
-                <div className="sig-panel p-6 mb-10" style={{ "--sig-color": "rgba(255,215,0,0.3)", "--sig-glow": "rgba(255,215,0,0.1)" }}>
-                  <div className="flex items-center gap-2 mb-5">
-                    <TrendingUp className="w-4 h-4" style={{ color: "#FFD700" }} />
-                    <div className="text-[10px] uppercase tracking-[0.2em] font-bold" style={{ color: "#FFD700" }}>Cross-Border Value Spread</div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    {[
-                      { region: "Brussels", avg: "€22,400", trend: "+2.1%", bar: "70%" },
-                      { region: "Antwerp", avg: "€20,800", trend: "-0.8%", bar: "62%", best: true },
-                      { region: "Ghent", avg: "€21,500", trend: "+0.4%", bar: "65%" },
-                    ].map((r, i) => (
-                      <div key={i} className="text-center">
-                        <div className="text-xs text-muted mb-1">{r.region}</div>
-                        <div className="font-display text-lg font-semibold" style={{ color: r.best ? "#FFD700" : "#f5f1ea" }}>{r.avg}</div>
-                        <div className="text-[10px] mb-2" style={{ color: r.trend.startsWith("-") ? "#34d399" : "#f87171" }}>{r.trend} YoY</div>
-                        <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,215,0,0.1)" }}>
-                          <div className="h-full rounded-full transition-all duration-1000"
-                            style={{ width: r.bar, background: r.best ? "#FFD700" : "rgba(255,215,0,0.4)" }} />
-                        </div>
-                        {r.best && <div className="text-[9px] mt-1 font-bold" style={{ color: "#FFD700" }}>BEST VALUE</div>}
-                      </div>
-                    ))}
-                  </div>
-                  <button
-                    className="mt-5 w-full py-2.5 rounded-xl text-xs font-semibold transition hover:scale-[1.01]"
-                    style={{ background: "rgba(255,215,0,0.08)", border: "1px solid rgba(255,215,0,0.2)", color: "#FFD700" }}
-                    onClick={() => { sendMessage("Show me the smartest Belgium value buy"); document.getElementById("home-top")?.scrollIntoView({ behavior:"smooth" }); }}
+          <div className="market-spine">
+            {SPINE_ITEMS.map((item, i) => {
+              const isActive = activeSpot === item.code;
+              return (
+                <React.Fragment key={item.code}>
+                  {i > 0 && (
+                    <div className="spine-line" style={{ background: isActive ? "rgba(251,191,36,0.25)" : undefined }} />
+                  )}
+                  <div
+                    className={`spine-dot ${isActive ? "active" : ""}`}
+                    style={{ "--spine-color": "#fbbf24", "--spine-glow": "rgba(251,191,36,0.5)" }}
+                    onClick={() => document.getElementById(item.target)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                    title={item.label}
                   >
-                    Ask advisor: "Show me the smartest Belgium value buy" →
-                  </button>
-                </div>
-
-                <div className="flex flex-wrap gap-3 mb-6">
-                  {Object.entries(MARKET_CHAPTERS.BE.stats).map(([k, v]) => (
-                    <div key={k} className="px-4 py-2 rounded-xl text-xs"
-                      style={{ background: "rgba(255,215,0,0.05)", border: "1px solid rgba(255,215,0,0.12)" }}>
-                      <span className="text-muted uppercase tracking-wider text-[9px]">{k.replace(/([A-Z])/g, " $1")}: </span>
-                      <span className="font-semibold" style={{ color: "#FFD700" }}>{v}</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {MARKET_CHAPTERS.BE.chips.map((chip, i) => (
-                    <button key={chip}
-                      className="chip-enter px-3 py-1.5 rounded-full text-[11px] font-medium transition-all hover:scale-105"
-                      style={{ animationDelay: `${i*0.08}s`, background: "rgba(255,215,0,0.06)", border: "1px solid rgba(255,215,0,0.15)", color: "#f5f1ea" }}
-                      onClick={() => { sendMessage(chip); document.getElementById("home-top")?.scrollIntoView({ behavior:"smooth" }); }}
-                    >
-                      <span className="mr-1">💬</span> {chip}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* ── Germany ────────────────────────────────────────── */}
-            <div
-              ref={el => { marketRefs.current.DE = el; }}
-              id="market-de"
-              className="market-env scroll-mt-20"
-              style={{ background: "linear-gradient(180deg, rgba(148,163,184,0.04) 0%, rgba(10,9,8,1) 100%)" }}
-            >
-              <div className="market-env-bg">
-                {/* Autobahn speed lines */}
-                <div style={{ position:"absolute", inset:0, overflow:"hidden" }}>
-                  {Array.from({length:6}, (_, i) => (
-                    <div key={i}
-                      className="speed-line"
-                      style={{
-                        position: "absolute",
-                        top: `${15 + i * 13}%`,
-                        left: 0,
-                        width: "200px",
-                        height: "1px",
-                        background: "linear-gradient(90deg, transparent, rgba(148,163,184,0.3), transparent)",
-                        animationDelay: `${i * 0.5}s`,
-                        animationDuration: `${2.5 + i * 0.3}s`,
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="market-env-content max-w-6xl mx-auto px-6 py-20">
-                <div className="flex items-center gap-4 mb-3">
-                  <span className="text-6xl">🇩🇪</span>
-                  <div>
-                    <div className="text-[10px] uppercase tracking-[0.3em] font-bold" style={{ color: "#94A3B8" }}>Operating Environment</div>
-                    <h3 className="font-display text-4xl md:text-5xl font-semibold tracking-tight">Germany</h3>
+                    <span className="spine-label">{item.flag} {item.label}</span>
                   </div>
-                </div>
-                <p className="text-lg mb-2" style={{ color: "#94A3B8" }}>Deep inventory. Premium choice.</p>
-                <p className="text-muted text-sm max-w-2xl mb-10">{MARKET_CHAPTERS.DE.description}</p>
-
-                {/* ── Signature: Autobahn Suitability Matrix ─────── */}
-                <div className="grid md:grid-cols-4 gap-3 mb-10">
-                  {[
-                    { segment: "Executive", icon: Star, speed: "250 km/h", comfort: "★★★★★", examples: "BMW 5, Audi A6, Mercedes E", bg: "linear-gradient(135deg, rgba(148,163,184,0.15), rgba(10,9,8,0.8))" },
-                    { segment: "Estate", icon: Users, speed: "220 km/h", comfort: "★★★★☆", examples: "Passat Variant, Octavia Combi", bg: "linear-gradient(135deg, rgba(148,163,184,0.10), rgba(10,9,8,0.8))" },
-                    { segment: "Sport", icon: Zap, speed: "280+ km/h", comfort: "★★★☆☆", examples: "BMW M3, Audi RS3, AMG C63", bg: "linear-gradient(135deg, rgba(148,163,184,0.12), rgba(10,9,8,0.8))" },
-                    { segment: "Electric", icon: Fuel, speed: "200 km/h", comfort: "★★★★☆", examples: "Tesla Model 3, BMW i4, ID.4", bg: "linear-gradient(135deg, rgba(148,163,184,0.08), rgba(10,9,8,0.8))" },
-                  ].map((seg, i) => (
-                    <button key={i}
-                      className="sig-panel p-5 text-left group cursor-pointer"
-                      style={{ "--sig-color": "rgba(148,163,184,0.3)", "--sig-glow": "rgba(148,163,184,0.1)", background: seg.bg }}
-                      onClick={() => { sendMessage(`Best German ${seg.segment.toLowerCase()} car for motorway driving?`); document.getElementById("home-top")?.scrollIntoView({ behavior:"smooth" }); }}
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <seg.icon className="w-5 h-5" style={{ color: "#94A3B8" }} />
-                        <div className="text-[9px] font-bold tracking-wider" style={{ color: "#94A3B8" }}>AUTOBAHN</div>
-                      </div>
-                      <div className="font-display text-base font-semibold mb-1">{seg.segment}</div>
-                      <div className="text-[10px] text-muted mb-2">{seg.comfort} · {seg.speed}</div>
-                      <div className="text-[10px] text-muted leading-snug">{seg.examples}</div>
-                    </button>
-                  ))}
-                </div>
-
-                <div className="flex flex-wrap gap-3 mb-6">
-                  {Object.entries(MARKET_CHAPTERS.DE.stats).map(([k, v]) => (
-                    <div key={k} className="px-4 py-2 rounded-xl text-xs"
-                      style={{ background: "rgba(148,163,184,0.06)", border: "1px solid rgba(148,163,184,0.12)" }}>
-                      <span className="text-muted uppercase tracking-wider text-[9px]">{k.replace(/([A-Z])/g, " $1")}: </span>
-                      <span className="font-semibold" style={{ color: "#94A3B8" }}>{v}</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {MARKET_CHAPTERS.DE.chips.map((chip, i) => (
-                    <button key={chip}
-                      className="chip-enter px-3 py-1.5 rounded-full text-[11px] font-medium transition-all hover:scale-105"
-                      style={{ animationDelay: `${i*0.08}s`, background: "rgba(148,163,184,0.06)", border: "1px solid rgba(148,163,184,0.15)", color: "#f5f1ea" }}
-                      onClick={() => { sendMessage(chip); document.getElementById("home-top")?.scrollIntoView({ behavior:"smooth" }); }}
-                    >
-                      <span className="mr-1">💬</span> {chip}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* ── Poland ─────────────────────────────────────────── */}
-            <div
-              ref={el => { marketRefs.current.PL = el; }}
-              id="market-pl"
-              className="market-env scroll-mt-20"
-              style={{ background: "linear-gradient(180deg, rgba(239,68,68,0.03) 0%, rgba(10,9,8,1) 100%)" }}
-            >
-              <div className="market-env-bg">
-                {/* Value pulse radiating from center */}
-                <div style={{ position:"absolute", top:"50%", left:"50%", transform:"translate(-50%,-50%)" }}>
-                  {[120, 200, 300].map((r, i) => (
-                    <div key={i}
-                      style={{
-                        position:"absolute", top:"50%", left:"50%",
-                        width: r*2, height: r*2,
-                        marginTop: -r, marginLeft: -r,
-                        borderRadius:"50%",
-                        border:"1px solid rgba(239,68,68,0.08)",
-                        animation: `valuePulse 4s ease-in-out infinite`,
-                        animationDelay: `${i*1.3}s`,
-                        "--pulse-color": "rgba(239,68,68,0.15)",
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="market-env-content max-w-6xl mx-auto px-6 py-20">
-                <div className="flex items-center gap-4 mb-3">
-                  <span className="text-6xl">🇵🇱</span>
-                  <div>
-                    <div className="text-[10px] uppercase tracking-[0.3em] font-bold" style={{ color: "#EF4444" }}>Operating Environment</div>
-                    <h3 className="font-display text-4xl md:text-5xl font-semibold tracking-tight">Poland</h3>
-                  </div>
-                </div>
-                <p className="text-lg mb-2" style={{ color: "#EF4444" }}>Value-first. Import-aware.</p>
-                <p className="text-muted text-sm max-w-2xl mb-10">{MARKET_CHAPTERS.PL.description}</p>
-
-                {/* ── Signature: Value Engine — PLN Shift + Best Buy ── */}
-                <div className="grid md:grid-cols-2 gap-4 mb-10">
-                  {/* PLN pricing shift */}
-                  <div className="sig-panel p-6" style={{ "--sig-color": "rgba(239,68,68,0.3)", "--sig-glow": "rgba(239,68,68,0.1)" }}>
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="text-[10px] uppercase tracking-[0.2em] font-bold" style={{ color: "#EF4444" }}>💱 Currency Advantage</div>
-                    </div>
-                    <div className="flex items-end gap-4 mb-4">
-                      <div>
-                        <div className="text-[10px] text-muted">Western Europe</div>
-                        <div className="font-display text-2xl font-semibold line-through opacity-50">€18,500</div>
-                      </div>
-                      <ArrowRight className="w-5 h-5 text-muted mb-2" />
-                      <div>
-                        <div className="text-[10px]" style={{ color: "#EF4444" }}>In Poland</div>
-                        <div className="font-display text-2xl font-bold" style={{ color: "#EF4444" }}>52,000 zł</div>
-                      </div>
-                    </div>
-                    <div className="text-xs text-muted">Same car, 30-40% lower total ownership cost. No annual road tax. Lower maintenance.</div>
-                  </div>
-
-                  {/* Import awareness */}
-                  <div className="sig-panel p-6" style={{ "--sig-color": "rgba(239,68,68,0.3)", "--sig-glow": "rgba(239,68,68,0.1)" }}>
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="text-[10px] uppercase tracking-[0.2em] font-bold" style={{ color: "#EF4444" }}>🏷 Best Buy Badges</div>
-                    </div>
-                    <div className="space-y-2">
-                      {[
-                        { car: "Škoda Fabia", price: "48,000 zł", badge: "BEST VALUE" },
-                        { car: "Toyota Yaris Hybrid", price: "62,000 zł", badge: "MOST RELIABLE" },
-                        { car: "Dacia Duster", price: "72,000 zł", badge: "BEST SUV DEAL" },
-                      ].map((item, i) => (
-                        <div key={i} className="flex items-center justify-between p-2.5 rounded-lg"
-                          style={{ background: "rgba(239,68,68,0.04)", border: "1px solid rgba(239,68,68,0.1)" }}>
-                          <div>
-                            <div className="font-semibold text-sm">{item.car}</div>
-                            <div className="text-[10px] text-muted">from {item.price}</div>
-                          </div>
-                          <div className="px-2 py-0.5 rounded-full text-[8px] font-bold tracking-wider value-pulse"
-                            style={{ background: "rgba(239,68,68,0.15)", color: "#EF4444", border: "1px solid rgba(239,68,68,0.3)", "--pulse-color": "rgba(239,68,68,0.2)" }}>
-                            {item.badge}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-3 mb-6">
-                  {Object.entries(MARKET_CHAPTERS.PL.stats).map(([k, v]) => (
-                    <div key={k} className="px-4 py-2 rounded-xl text-xs"
-                      style={{ background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.12)" }}>
-                      <span className="text-muted uppercase tracking-wider text-[9px]">{k.replace(/([A-Z])/g, " $1")}: </span>
-                      <span className="font-semibold" style={{ color: "#EF4444" }}>{v}</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {MARKET_CHAPTERS.PL.chips.map((chip, i) => (
-                    <button key={chip}
-                      className="chip-enter px-3 py-1.5 rounded-full text-[11px] font-medium transition-all hover:scale-105"
-                      style={{ animationDelay: `${i*0.08}s`, background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)", color: "#f5f1ea" }}
-                      onClick={() => { sendMessage(chip); document.getElementById("home-top")?.scrollIntoView({ behavior:"smooth" }); }}
-                    >
-                      <span className="mr-1">💬</span> {chip}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </>
+                </React.Fragment>
+              );
+            })}
+          </div>
         );
       })()}
 
-      {/* HOW IT WORKS — premium journey section */}
-      <section id="home-how" className="relative py-24 scroll-mt-24" style={{ borderTop: "1px solid var(--border)" }}>
-        {/* Ambient glow behind section */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
-          <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 800, height: 400, background: "radial-gradient(ellipse, rgba(251,191,36,0.06), transparent 70%)", filter: "blur(80px)" }} />
-        </div>
+      {/* MARKETS — concept bento grid; cards open the detail overlay,
+          CTAs feed the real advisor chat */}
+      <MarketsBento
+        onSearchMarket={(prompt) => {
+          sendMessage(prompt);
+          document.getElementById("home-top")?.scrollIntoView({ behavior: "smooth" });
+        }}
+      />
 
-        <div className="relative max-w-6xl mx-auto px-6">
-          <div className="text-center max-w-2xl mx-auto mb-16">
-            <div className="text-[10px] uppercase tracking-[0.3em] amber-text mb-4 font-bold">{t.steps.eyebrow}</div>
-            <h2 className="font-display text-4xl md:text-5xl font-semibold tracking-tight mb-4">
-              {t.steps.title1} <span className="italic font-light">{t.steps.title2}</span> {t.steps.title3}
-            </h2>
-            <p className="text-muted text-sm max-w-lg mx-auto">No listing dumps. No filter mazes. Just a conversation that leads to the right car.</p>
-          </div>
+      {/* HOW IT WORKS — concept process section (anchor id "home-how" preserved) */}
+      <HowItWorksSection />
 
-          {/* Connecting line between cards */}
-          <div className="hidden md:block absolute left-1/2 top-[200px] -translate-x-1/2 w-px" style={{ height: "calc(100% - 280px)", background: "linear-gradient(180deg, transparent, rgba(251,191,36,0.15) 20%, rgba(251,191,36,0.15) 80%, transparent)" }} />
+      {/* 3D SHOWROOM — interactive BMW X7 */}
+      <Showroom />
 
-          <div className="grid md:grid-cols-3 gap-8">
-
-            {/* ── STEP 1 — Chat ──────────────────────────────── */}
-            <div className="step-card-hover rounded-3xl overflow-hidden" style={{ background: "linear-gradient(180deg, rgba(28,25,22,1) 0%, rgba(20,18,16,1) 100%)", border: "1px solid rgba(251,191,36,0.12)" }}>
-              {/* Visual — chat simulation */}
-              <div className="relative h-48 overflow-hidden" style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.04), rgba(10,9,8,0.95))" }}>
-                <div className="absolute inset-0 flex flex-col justify-center gap-3 p-5">
-                  {/* Advisor message */}
-                  <div className="mini-chat-bubble-a flex items-start gap-2 max-w-[85%]">
-                    <div className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center" style={{ background: "linear-gradient(135deg, #fbbf24, #92400e)" }}>
-                      <Sparkles className="w-3.5 h-3.5 text-stone-950" />
-                    </div>
-                    <div className="px-3 py-2 rounded-2xl text-[11px] font-medium leading-snug"
-                      style={{ background: "rgba(28,25,22,0.95)", border: "1px solid rgba(251,191,36,0.2)", color: "#f5f1ea", borderTopLeftRadius: 4 }}>
-                      What will you mainly use the car for? City, highway, family trips?
-                    </div>
-                  </div>
-                  {/* User reply */}
-                  <div className="mini-chat-bubble-b flex justify-end max-w-[75%] ml-auto">
-                    <div className="px-3 py-2 rounded-2xl text-[11px] font-semibold leading-snug"
-                      style={{ background: "linear-gradient(135deg, #fbbf24, #d97706)", color: "#1a0f00", borderTopRightRadius: 4 }}>
-                      Mostly city + weekend trips with my family 👨‍👩‍👧
-                    </div>
-                  </div>
-                  {/* Advisor follow-up */}
-                  <div className="mini-chat-bubble-a flex items-start gap-2 max-w-[80%]" style={{ animationDelay: "2s" }}>
-                    <div className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center" style={{ background: "linear-gradient(135deg, #fbbf24, #92400e)" }}>
-                      <Sparkles className="w-3.5 h-3.5 text-stone-950" />
-                    </div>
-                    <div className="px-3 py-2 rounded-2xl text-[11px] font-medium leading-snug"
-                      style={{ background: "rgba(28,25,22,0.95)", border: "1px solid rgba(251,191,36,0.2)", color: "#f5f1ea", borderTopLeftRadius: 4 }}>
-                      Got it — boot space and safety will matter then.
-                    </div>
-                  </div>
-                </div>
-                {/* Gradient fade at bottom */}
-                <div className="absolute bottom-0 left-0 right-0 h-8" style={{ background: "linear-gradient(to top, rgba(28,25,22,1), transparent)" }} />
-              </div>
-
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, #fbbf24, #d97706)", boxShadow: "0 0 30px rgba(251,191,36,0.3)" }}>
-                    <MessageCircle className="w-5 h-5 text-stone-950" />
-                  </div>
-                  <div className="font-display text-5xl font-light italic" style={{ color: "rgba(251,191,36,0.15)" }}>01</div>
-                </div>
-                <div className="font-display text-xl font-semibold mb-2">{t.steps.s1t}</div>
-                <div className="text-sm text-muted leading-relaxed mb-4">{t.steps.s1d}</div>
-                <div className="flex items-center gap-2 text-[10px] font-medium" style={{ color: "rgba(251,191,36,0.6)" }}>
-                  <Globe className="w-3 h-3" /> EN · NL · DE · PL
-                </div>
-              </div>
-            </div>
-
-            {/* ── STEP 2 — Recommendations ───────────────────── */}
-            <div className="step-card-hover rounded-3xl overflow-hidden" style={{ background: "linear-gradient(180deg, rgba(28,25,22,1) 0%, rgba(20,18,16,1) 100%)", border: "1px solid rgba(251,191,36,0.12)" }}>
-              {/* Visual — car recommendation cards stack */}
-              <div className="relative h-48 overflow-hidden p-4" style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.03), rgba(10,9,8,0.95))" }}>
-                {/* Three stacked mini car cards */}
-                {[
-                  { name: "VW Golf", match: "94%", price: "€18.5k", top: 12, rotate: -1, z: 3, img: "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?q=80&w=400&auto=format&fit=crop" },
-                  { name: "Toyota Yaris", match: "91%", price: "€16.9k", top: 52, rotate: 0.5, z: 2, img: "https://images.unsplash.com/photo-1619767886558-efdc259cde1a?q=80&w=400&auto=format&fit=crop" },
-                  { name: "Škoda Octavia", match: "87%", price: "€22k", top: 92, rotate: 1, z: 1, img: "https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?q=80&w=400&auto=format&fit=crop" },
-                ].map((car, i) => (
-                  <div key={i} className="absolute left-4 right-4 flex items-center gap-3 p-2.5 rounded-xl"
-                    style={{
-                      top: car.top,
-                      zIndex: car.z,
-                      transform: `rotate(${car.rotate}deg)`,
-                      background: "rgba(20,18,16,0.92)",
-                      border: "1px solid rgba(251,191,36,0.15)",
-                      backdropFilter: "blur(8px)",
-                      boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
-                    }}>
-                    <div className="w-12 h-9 rounded-lg overflow-hidden shrink-0" style={{ border: "1px solid rgba(251,191,36,0.1)" }}>
-                      <img src={car.img} alt="" className="w-full h-full object-cover" style={{ filter: "saturate(0.8) brightness(0.9)" }} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <div className="font-semibold text-[11px] truncate">{car.name}</div>
-                        <div className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(251,191,36,0.15)", color: "#fbbf24" }}>
-                          {car.match}
-                        </div>
-                      </div>
-                      <div className="text-[10px] text-muted">{car.price}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, #fbbf24, #d97706)", boxShadow: "0 0 30px rgba(251,191,36,0.3)" }}>
-                    <Sparkles className="w-5 h-5 text-stone-950" />
-                  </div>
-                  <div className="font-display text-5xl font-light italic" style={{ color: "rgba(251,191,36,0.15)" }}>02</div>
-                </div>
-                <div className="font-display text-xl font-semibold mb-2">{t.steps.s2t}</div>
-                <div className="text-sm text-muted leading-relaxed mb-4">{t.steps.s2d}</div>
-                <div className="flex items-center gap-2 text-[10px] font-medium" style={{ color: "rgba(251,191,36,0.6)" }}>
-                  <Star className="w-3 h-3" /> Matched to your needs
-                </div>
-              </div>
-            </div>
-
-            {/* ── STEP 3 — Offers ────────────────────────────── */}
-            <div className="step-card-hover rounded-3xl overflow-hidden" style={{ background: "linear-gradient(180deg, rgba(28,25,22,1) 0%, rgba(20,18,16,1) 100%)", border: "1px solid rgba(251,191,36,0.12)" }}>
-              {/* Visual — offers dashboard mockup */}
-              <div className="relative h-48 overflow-hidden p-4" style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.03), rgba(10,9,8,0.95))" }}>
-                {/* Dashboard header */}
-                <div className="flex items-center justify-between mb-3">
-                  <div className="text-[9px] uppercase tracking-wider font-bold amber-text">Live Offers Near You</div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" style={{ boxShadow: "0 0 6px rgba(52,211,153,0.8)" }} />
-                    <span className="text-[8px] text-muted">12 found</span>
-                  </div>
-                </div>
-                {/* Offer rows */}
-                {[
-                  { dealer: "AutoScout NL", price: "€17,950", km: "42k km", badge: "Best Price" },
-                  { dealer: "Autohaus Berlin", price: "€18,200", km: "38k km", badge: null },
-                  { dealer: "Private · Rotterdam", price: "€16,800", km: "51k km", badge: "Closest" },
-                ].map((offer, i) => (
-                  <div key={i} className="flex items-center gap-2 mb-2 p-2 rounded-lg"
-                    style={{ background: "rgba(245,241,234,0.02)", border: "1px solid rgba(245,241,234,0.05)" }}>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[10px] font-semibold truncate">{offer.dealer}</div>
-                      <div className="text-[9px] text-muted">{offer.km}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-[11px] font-bold amber-text">{offer.price}</div>
-                      {offer.badge && (
-                        <div className="text-[7px] font-bold uppercase tracking-wider mt-0.5 px-1.5 py-0.5 rounded-full"
-                          style={{ background: "rgba(52,211,153,0.1)", color: "#34d399", border: "1px solid rgba(52,211,153,0.2)" }}>
-                          {offer.badge}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {/* Chart bars at bottom */}
-                <div className="flex items-end justify-between h-6 gap-1 mt-1">
-                  {[35, 55, 78, 62, 40, 48, 70].map((h, i) => (
-                    <div key={i} className="flex-1 rounded-sm mini-bar"
-                      style={{
-                        "--bar-h": h + "%",
-                        height: h + "%",
-                        animationDelay: `${i * 0.08}s`,
-                        background: h === 78
-                          ? "linear-gradient(180deg, #fbbf24, #d97706)"
-                          : "linear-gradient(180deg, rgba(251,191,36,0.3), rgba(251,191,36,0.1))",
-                      }} />
-                  ))}
-                </div>
-              </div>
-
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, #fbbf24, #d97706)", boxShadow: "0 0 30px rgba(251,191,36,0.3)" }}>
-                    <TrendingUp className="w-5 h-5 text-stone-950" />
-                  </div>
-                  <div className="font-display text-5xl font-light italic" style={{ color: "rgba(251,191,36,0.15)" }}>03</div>
-                </div>
-                <div className="font-display text-xl font-semibold mb-2">{t.steps.s3t}</div>
-                <div className="text-sm text-muted leading-relaxed mb-4">{t.steps.s3d}</div>
-                <div className="flex items-center gap-2 text-[10px] font-medium" style={{ color: "rgba(251,191,36,0.6)" }}>
-                  <MapPin className="w-3 h-3" /> Dealers & private sellers
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </section>
+      {/* WHY FINDMYCAR — trust stats + testimonial */}
+      <TrustSection />
 
       {/* FAQ on home */}
       <section id="home-faq" className="relative py-16 scroll-mt-24" style={{ borderTop: "1px solid var(--border)" }}>
@@ -6384,7 +5816,7 @@ function Footer({ setView, smoothScrollTo, smoothNavigate, t }) {
       </div>
 
       <div className="relative max-w-7xl mx-auto px-6 py-20">
-        <div className="grid lg:grid-cols-4 gap-12 mb-16">
+        <div className="grid lg:grid-cols-3 gap-12 mb-14">
           {/* Column 1: Brand */}
           <div>
             <div className="mb-4">
@@ -6422,24 +5854,7 @@ function Footer({ setView, smoothScrollTo, smoothNavigate, t }) {
             </ul>
           </div>
 
-          {/* Column 3: Contact */}
-          <div>
-            <h3 className="text-sm font-bold mb-5 flex items-center gap-2" style={{ color: "#f5f1ea" }}>
-              Contact
-              <div className="w-2 h-2 rounded-full" style={{ background: "#fbbf24" }} />
-            </h3>
-            <div className="space-y-4 text-sm text-muted">
-              <div>
-                <div className="font-medium">Gerard Doustraat 64-1</div>
-                <div className="text-xs">Amsterdam, Netherlands</div>
-              </div>
-              <a href="mailto:06fryderyk@gmail.com" className="block hover:text-amber-400 transition">
-                06fryderyk@gmail.com
-              </a>
-            </div>
-          </div>
-
-          {/* Column 4: Legal */}
+          {/* Column 3: Legal */}
           <div>
             <h3 className="text-sm font-bold mb-5" style={{ color: "#f5f1ea" }}>Legal</h3>
             <ul className="space-y-3">
@@ -6459,6 +5874,42 @@ function Footer({ setView, smoothScrollTo, smoothNavigate, t }) {
                 </button>
               </li>
             </ul>
+          </div>
+        </div>
+
+        {/* Contact — founder business cards */}
+        <div className="mb-14">
+          <h3 className="text-sm font-bold mb-5 flex items-center gap-2" style={{ color: "#f5f1ea" }}>
+            Contact
+            <div className="w-2 h-2 rounded-full" style={{ background: "#fbbf24" }} />
+          </h3>
+          <div className="grid gap-5 md:grid-cols-2 max-w-4xl">
+            {[
+              { icon: Sparkles, name: "Fryderyk Strycharz", role: "CEO & Founder", email: "06fryderyk@gmail.com", phone: "+48 798 353 930", phoneHref: "+48798353930", addr: "Gerard Doustraat 64-1, Amsterdam" },
+              { icon: Star, name: "Mykhailo Shchur", role: "Founder", email: "m.shchur2006@gmail.com", phone: "+380 50 315 3863", phoneHref: "+380503153863", addr: "Gravenstraat 3D, Amsterdam" },
+            ].map((p) => (
+              <div key={p.name} className="rounded-3xl p-6"
+                style={{ background: "linear-gradient(180deg, #161310 0%, #0f0d0b 100%)", border: "1px solid var(--border)", boxShadow: "inset 0 1px 0 rgba(251,191,36,0.07)" }}>
+                <div className="flex items-center gap-4 mb-5">
+                  <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0"
+                    style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.28), rgba(146,64,14,0.18))", border: "1px solid rgba(251,191,36,0.3)" }}>
+                    <p.icon className="w-4.5 h-4.5 amber-text" style={{ width: 18, height: 18 }} />
+                  </div>
+                  <div>
+                    <div className="font-display text-lg font-semibold" style={{ color: "#f9fafb" }}>{p.name}</div>
+                    <div className="text-[10px] uppercase tracking-[0.25em] text-muted mt-0.5">{p.role}</div>
+                  </div>
+                </div>
+                <div className="space-y-2.5 text-sm text-muted">
+                  <a href={`mailto:${p.email}`} className="block hover:text-amber-400 transition">{p.email}</a>
+                  <a href={`tel:${p.phoneHref}`} className="block hover:text-amber-400 transition">{p.phone}</a>
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-3.5 h-3.5 amber-text shrink-0" />
+                    <span>{p.addr}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 

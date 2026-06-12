@@ -1,0 +1,284 @@
+<!-- MARKET DETAIL OVERLAY -->
+<div class="mkt-overlay" id="mkt-overlay" onclick="if(event.target===this)closeMarket()">
+  <div class="mkt-overlay-panel" id="mkt-overlay-panel" role="dialog" aria-modal="true" aria-labelledby="mo-title">
+    <div class="mo-hero" id="mo-hero-img">
+      <div class="mo-hero-overlay"></div>
+      <div class="mo-hero-content">
+        <div class="mo-flag" id="mo-flag"></div>
+        <h2 class="mo-title fd" id="mo-title"></h2>
+        <p class="mo-subtitle" id="mo-subtitle"></p>
+      </div>
+      <button class="mo-close" onclick="closeMarket()" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="mo-body">
+      <div class="mo-stats-row" id="mo-stats"></div>
+      <div class="mo-insight-box">
+        <div class="mo-insight-label"><span class="mo-pulse"></span> AI Market Insight</div>
+        <p id="mo-insight"></p>
+      </div>
+      <div class="mo-section-title">Most Popular Right Now</div>
+      <div class="mo-cars-grid" id="mo-cars"></div>
+      <div class="mo-section-title">Price Landscape</div>
+      <div class="mo-price-table" id="mo-prices"></div>
+      <div class="mo-section-title">Buying Tips for This Market</div>
+      <div class="mo-tips" id="mo-tips"></div>
+      <div class="mo-cta">
+        <button class="mo-cta-btn btn-p" id="mo-cta-btn" type="button">
+          Search this market
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="footer-in">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <a href="#" class="logo">
+          <svg width="30" height="30" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+            <defs><linearGradient id="flg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fde047"/><stop offset="100%" stop-color="#d97706"/></linearGradient></defs>
+            <circle cx="24" cy="24" r="21" stroke="url(#flg)" stroke-width="1.5" opacity="0.4"/>
+            <path d="M12 29.5c1.6-4.8 5.6-12 12-12s10.4 7.2 12 12" stroke="url(#flg)" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="17.5" cy="30" r="2.4" fill="var(--amber)"/>
+            <circle cx="30.5" cy="30" r="2.4" fill="var(--amber)" opacity="0.7"/>
+          </svg>
+          <span class="logo-w">Find<em>My</em>Car</span>
+        </a>
+        <p>AI-powered automotive intelligence across the Netherlands, Belgium, Germany and Poland. Find the right car, not the most expensive one.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Discover</h4>
+        <ul>
+          <li><a href="#hero">Start searching</a></li>
+          <li><a href="#markets">Browse markets</a></li>
+          <li><a href="#how-it-works">How it works</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Markets</h4>
+        <ul>
+          <li><a href="#section-nl">Netherlands</a></li>
+          <li><a href="#section-be">Belgium</a></li>
+          <li><a href="#section-de">Germany</a></li>
+          <li><a href="#section-pl">Poland</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Company</h4>
+        <ul>
+          <li><a href="#why">Why FindMyCar</a></li>
+          <li><a href="#contact">Contact</a></li>
+          <li><a href="#">Privacy policy</a></li>
+          <li><a href="#">Terms</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bot">
+      <p>© 2025 FindMyCar. Visual prototype — data is illustrative.</p>
+      <p class="mono" style="font-size:10.5px">Powered by AI · Zero commission · 4 markets</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ── Reveal on scroll ──────────────────────────────────────────────────────────
+const revObs = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('vis'); revObs.unobserve(e.target); }});
+}, { threshold: 0.12 });
+document.querySelectorAll('[data-r]').forEach(el => revObs.observe(el));
+
+// Trigger hero reveals on load
+window.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.hero [data-r]').forEach((el, i) => {
+    setTimeout(() => el.classList.add('vis'), 180 + i * 130);
+  });
+});
+
+// ── Hero model subtle auto-drift ─────────────────────────────────────────────
+const hModel = document.getElementById('bmw-hero');
+let hAz = 315, hDrift = true, hTimer = null, hRaf = null;
+
+function heroDrift() {
+  if (!hDrift || !hModel) return;
+  hAz += 0.012;
+  if (hAz > 380) hAz = 290;
+  hModel.setAttribute('camera-orbit', `${hAz.toFixed(3)}deg 72deg 4.2m`);
+  hRaf = requestAnimationFrame(heroDrift);
+}
+
+if (hModel) {
+  hModel.addEventListener('camera-change', () => {
+    hDrift = false;
+    if (hRaf) { cancelAnimationFrame(hRaf); hRaf = null; }
+    clearTimeout(hTimer);
+    hTimer = setTimeout(() => { hDrift = true; heroDrift(); }, 3200);
+  });
+  hModel.addEventListener('load', () => setTimeout(heroDrift, 800));
+}
+
+// ── Chat prompt fill ──────────────────────────────────────────────────────────
+function fillChat(btn) {
+  const inp = document.getElementById('chat-inp');
+  if (inp) { inp.value = btn.textContent.trim(); inp.focus(); }
+}
+
+// ── Open the AI advisor with a pre-filled prompt ──────────────────────────────
+function openAdvisorWithPrompt(text) {
+  const panel = document.querySelector('.chat-panel');
+  const inp = document.getElementById('chat-inp');
+  if (panel) {
+    panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    panel.classList.remove('flash');
+    // Force reflow so the animation can re-trigger on repeated clicks
+    void panel.offsetWidth;
+    panel.classList.add('flash');
+    panel.addEventListener('animationend', () => panel.classList.remove('flash'), { once: true });
+  }
+  if (inp) {
+    inp.value = text;
+    setTimeout(() => inp.focus(), 350);
+  }
+}
+
+// ── Shop by category card clicks ──────────────────────────────────────────────
+function shopCategory(card) {
+  document.querySelectorAll('.cat-card.active').forEach(c => c.classList.remove('active'));
+  card.classList.add('active');
+  const cat = card.dataset.cat || 'cars';
+  openAdvisorWithPrompt(`Show me the best ${cat} listings near me`);
+}
+
+// ── Marquee hover pause ───────────────────────────────────────────────────────
+const mq = document.getElementById('mqTrack');
+if (mq) {
+  mq.addEventListener('mouseenter', () => mq.style.animationPlayState = 'paused');
+  mq.addEventListener('mouseleave', () => mq.style.animationPlayState = 'running');
+}
+
+// (Section-indicator dot clicks removed with the indicator dots.)
+
+// ── Custom cursor ─────────────────────────────────────────────────────────────
+const curDot  = document.getElementById('c-dot');
+const curAura = document.getElementById('c-aura');
+if (curDot && curAura) {
+  let mx = window.innerWidth / 2, my = window.innerHeight / 2;
+  let ax = mx, ay = my;
+
+  document.addEventListener('mousemove', e => {
+    mx = e.clientX; my = e.clientY;
+    curDot.style.left = mx + 'px';
+    curDot.style.top  = my + 'px';
+  }, { passive: true });
+
+  (function tickAura() {
+    ax += (mx - ax) * 0.085;
+    ay += (my - ay) * 0.085;
+    curAura.style.left = ax.toFixed(1) + 'px';
+    curAura.style.top  = ay.toFixed(1) + 'px';
+    requestAnimationFrame(tickAura);
+  })();
+
+  const hovSel = 'a,button,[role=button],.chip,.mkt-stat,.step,.chat-btn,.val-row,.city-card,.trust-stat,.ab-badge,.btn-p,.btn-g';
+  document.querySelectorAll(hovSel).forEach(el => {
+    el.addEventListener('mouseenter', () => { curDot.classList.add('hov'); curAura.classList.add('hov'); });
+    el.addEventListener('mouseleave', () => { curDot.classList.remove('hov'); curAura.classList.remove('hov'); });
+  });
+}
+
+// ── Hero video cycling ────────────────────────────────────────────────────────
+const heroVidEl = document.getElementById('hero-vid');
+const heroVidSrcs = Array.from({ length: 7 }, (_, i) => `./media/Hero/Hero-0${i + 1}.mp4`);
+let hvCur = 0;
+
+if (heroVidEl) {
+  function playHeroVid(idx) {
+    heroVidEl.src = heroVidSrcs[idx];
+    heroVidEl.play().catch(() => {});
+  }
+  heroVidEl.addEventListener('ended', () => {
+    hvCur = (hvCur + 1) % heroVidSrcs.length;
+    playHeroVid(hvCur);
+  });
+  // Start with a random video for variety on refresh
+  hvCur = Math.floor(Math.random() * heroVidSrcs.length);
+  playHeroVid(hvCur);
+}
+
+// ── Ready Today: live listings feed ───────────────────────────────────────────
+function readyCardHTML(item) {
+  const title = item.title || [item.year, item.make, item.model].filter(Boolean).join(' ') || 'Listing';
+  const price = item.price != null
+    ? '€' + Number(item.price).toLocaleString('en-US')
+    : 'Price on request';
+  const loc = [item.city, item.country].filter(Boolean).join(', ');
+  const tags = [item.fuelType, item.transmission, item.mileage ? `${Number(item.mileage).toLocaleString('en-US')} km` : null]
+    .filter(Boolean).slice(0, 3);
+  const img = item.imageUrl || item.image || '';
+  const url = item.url || '#';
+
+  return `
+    <a class="ready-card" role="listitem" href="${url}" target="_blank" rel="noopener">
+      <div class="ready-img" style="${img ? `background-image:url('${img}')` : ''}">
+        ${loc ? `<div class="ready-loc-badge">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          ${loc}
+        </div>` : ''}
+      </div>
+      <div class="ready-body">
+        <div class="ready-title fd">${title}</div>
+        <div class="ready-price">${price}</div>
+        <div class="ready-meta">
+          ${tags.map(t => `<span class="ready-tag">${t}</span>`).join('')}
+        </div>
+        <span class="ready-cta">
+          View listing
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </span>
+      </div>
+    </a>`;
+}
+
+async function loadReadyListings() {
+  const scroll = document.getElementById('readyScroll');
+  if (!scroll) return;
+
+  try {
+    const res = await fetch('/api/listings');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const items = Array.isArray(data) ? data : (data.listings || data.items || []);
+
+    if (!items.length) throw new Error('No listings returned');
+
+    const cards = items.slice(0, 8).map(readyCardHTML).join('');
+    scroll.innerHTML = cards + `
+      <div class="ready-view-all" role="listitem" tabindex="0" onclick="openAdvisorWithPrompt('Show me more listings ready today')">
+        View all listings
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left:6px"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </div>`;
+    scroll.setAttribute('aria-busy', 'false');
+  } catch (err) {
+    // API unreachable or empty — keep skeleton placeholders as a graceful fallback
+    scroll.setAttribute('aria-busy', 'true');
+  }
+}
+
+loadReadyListings();
+
+
+// ══════ Hero chat (typed intro + send + canned advisor replies) ══════
+(function typeIntro(){
+  const el=document.getElementById('introBubble'); if(!el) return;
+  const full="I'm your FindMyCar advisor — not a salesperson, and I won't throw cars at you right away. What are you really looking for?";
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches){ el.textContent=full; return; }
+  let i=0; el.textContent='';
+  (function step(){ if(i<=full.length){ el.textContent=full.slice(0,i); i++; setTimeout(step, 16);} })();
+})();
+
+function chatAvatar(isUser){
+  return '<div class="av'+(isUser?' user-av':'')+'" style="width:30px;height:30px;flex-shrink:0">'+
+    '<svg width="13" height="13" viewBox="0 0 24 24" f

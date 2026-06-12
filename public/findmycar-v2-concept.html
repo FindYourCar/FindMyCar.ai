@@ -1,0 +1,1386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FindMyCar — AI-Powered Automotive Intelligence</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400;1,9..144,500;1,9..144,600&family=Inter+Tight:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
+<style>
+:root {
+  --bg: #0a0908;
+  --bg2: #141210;
+  --bg3: #1c1916;
+  --bg4: #221f1b;
+  --border: #2a2520;
+  --border-warm: rgba(251,191,36,0.22);
+  --text: #f5f1ea;
+  --text2: #cdc6bc;
+  --muted: #8a8178;
+  --muted2: #5e574f;
+  --amber: #fbbf24;
+  --bronze: #d97706;
+  --deep: #92400e;
+  --signal: #34d399;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;padding:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Inter Tight',ui-sans-serif,system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+  line-height:1.6;
+}
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:1;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
+  opacity:0.07;mix-blend-mode:overlay;
+}
+h1,h2,h3,h4{margin:0;line-height:1.1}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none;padding:0}
+.fd{font-family:'Fraunces',Georgia,serif;font-optical-sizing:auto;letter-spacing:-0.025em}
+.mono{font-family:'JetBrains Mono','Fira Code',monospace;letter-spacing:-0.01em}
+.it{font-style:italic}
+.grad{background:linear-gradient(135deg,#fbbf24 0%,#d97706 50%,#92400e 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+
+/* EYEBROW */
+.eyebrow{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:8px}
+.ey-dot{width:6px;height:6px;border-radius:50%;background:var(--amber);box-shadow:0 0 10px rgba(251,191,36,0.7);flex-shrink:0}
+.pulse{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--signal);box-shadow:0 0 10px rgba(52,211,153,0.6);animation:pulseA 2s ease-in-out infinite}
+@keyframes pulseA{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.55;transform:scale(0.8)}}
+
+/* BUTTONS */
+.btn-p{
+  display:inline-flex;align-items:center;gap:8px;
+  background:linear-gradient(135deg,#fbbf24 0%,#d97706 50%,#92400e 100%);
+  color:#1a0f00;font-weight:700;font-size:14px;
+  border:1px solid rgba(251,191,36,0.35);
+  box-shadow:0 8px 28px rgba(217,119,6,0.32),inset 0 1px 0 rgba(255,255,255,0.38);
+  border-radius:999px;padding:12px 22px;
+  transition:all .3s cubic-bezier(.2,.8,.2,1);cursor:pointer;white-space:nowrap;
+}
+.btn-p:hover{transform:translateY(-2px);box-shadow:0 14px 40px rgba(217,119,6,0.5),inset 0 1px 0 rgba(255,255,255,0.5)}
+.btn-g{
+  display:inline-flex;align-items:center;gap:8px;
+  background:rgba(245,241,234,0.03);border:1px solid var(--border);
+  color:var(--text);border-radius:999px;padding:11px 20px;
+  font-size:14px;font-weight:500;transition:all .3s ease;cursor:pointer;white-space:nowrap;
+}
+.btn-g:hover{background:rgba(251,191,36,0.07);border-color:var(--border-warm);color:var(--amber)}
+
+/* NAV */
+.nav{
+  position:sticky;top:0;z-index:200;
+  backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  background:rgba(10,9,8,0.78);border-bottom:1px solid var(--border);
+}
+.nav-in{
+  max-width:1280px;margin:0 auto;padding:0 24px;
+  height:64px;display:flex;align-items:center;justify-content:space-between;gap:20px;
+}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-w{font-family:'Fraunces',Georgia,serif;font-weight:600;font-size:20px;letter-spacing:-0.02em;color:#f9fafb}
+.logo-w em{font-style:italic;color:var(--amber)}
+.nav-links{display:none;align-items:center;gap:2px}
+@media(min-width:900px){.nav-links{display:flex}}
+.nav-links a{font-size:13.5px;color:var(--muted);padding:7px 14px;border-radius:999px;transition:all .2s;font-weight:500}
+.nav-links a:hover{color:var(--text);background:rgba(245,241,234,0.04)}
+.nav-r{display:flex;align-items:center;gap:12px}
+.mkt-pill{
+  display:none;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--muted);
+  background:rgba(245,241,234,0.03);border:1px solid var(--border);border-radius:999px;
+  padding:6px 12px;cursor:pointer;transition:all .2s;
+}
+@media(min-width:640px){.mkt-pill{display:flex}}
+.mkt-pill:hover{border-color:var(--border-warm);color:var(--text)}
+.nav-cta{display:none}
+@media(min-width:900px){.nav-cta{display:inline-flex}}
+
+/* HERO */
+.hero{position:relative;min-height:100svh;display:flex;align-items:center;overflow:hidden}
+.hero-bg{position:absolute;inset:0;z-index:0;pointer-events:none}
+.glow-orb{position:absolute;border-radius:9999px;filter:blur(120px);pointer-events:none}
+.hero-in{
+  position:relative;z-index:2;max-width:1280px;margin:0 auto;padding:80px 24px;width:100%;
+  display:grid;grid-template-columns:1fr;gap:40px;align-items:center;
+}
+@media(min-width:1024px){.hero-in{grid-template-columns:1fr;max-width:760px;padding:100px 24px;gap:36px}}
+
+/* Hero left */
+.hero-l{display:flex;flex-direction:column;gap:26px}
+.hero-title{font-family:'Fraunces',Georgia,serif;font-size:clamp(34px,4.8vw,56px);font-weight:600;letter-spacing:-0.035em;line-height:1.06;color:#f9fafb}
+.online-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  background:rgba(52,211,153,0.08);border:1px solid rgba(52,211,153,0.22);
+  border-radius:999px;padding:6px 14px;font-size:12px;font-weight:600;color:var(--signal);width:fit-content;
+}
+
+/* Chat panel */
+.chat-panel{
+  background:linear-gradient(180deg,#161310 0%,#0f0d0b 100%);
+  border:1px solid var(--border);border-radius:20px;overflow:hidden;
+  box-shadow:0 28px 70px rgba(0,0,0,0.55),0 0 0 1px rgba(245,241,234,0.03);
+}
+.chat-panel-top{height:1px;background:linear-gradient(90deg,transparent,rgba(251,191,36,0.28),transparent)}
+.chat-hdr{
+  padding:16px 20px;display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border);
+}
+.chat-avi{
+  display:flex;align-items:center;gap:11px;
+}
+.av{
+  width:36px;height:36px;border-radius:50%;flex-shrink:0;
+  background:linear-gradient(135deg,rgba(251,191,36,0.25),rgba(217,119,6,0.12));
+  border:1px solid rgba(251,191,36,0.35);display:flex;align-items:center;justify-content:center;color:var(--amber);
+}
+.av-name{font-size:14px;font-weight:600;color:var(--text)}
+.av-sub{font-size:11.5px;color:var(--muted);margin-top:1px}
+.chat-msgs{padding:18px 20px;display:flex;flex-direction:column;gap:12px}
+.chat-bubble{
+  background:rgba(245,241,234,0.04);border:1px solid var(--border);
+  border-radius:14px 14px 14px 4px;padding:12px 14px;font-size:13.5px;
+  color:var(--text2);line-height:1.55;max-width:90%;
+}
+.chat-bubble strong{color:var(--text)}
+.chat-bubble .hl{color:var(--amber);font-weight:600}
+.chat-prompts{display:flex;flex-direction:column;gap:7px;padding:0 20px 18px}
+.chat-btn{
+  display:flex;align-items:center;gap:9px;background:rgba(245,241,234,0.02);
+  border:1px solid var(--border);border-radius:11px;padding:10px 14px;
+  font-size:12.5px;color:var(--text2);font-family:inherit;text-align:left;
+  transition:all .22s ease;cursor:pointer;
+}
+.chat-btn:hover{background:rgba(251,191,36,0.06);border-color:rgba(251,191,36,0.28);color:var(--text)}
+.chat-btn svg{color:var(--amber);flex-shrink:0}
+.chat-input-row{padding:13px 20px 17px;display:flex;gap:9px;border-top:1px solid var(--border)}
+.chat-inp{
+  flex:1;background:rgba(245,241,234,0.04);border:1px solid var(--border);
+  border-radius:10px;padding:10px 14px;font-size:13px;color:var(--text);
+  font-family:inherit;outline:none;transition:border-color .2s;
+}
+.chat-inp::placeholder{color:var(--muted2)}
+.chat-inp:focus{border-color:rgba(251,191,36,0.38)}
+.chat-send{
+  width:38px;height:38px;border-radius:10px;
+  background:linear-gradient(135deg,#fbbf24,#d97706);
+  display:flex;align-items:center;justify-content:center;color:#1a0f00;
+  transition:all .22s ease;flex-shrink:0;
+}
+.chat-send:hover{transform:scale(1.06);box-shadow:0 5px 18px rgba(217,119,6,0.38)}
+
+/* Hero stats */
+.hero-stats{display:flex;gap:0;flex-wrap:wrap}
+.h-stat{padding:0 24px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:2px}
+.h-stat:first-child{padding-left:0}
+.h-stat:last-child{border-right:none}
+.h-stat-n{font-family:'Fraunces',Georgia,serif;font-size:22px;font-weight:600;color:var(--amber)}
+.h-stat-l{font-size:11.5px;color:var(--muted)}
+
+/* HERO RIGHT — model stage */
+.hero-r{position:relative;height:440px;display:flex;align-items:center;justify-content:center}
+@media(min-width:1024px){.hero-r{height:540px}}
+.hero-model-glow{
+  position:absolute;inset:0;
+  background:radial-gradient(ellipse at 50% 55%,rgba(251,191,36,0.11) 0%,transparent 62%);
+  pointer-events:none;
+}
+#bmw-hero{width:100%;height:100%;--poster-color:transparent;background:transparent}
+
+/* Floating chips */
+.fchip{
+  position:absolute;z-index:3;pointer-events:none;
+  background:rgba(10,9,8,0.78);backdrop-filter:blur(12px);
+  border:1px solid var(--border);border-radius:10px;
+  padding:7px 12px;font-size:12px;font-weight:500;color:var(--text2);
+  display:flex;align-items:center;gap:7px;white-space:nowrap;
+}
+.fchip strong{color:var(--text)}
+.cdot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.cdot-a{background:var(--amber);box-shadow:0 0 7px rgba(251,191,36,0.65)}
+.cdot-g{background:var(--signal);box-shadow:0 0 7px rgba(52,211,153,0.65)}
+.chip-1{top:14%;left:2%}
+.chip-2{bottom:20%;right:2%}
+.chip-3{top:52%;left:0%;transform:translateY(-50%)}
+@media(max-width:1023px){.chip-1{top:8%;left:6%}.chip-2{bottom:10%;right:6%}.chip-3{display:none}}
+
+/* MARQUEE */
+.marquee-rail{
+  position:relative;z-index:2;
+  border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+  padding:12px 0;background:rgba(18,16,14,0.9);overflow:hidden;
+  display:flex;align-items:center;gap:0;
+}
+.mq-label{font-size:10.5px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted2);padding:0 20px;flex-shrink:0;white-space:nowrap;border-right:1px solid var(--border)}
+.mq-wrap{overflow:hidden;flex:1;-webkit-mask-image:linear-gradient(90deg,transparent,black 8%,black 92%,transparent);mask-image:linear-gradient(90deg,transparent,black 8%,black 92%,transparent)}
+.mq-track{display:flex;gap:24px;animation:mqScroll 28s linear infinite;width:max-content;padding:0 24px}
+.mq-track span{font-size:13px;color:var(--muted);white-space:nowrap}
+.mq-track .sep{color:var(--muted2);opacity:0.35}
+@keyframes mqScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* JOURNEY WRAPPER */
+.journey-wrapper{position:relative}
+@media(min-width:1024px){
+  .journey-wrapper{display:grid;grid-template-columns:1fr 1fr;align-items:start}
+  .journey-model-col{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden}
+  .journey-content-col{min-height:100vh}
+}
+.jm-bg{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,rgba(251,191,36,0.07) 0%,transparent 65%);pointer-events:none}
+
+#bmw-j{
+  position:absolute;
+  inset:-8% -12%;
+  width:calc(100% + 24px);height:calc(100% + 16px);
+  --poster-color:transparent;
+  background:transparent;
+}
+/* Edge fade — makes car bleed into background, no visible clip */
+.journey-model-col::before,.journey-model-col::after{
+  content:'';position:absolute;left:0;right:0;z-index:10;pointer-events:none;
+}
+.journey-model-col::before{
+  top:0;height:180px;
+  background:linear-gradient(180deg,var(--bg) 0%,transparent 100%);
+}
+.journey-model-col::after{
+  bottom:0;height:180px;
+  background:linear-gradient(0deg,var(--bg) 0%,transparent 100%);
+}
+/* Right edge fade */
+.jm-fade-r{
+  position:absolute;top:0;right:0;bottom:0;width:120px;
+  background:linear-gradient(270deg,var(--bg) 0%,transparent 100%);
+  z-index:10;pointer-events:none;
+}
+
+/* Section indicator */
+.si-wrap{position:absolute;right:20px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:9px;z-index:10}
+@media(max-width:1023px){.si-wrap{display:none}}
+.si-dot{width:5px;height:5px;border-radius:50%;background:var(--border);cursor:pointer;transition:all .3s ease}
+.si-dot.act{background:var(--amber);box-shadow:0 0 7px rgba(251,191,36,0.5);height:16px;border-radius:3px}
+
+/* Angle badge */
+.angle-badge{
+  position:absolute;bottom:22px;left:50%;transform:translateX(-50%);
+  background:rgba(10,9,8,0.82);backdrop-filter:blur(8px);
+  border:1px solid var(--border);border-radius:999px;
+  padding:5px 16px;font-size:10.5px;font-family:'JetBrains Mono',monospace;
+  color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;
+  pointer-events:none;white-space:nowrap;transition:opacity .4s;
+}
+.angle-badge strong{color:var(--amber)}
+
+/* Mobile model strip */
+.mobile-model{display:block;height:280px;position:relative;overflow:hidden;background:linear-gradient(180deg,#141210,#0a0908);border-bottom:1px solid var(--border)}
+@media(min-width:1024px){.mobile-model{display:none}}
+.mobile-model model-viewer{width:100%;height:100%;--poster-color:transparent}
+.mobile-model-glow{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,rgba(251,191,36,0.09) 0%,transparent 65%);pointer-events:none}
+
+/* MARKET SECTIONS */
+.mkt-section{padding:80px 36px;border-bottom:1px solid var(--border);position:relative}
+@media(min-width:1024px){.mkt-section{padding:100px 52px}}
+.mkt-eyebrow{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.mkt-flag{font-size:26px;line-height:1}
+.mkt-title{font-family:'Fraunces',Georgia,serif;font-size:clamp(26px,3.5vw,40px);font-weight:600;letter-spacing:-0.03em;color:#f9fafb;margin-bottom:12px}
+.mkt-sub{color:var(--muted);font-size:15px;line-height:1.65;margin-bottom:28px;max-width:44ch}
+
+/* Market stats grid */
+.mkt-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:24px}
+.mkt-stat{
+  background:rgba(18,16,14,0.85);border:1px solid var(--border);border-radius:14px;
+  padding:16px;position:relative;overflow:hidden;transition:all .32s ease;
+}
+.mkt-stat::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(251,191,36,0.22),transparent)}
+.mkt-stat:hover{border-color:rgba(251,191,36,0.22);transform:translateY(-2px)}
+.mkt-stat-n{font-family:'Fraunces',Georgia,serif;font-size:24px;font-weight:600;color:var(--amber);margin-bottom:3px}
+.mkt-stat-l{font-size:11.5px;color:var(--muted)}
+
+/* Chips row */
+.chips-row{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:24px}
+.chip{
+  display:inline-flex;align-items:center;gap:6px;background:rgba(18,16,14,0.85);
+  border:1px solid var(--border);border-radius:8px;padding:7px 13px;font-size:12px;color:var(--text2);
+}
+.chip .cdot{margin:0}
+
+/* City cards */
+.city-cards{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
+.city-card{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:rgba(18,16,14,0.7);border:1px solid var(--border);border-radius:10px;padding:12px 16px;
+}
+.city-nm{font-size:13px;font-weight:500;color:var(--text2)}
+.city-pr{font-family:'Fraunces',serif;font-size:17px;color:#f9fafb}
+.city-tag{font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;white-space:nowrap}
+.ct-best{background:rgba(52,211,153,0.1);color:var(--signal);border:1px solid rgba(52,211,153,0.22)}
+.ct-avg{background:rgba(245,241,234,0.04);color:var(--muted);border:1px solid var(--border)}
+
+/* Insight box */
+.insight-box{
+  padding:14px 16px;background:rgba(251,191,36,0.05);
+  border:1px solid rgba(251,191,36,0.18);border-radius:12px;margin-bottom:22px;
+}
+.insight-box p{font-size:13px;color:var(--text2);line-height:1.55}
+.insight-box strong{color:var(--amber)}
+
+/* Autobahn badges */
+.ab-badges{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:22px}
+.ab-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(18,16,14,0.85);border:1px solid var(--border);
+  border-radius:8px;padding:8px 13px;font-size:12px;color:var(--text2);font-weight:500;
+}
+.ab-spd{font-family:'Fraunces',serif;color:var(--amber);margin-left:3px}
+
+/* Value rows */
+.val-rows{display:flex;flex-direction:column;gap:8px;margin-bottom:22px}
+.val-row{
+  display:flex;align-items:center;gap:12px;
+  background:rgba(18,16,14,0.75);border:1px solid var(--border);border-radius:12px;
+  padding:13px 16px;transition:all .22s ease;
+}
+.val-row:hover{border-color:rgba(251,191,36,0.18)}
+.val-ico{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.val-body{flex:1}
+.val-nm{font-size:13.5px;font-weight:600;color:var(--text)}
+.val-sub{font-size:11.5px;color:var(--muted);margin-top:1px}
+.val-tag{font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;white-space:nowrap}
+
+/* HOW IT WORKS */
+.how-wrap{max-width:1280px;margin:0 auto;padding:96px 24px}
+.sect-head{margin-bottom:56px}
+.sect-title{font-family:'Fraunces',Georgia,serif;font-size:clamp(26px,3.8vw,44px);font-weight:600;letter-spacing:-0.03em;color:#f9fafb;margin:10px 0;line-height:1.1}
+.sect-sub{color:var(--muted);font-size:15px;line-height:1.65;margin-top:10px;max-width:52ch}
+.steps-grid{display:grid;grid-template-columns:1fr;gap:18px}
+@media(min-width:768px){.steps-grid{grid-template-columns:repeat(3,1fr)}}
+.step{
+  background:linear-gradient(180deg,#161310 0%,#0f0d0b 100%);
+  border:1px solid var(--border);border-radius:20px;padding:32px;
+  position:relative;overflow:hidden;transition:all .35s ease;
+}
+.step::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(251,191,36,0.28),transparent)}
+.step:hover{border-color:rgba(251,191,36,0.22);transform:translateY(-4px);box-shadow:0 20px 55px rgba(0,0,0,0.48)}
+.step-n{font-family:'Fraunces',Georgia,serif;font-size:46px;font-weight:700;color:rgba(251,191,36,0.13);line-height:1;margin-bottom:18px;letter-spacing:-0.05em}
+.step-ico{width:42px;height:42px;background:rgba(251,191,36,0.09);border:1px solid rgba(251,191,36,0.18);border-radius:11px;display:flex;align-items:center;justify-content:center;color:var(--amber);margin-bottom:18px}
+.step-t{font-family:'Fraunces',Georgia,serif;font-size:21px;font-weight:600;color:#f9fafb;margin-bottom:10px}
+.step-b{font-size:13.5px;color:var(--muted);line-height:1.65}
+.match-ex{margin-top:18px;background:rgba(245,241,234,0.03);border:1px solid var(--border);border-radius:11px;padding:13px}
+.me-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.me-nm{font-size:13px;font-weight:600;color:var(--text)}
+.me-pct{font-family:'Fraunces',serif;font-size:15px;font-weight:600;color:var(--amber)}
+.bar-t{height:4px;border-radius:999px;background:rgba(245,241,234,0.06);overflow:hidden}
+.bar-f{height:100%;background:linear-gradient(90deg,var(--deep),var(--amber));border-radius:999px}
+
+/* TRUST */
+.trust-wrap{
+  padding:96px 24px;
+  background:linear-gradient(180deg,transparent,rgba(18,16,14,0.4));
+  border-top:1px solid var(--border);
+}
+.trust-inner{max-width:1280px;margin:0 auto}
+.trust-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:48px}
+@media(min-width:768px){.trust-grid{grid-template-columns:repeat(4,1fr)}}
+.trust-stat{
+  padding:26px;background:linear-gradient(180deg,#161310 0%,#0f0d0b 100%);
+  border:1px solid var(--border);border-radius:18px;position:relative;text-align:center;
+}
+.trust-stat::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;border-radius:18px 18px 0 0;background:linear-gradient(90deg,transparent,rgba(251,191,36,0.22),transparent)}
+.trust-n{font-family:'Fraunces',Georgia,serif;font-size:34px;font-weight:700;color:var(--amber);letter-spacing:-0.02em;margin-bottom:5px}
+.trust-l{font-size:12px;color:var(--muted);line-height:1.45}
+
+/* Testimonial */
+.testimonial{
+  margin:48px auto 0;max-width:740px;
+  padding:30px;background:linear-gradient(180deg,#161310,#0f0d0b);
+  border:1px solid var(--border);border-radius:20px;position:relative;overflow:hidden;
+}
+.testimonial::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(251,191,36,0.28),transparent)}
+.testimonial p{font-family:'Fraunces',Georgia,serif;font-size:18px;line-height:1.55;color:var(--text2);font-style:italic;margin:16px 0}
+.test-author{display:flex;align-items:center;gap:12px}
+.test-av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,rgba(251,191,36,0.28),rgba(217,119,6,0.12));border:1px solid rgba(251,191,36,0.28);display:flex;align-items:center;justify-content:center;color:var(--amber);font-size:13px;font-weight:600;flex-shrink:0}
+.test-nm{font-size:13.5px;font-weight:600;color:var(--text)}
+.test-loc{font-size:12px;color:var(--muted)}
+
+/* CTA */
+.cta-section{padding:96px 24px;text-align:center;position:relative;overflow:hidden}
+.cta-glow{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:600px;height:380px;background:radial-gradient(ellipse,rgba(251,191,36,0.09) 0%,transparent 70%);pointer-events:none}
+.cta-in{position:relative;z-index:2;max-width:580px;margin:0 auto}
+.cta-title{font-family:'Fraunces',Georgia,serif;font-size:clamp(30px,4.5vw,50px);font-weight:600;letter-spacing:-0.035em;color:#f9fafb;margin:14px 0}
+.cta-sub{color:var(--muted);font-size:15.5px;line-height:1.65;margin-bottom:32px;max-width:44ch;margin-left:auto;margin-right:auto}
+.cta-form{display:flex;gap:9px;max-width:420px;margin:0 auto;flex-wrap:wrap;justify-content:center}
+.cta-inp{
+  flex:1;min-width:200px;background:rgba(245,241,234,0.04);border:1px solid var(--border);
+  border-radius:999px;padding:12px 20px;font-size:14px;color:var(--text);
+  font-family:inherit;outline:none;transition:border-color .2s;
+}
+.cta-inp::placeholder{color:var(--muted2)}
+.cta-inp:focus{border-color:rgba(251,191,36,0.38)}
+.cta-note{font-size:11.5px;color:var(--muted2);margin-top:13px}
+
+/* FOOTER */
+.footer{border-top:1px solid var(--border);padding:48px 24px 32px;background:var(--bg)}
+.footer-in{max-width:1280px;margin:0 auto}
+.footer-top{display:grid;grid-template-columns:1fr;gap:32px;margin-bottom:40px}
+@media(min-width:768px){.footer-top{grid-template-columns:1.5fr 1fr 1fr 1fr}}
+.footer-brand p{font-size:13.5px;color:var(--muted);line-height:1.65;margin-top:12px;max-width:34ch}
+.footer-col h4{font-size:10.5px;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted2);margin-bottom:14px}
+.footer-col ul{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:9px}
+.footer-col li a{font-size:13.5px;color:var(--muted);transition:color .2s}
+.footer-col li a:hover{color:var(--text)}
+.footer-bot{border-top:1px solid var(--border);padding-top:22px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.footer-bot p{font-size:11.5px;color:var(--muted2)}
+
+/* REVEAL */
+[data-r]{opacity:0;transform:translateY(18px);transition:opacity .65s cubic-bezier(.2,.8,.2,1),transform .65s cubic-bezier(.2,.8,.2,1)}
+[data-r].vis{opacity:1;transform:none}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:9px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:9px}
+::-webkit-scrollbar-thumb:hover{background:var(--bronze)}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px;border-radius:5px}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* ── HERO VIDEO BACKGROUND ─────────────────────────────────────────────────── */
+.hero-vid-wrap{position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+.hero-vid-wrap video{width:100%;height:100%;object-fit:cover;opacity:0.44;transition:opacity .8s ease}
+.hero-vid-overlay{
+  position:absolute;inset:0;
+  background:
+    linear-gradient(180deg,rgba(10,9,8,0.62) 0%,rgba(10,9,8,0.18) 42%,rgba(10,9,8,0.68) 100%),
+    radial-gradient(ellipse 70% 80% at 55% 50%,rgba(10,9,8,0.08) 0%,rgba(10,9,8,0.52) 70%);
+}
+
+/* ── FULL-PAGE ATMOSPHERE OVERLAYS (screen blend – tints entire viewport) ───── */
+.cgl{
+  position:fixed;inset:0;pointer-events:none;z-index:99;
+  mix-blend-mode:screen;
+  opacity:0;transition:opacity 0.95s cubic-bezier(.4,0,.2,1);
+}
+.cgl.active{opacity:1}
+
+/* 🇳🇱 Netherlands — Dutch orange + cobalt blue */
+#cgl-nl{
+  background:
+    radial-gradient(ellipse 75% 90% at 0% 100%,rgba(255,145,0,1) 0%,rgba(255,100,0,0.45) 32%,transparent 58%),
+    radial-gradient(ellipse 70% 75% at 100% 0%,rgba(0,55,185,0.95) 0%,rgba(0,35,120,0.35) 32%,transparent 58%),
+    radial-gradient(ellipse 55% 45% at 50% 50%,rgba(255,90,0,0.12) 0%,transparent 50%);
+  animation:nlAtm 9s ease-in-out infinite paused;
+}
+#cgl-nl.active{animation-play-state:running}
+@keyframes nlAtm{
+  0%,100%{filter:brightness(1) saturate(1)}
+  20%{filter:brightness(1.45) saturate(1.3)}
+  55%{filter:brightness(0.78) saturate(0.88)}
+  78%{filter:brightness(1.25) saturate(1.15)}
+}
+
+/* 🇧🇪 Belgium — midnight black + gold spotlight + crimson */
+#cgl-be{
+  background:
+    radial-gradient(ellipse 60% 80% at 10% 50%,rgba(4,4,6,0.98) 0%,transparent 52%),
+    radial-gradient(ellipse 80% 65% at 50% 0%,rgba(250,208,0,0.98) 0%,rgba(240,165,0,0.45) 32%,transparent 58%),
+    radial-gradient(ellipse 70% 72% at 90% 82%,rgba(222,42,48,0.9) 0%,rgba(175,18,22,0.35) 32%,transparent 58%);
+  animation:beAtm 7s ease-in-out infinite paused;
+}
+#cgl-be.active{animation-play-state:running}
+@keyframes beAtm{
+  0%,100%{filter:brightness(1) saturate(1)}
+  32%{filter:brightness(1.4) saturate(1.25)}
+  68%{filter:brightness(0.72) saturate(0.82)}
+}
+
+/* 🇩🇪 Germany — graphite black + deep red + autobahn gold horizon */
+#cgl-de{
+  background:
+    radial-gradient(ellipse 68% 85% at 5% 5%,rgba(6,6,8,0.99) 0%,transparent 52%),
+    radial-gradient(ellipse 75% 65% at 92% 85%,rgba(190,0,0,0.8) 0%,rgba(145,0,0,0.32) 32%,transparent 58%),
+    radial-gradient(ellipse 82% 55% at 50% 100%,rgba(255,198,0,0.9) 0%,rgba(218,162,0,0.42) 30%,transparent 58%);
+  animation:deAtm 10s ease-in-out infinite paused;
+}
+#cgl-de.active{animation-play-state:running}
+@keyframes deAtm{
+  0%,100%{filter:brightness(1) saturate(1)}
+  28%{filter:brightness(1.35) saturate(1.18)}
+  52%{filter:brightness(0.7)}
+  78%{filter:brightness(1.28) saturate(1.22)}
+}
+
+/* 🇵🇱 Poland — cold white north light + bold crimson surge */
+#cgl-pl{
+  background:
+    radial-gradient(ellipse 100% 52% at 50% 0%,rgba(215,220,238,0.72) 0%,rgba(175,180,205,0.22) 28%,transparent 52%),
+    radial-gradient(ellipse 100% 65% at 50% 100%,rgba(215,8,38,1) 0%,rgba(168,0,22,0.42) 32%,transparent 58%),
+    radial-gradient(ellipse 58% 58% at 50% 62%,rgba(175,0,22,0.28) 0%,transparent 52%);
+  animation:plAtm 6s ease-in-out infinite paused;
+}
+#cgl-pl.active{animation-play-state:running}
+@keyframes plAtm{
+  0%,100%{filter:brightness(1) saturate(1)}
+  18%{filter:brightness(1.55) saturate(1.4)}
+  48%{filter:brightness(0.68) saturate(0.95)}
+  72%{filter:brightness(1.3) saturate(1.25)}
+}
+
+/* How it Works — warm amber brand pulse */
+#cgl-how{
+  background:
+    radial-gradient(ellipse 90% 80% at 50% 50%,rgba(251,191,36,0.68) 0%,rgba(217,119,6,0.32) 35%,transparent 62%),
+    radial-gradient(ellipse 70% 65% at 0% 0%,rgba(217,119,6,0.42) 0%,transparent 52%),
+    radial-gradient(ellipse 60% 55% at 100% 100%,rgba(146,64,14,0.38) 0%,transparent 52%);
+  animation:howAtm 11s ease-in-out infinite paused;
+}
+#cgl-how.active{animation-play-state:running}
+@keyframes howAtm{
+  0%,100%{filter:brightness(1) saturate(1)}
+  50%{filter:brightness(1.28) saturate(1.18)}
+}
+
+/* Trust / Why Us — emerald confidence */
+#cgl-trust{
+  background:
+    radial-gradient(ellipse 82% 78% at 100% 0%,rgba(52,211,153,0.62) 0%,rgba(16,185,129,0.28) 35%,transparent 60%),
+    radial-gradient(ellipse 72% 68% at 0% 100%,rgba(6,182,212,0.48) 0%,rgba(14,165,233,0.18) 35%,transparent 60%);
+  animation:trustAtm 10s ease-in-out infinite paused;
+}
+#cgl-trust.active{animation-play-state:running}
+@keyframes trustAtm{
+  0%,100%{filter:brightness(1) saturate(1)}
+  45%{filter:brightness(1.32) saturate(1.12)}
+}
+
+/* CTA — intense gold radial burst */
+#cgl-cta{
+  background:
+    radial-gradient(ellipse 80% 80% at 50% 50%,rgba(251,191,36,0.95) 0%,rgba(217,119,6,0.52) 28%,transparent 58%),
+    radial-gradient(ellipse 62% 60% at 0% 0%,rgba(251,191,36,0.45) 0%,transparent 52%),
+    radial-gradient(ellipse 62% 60% at 100% 100%,rgba(251,191,36,0.45) 0%,transparent 52%);
+  animation:ctaAtm 5s ease-in-out infinite paused;
+}
+#cgl-cta.active{animation-play-state:running}
+@keyframes ctaAtm{
+  0%,100%{filter:brightness(1) saturate(1)}
+  28%{filter:brightness(1.55) saturate(1.35)}
+  62%{filter:brightness(0.75)}
+}
+
+/* ── CUSTOM CURSOR ─────────────────────────────────────────────────────────── */
+body{cursor:none}
+a,button,input,textarea,select,[role=button]{cursor:none}
+.cursor-dot{
+  position:fixed;top:0;left:0;width:7px;height:7px;border-radius:50%;
+  background:var(--amber);pointer-events:none;z-index:10000;
+  transform:translate(-50%,-50%);
+  box-shadow:0 0 10px rgba(251,191,36,0.8);
+  transition:width .18s ease,height .18s ease,background .18s ease,box-shadow .18s ease;
+  will-change:left,top;
+}
+.cursor-aura{
+  position:fixed;top:0;left:0;width:52px;height:52px;border-radius:50%;
+  pointer-events:none;z-index:9999;
+  transform:translate(-50%,-50%);
+  background:radial-gradient(circle,rgba(251,191,36,0.22) 0%,rgba(217,119,6,0.1) 38%,transparent 70%);
+  filter:blur(11px);
+  transition:width .38s cubic-bezier(.2,.8,.2,1),height .38s cubic-bezier(.2,.8,.2,1);
+  will-change:left,top;
+}
+.cursor-dot.hov{width:12px;height:12px;background:#fde68a;box-shadow:0 0 18px rgba(251,191,36,1)}
+.cursor-aura.hov{width:88px;height:88px}
+
+/* ── IMPROVED HOVER STATES ─────────────────────────────────────────────────── */
+.step{transition:border-color .38s cubic-bezier(.2,.8,.2,1),transform .38s cubic-bezier(.2,.8,.2,1),box-shadow .38s cubic-bezier(.2,.8,.2,1),background .38s cubic-bezier(.2,.8,.2,1)}
+.step:hover{
+  border-color:rgba(251,191,36,0.4)!important;
+  transform:translateY(-7px) scale(1.016)!important;
+  box-shadow:0 30px 70px rgba(0,0,0,0.58),0 0 0 1px rgba(251,191,36,0.11),inset 0 1px 0 rgba(251,191,36,0.14)!important;
+  background:linear-gradient(180deg,#1d1812 0%,#110f0a 100%)!important;
+}
+.chip{transition:border-color .25s cubic-bezier(.2,.8,.2,1),background .25s,color .25s,transform .25s,box-shadow .25s}
+.chip:hover{
+  border-color:rgba(251,191,36,0.4);
+  background:rgba(251,191,36,0.1);
+  color:var(--text);
+  transform:translateY(-2px);
+  box-shadow:0 6px 18px rgba(251,191,36,0.16);
+}
+.mkt-stat{transition:border-color .34s cubic-bezier(.2,.8,.2,1),transform .34s cubic-bezier(.2,.8,.2,1),box-shadow .34s cubic-bezier(.2,.8,.2,1)}
+.mkt-stat:hover{
+  border-color:rgba(251,191,36,0.34)!important;
+  transform:translateY(-5px)!important;
+  box-shadow:0 16px 40px rgba(0,0,0,0.48),0 0 0 1px rgba(251,191,36,0.07)!important;
+}
+</style>
+</head>
+<body>
+<!-- Custom cursor -->
+<div class="cursor-dot" id="c-dot" aria-hidden="true"></div>
+<div class="cursor-aura" id="c-aura" aria-hidden="true"></div>
+
+<!-- NAV -->
+<header class="nav">
+  <div class="nav-in">
+    <a href="#" class="logo">
+      <svg width="36" height="36" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#fde047"/>
+            <stop offset="50%" stop-color="#fbbf24"/>
+            <stop offset="100%" stop-color="#d97706"/>
+          </linearGradient>
+        </defs>
+        <circle cx="24" cy="24" r="21" stroke="url(#lg1)" stroke-width="1.5" opacity="0.5"/>
+        <path d="M12 29.5c1.6-4.8 5.6-12 12-12s10.4 7.2 12 12" stroke="url(#lg1)" stroke-width="2.2" stroke-linecap="round"/>
+        <circle cx="17.5" cy="30" r="2.6" fill="var(--amber)"/>
+        <circle cx="30.5" cy="30" r="2.6" fill="var(--amber)" opacity="0.7"/>
+      </svg>
+      <span class="logo-w">Find<em>My</em>Car</span>
+    </a>
+    <nav class="nav-links" aria-label="Main navigation">
+      <a href="#hero">Discover</a>
+      <a href="#how-it-works">How it Works</a>
+      <a href="#markets">Markets</a>
+      <a href="#why">Why us</a>
+      <a href="#contact">Contact</a>
+    </nav>
+    <div class="nav-r">
+      <button class="mkt-pill" aria-label="Select market">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-7.5 8-13a8 8 0 1 0-16 0c0 5.5 8 13 8 13Z"/><circle cx="12" cy="9" r="3"/></svg>
+        🇳🇱 Netherlands
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <a href="#hero" class="btn-p nav-cta" style="font-size:13px;padding:10px 18px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        Start searching
+      </a>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<!-- ==================== HERO ==================== -->
+<section class="hero" id="hero">
+  <!-- Background video cycling -->
+  <div class="hero-vid-wrap" aria-hidden="true">
+    <video id="hero-vid" muted playsinline preload="auto"></video>
+    <div class="hero-vid-overlay"></div>
+  </div>
+
+  <div class="hero-bg" aria-hidden="true">
+    <div class="glow-orb" style="width:580px;height:580px;top:-180px;right:-120px;background:rgba(251,191,36,0.08)"></div>
+    <div class="glow-orb" style="width:480px;height:480px;bottom:-80px;left:-140px;background:rgba(217,119,6,0.06)"></div>
+  </div>
+
+  <div class="hero-in">
+    <!-- LEFT: AI Advisor -->
+    <div class="hero-l">
+      <div data-r>
+        <div class="eyebrow" style="margin-bottom:14px">
+          <span class="ey-dot"></span>
+          AI-Powered Automotive Intelligence · 4 Markets
+        </div>
+        <h1 class="hero-title fd">
+          Talk to an AI advisor.<br>
+          Find the right car<br>
+          <em class="it grad">in minutes.</em>
+        </h1>
+      </div>
+
+      <!-- Chat Panel -->
+      <div class="chat-panel" data-r style="--d:.12s">
+        <div class="chat-panel-top"></div>
+        <div class="chat-hdr">
+          <div class="chat-avi">
+            <div class="av">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+            </div>
+            <div>
+              <div class="av-name">FindMyCar Advisor</div>
+              <div class="av-sub">Not a salesperson · speaks 6 languages</div>
+            </div>
+          </div>
+          <div class="online-badge"><span class="pulse"></span> Online</div>
+        </div>
+        <div class="chat-msgs">
+          <div style="display:flex;gap:9px;align-items:flex-start">
+            <div class="av" style="width:30px;height:30px;flex-shrink:0">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+            </div>
+            <div class="chat-bubble">
+              I'm your FindMyCar advisor. I'm <strong>not a salesperson</strong>, and I'm not going to throw cars at you right away. <span class="hl">What are you really looking for?</span>
+            </div>
+          </div>
+        </div>
+        <div class="chat-prompts">
+          <button class="chat-btn" onclick="fillChat(this)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-7.5 8-13a8 8 0 1 0-16 0c0 5.5 8 13 8 13Z"/><circle cx="12" cy="9" r="3"/></svg>
+            Family car under €20,000 in the Netherlands
+          </button>
+          <button class="chat-btn" onclick="fillChat(this)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></svg>
+            Weekend driver — performance, B-roads, manual gearbox
+          </button>
+          <button class="chat-btn" onclick="fillChat(this)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2.5 2.5"/></svg>
+            First electric car — worried about range
+          </button>
+        </div>
+        <div class="chat-input-row">
+          <input id="chat-inp" class="chat-inp" type="text" placeholder="Tell me what you're looking for…" aria-label="Chat with AI advisor">
+          <button class="chat-send" aria-label="Send message">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="hero-stats" data-r style="--d:.22s">
+        <div class="h-stat"><span class="h-stat-n fd">€0</span><span class="h-stat-l">Commission, ever</span></div>
+        <div class="h-stat"><span class="h-stat-n fd">4</span><span class="h-stat-l">Active markets</span></div>
+        <div class="h-stat"><span class="h-stat-n fd">94%</span><span class="h-stat-l">Avg. match score</span></div>
+        <div class="h-stat" style="border-right:none"><span class="h-stat-n fd">6</span><span class="h-stat-l">Languages</span></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- MARQUEE -->
+<div class="marquee-rail" aria-hidden="true">
+  <span class="mq-label">Curated across</span>
+  <div class="mq-wrap">
+    <div class="mq-track" id="mqTrack">
+      <span>Porsche</span><span class="sep">·</span><span>BMW</span><span class="sep">·</span>
+      <span>Mercedes-Benz</span><span class="sep">·</span><span>Audi</span><span class="sep">·</span>
+      <span>Land Rover</span><span class="sep">·</span><span>Polestar</span><span class="sep">·</span>
+      <span>Volvo</span><span class="sep">·</span><span>Volkswagen</span><span class="sep">·</span>
+      <span>Skoda</span><span class="sep">·</span><span>Toyota</span><span class="sep">·</span>
+      <span>Bentley</span><span class="sep">·</span><span>Cupra</span><span class="sep">·</span>
+      <span>Alpina</span><span class="sep">·</span>
+      <span>Porsche</span><span class="sep">·</span><span>BMW</span><span class="sep">·</span>
+      <span>Mercedes-Benz</span><span class="sep">·</span><span>Audi</span><span class="sep">·</span>
+      <span>Land Rover</span><span class="sep">·</span><span>Polestar</span><span class="sep">·</span>
+      <span>Volvo</span><span class="sep">·</span><span>Volkswagen</span><span class="sep">·</span>
+      <span>Skoda</span><span class="sep">·</span><span>Toyota</span><span class="sep">·</span>
+      <span>Bentley</span><span class="sep">·</span><span>Cupra</span><span class="sep">·</span>
+      <span>Alpina</span><span class="sep">·</span>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== JOURNEY (sticky model + markets) ==================== -->
+<div class="journey-wrapper" id="markets">
+  <!-- Full-page atmosphere overlays (position:fixed, screen blend) -->
+  <div class="cgl" id="cgl-nl" aria-hidden="true"></div>
+  <div class="cgl" id="cgl-be" aria-hidden="true"></div>
+  <div class="cgl" id="cgl-de" aria-hidden="true"></div>
+  <div class="cgl" id="cgl-pl" aria-hidden="true"></div>
+  <div class="cgl" id="cgl-how" aria-hidden="true"></div>
+  <div class="cgl" id="cgl-trust" aria-hidden="true"></div>
+  <div class="cgl" id="cgl-cta" aria-hidden="true"></div>
+
+  <!-- Sticky model col (desktop only) -->
+  <div class="journey-model-col" id="jmc">
+    <div class="jm-bg" aria-hidden="true"></div>
+
+    <div class="si-wrap" id="si-wrap">
+      <div class="si-dot act" data-s="0" title="Netherlands"></div>
+      <div class="si-dot" data-s="1" title="Belgium"></div>
+      <div class="si-dot" data-s="2" title="Germany"></div>
+      <div class="si-dot" data-s="3" title="Poland"></div>
+    </div>
+
+    <model-viewer
+      id="bmw-j"
+      src="./media/bmw_m5_g90_2024.glb"
+      alt="BMW M5 G90 2024"
+      camera-orbit="272deg 78deg 4.2m"
+      field-of-view="28deg"
+      shadow-intensity="1.6"
+      shadow-softness="0.95"
+      exposure="1.1"
+      environment-image="legacy"
+      tone-mapping="commerce"
+      interaction-prompt="none"
+      interpolation-decay="80"
+      loading="lazy"
+      reveal="auto"
+    ></model-viewer>
+
+    <!-- Right-edge fade: blends car into content column seam -->
+    <div class="jm-fade-r" aria-hidden="true"></div>
+
+    <div class="angle-badge" id="abadge">
+      <strong id="alabel">Side Profile</strong> · BMW M5 G90 2024
+    </div>
+  </div>
+
+  <!-- Content col -->
+  <div class="journey-content-col" id="jcc">
+
+    <!-- Mobile model preview -->
+    <div class="mobile-model">
+      <div class="mobile-model-glow"></div>
+      <model-viewer
+        src="./media/bmw_m5_g90_2024.glb"
+        alt="BMW M5"
+        camera-orbit="315deg 72deg 5.5m"
+        field-of-view="28deg"
+        shadow-intensity="1.4"
+        environment-image="legacy"
+        tone-mapping="commerce"
+        interaction-prompt="none"
+        interpolation-decay="100"
+        loading="lazy"
+      ></model-viewer>
+    </div>
+
+    <!-- NL -->
+    <div class="mkt-section" id="section-nl" data-ms="0" data-cam="272deg 78deg 3.2m" data-lbl="Side Profile">
+      <div class="mkt-eyebrow">
+        <span class="mkt-flag">🇳🇱</span>
+        <div class="eyebrow"><span class="ey-dot"></span> Netherlands · Live market</div>
+      </div>
+      <h2 class="mkt-title fd" data-r>The Dutch market —<br><em class="it grad">compact, electric, smart.</em></h2>
+      <p class="mkt-sub" data-r>With 24% EV market share and a strong preference for compact hatchbacks, the Netherlands rewards efficiency. Our AI matches you to what actually fits Amsterdam's streets — and your budget.</p>
+
+      <div class="mkt-stats" data-r>
+        <div class="mkt-stat"><div class="mkt-stat-n">24%</div><div class="mkt-stat-l">EV market share</div></div>
+        <div class="mkt-stat"><div class="mkt-stat-n">€18,500</div><div class="mkt-stat-l">Avg. hatchback price</div></div>
+        <div class="mkt-stat"><div class="mkt-stat-n">#1</div><div class="mkt-stat-l">Hatchback body type</div></div>
+        <div class="mkt-stat"><div class="mkt-stat-n">21k+</div><div class="mkt-stat-l">Live listings</div></div>
+      </div>
+
+      <div data-r>
+        <p style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted2);margin-bottom:10px">Popular right now</p>
+        <div class="chips-row">
+          <span class="chip"><span class="cdot cdot-a"></span>Compact hatchbacks</span>
+          <span class="chip"><span class="cdot cdot-g"></span>Electric vehicles</span>
+          <span class="chip"><span class="cdot" style="background:var(--bronze)"></span>Family SUVs</span>
+          <span class="chip">Hybrids</span>
+          <span class="chip">City cars</span>
+        </div>
+      </div>
+
+      <div data-r style="margin-top:24px">
+        <button class="btn-p" style="font-size:13px;padding:10px 20px">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          Search NL market
+        </button>
+      </div>
+    </div>
+
+    <!-- BE -->
+    <div class="mkt-section" id="section-be" data-ms="1" data-cam="218deg 74deg 3.0m" data-lbl="Rear Three-Quarter">
+      <div class="mkt-eyebrow">
+        <span class="mkt-flag">🇧🇪</span>
+        <div class="eyebrow"><span class="ey-dot"></span> Belgium · Cross-border intelligence</div>
+      </div>
+      <h2 class="mkt-title fd" data-r>Belgium hides the<br><em class="it grad">best-value deals.</em></h2>
+      <p class="mkt-sub" data-r>Cross-border pricing creates real opportunities. Antwerp consistently undercuts Brussels by thousands. Our AI tracks every gap — so you don't miss it.</p>
+
+      <div class="city-cards" data-r>
+        <div class="city-card">
+          <span class="city-nm">🏙️ Brussels</span>
+          <span class="city-pr fd">€22,400</span>
+          <span class="city-tag ct-avg">Avg. market</span>
+        </div>
+        <div class="city-card">
+          <span class="city-nm">⚓ Antwerp</span>
+          <span class="city-pr fd">€20,800</span>
+          <span class="city-tag ct-best">Best value</span>
+        </div>
+        <div class="city-card">
+          <span class="city-nm">🏘️ Ghent</span>
+          <span class="city-pr fd">€21,500</span>
+          <span class="city-tag ct-avg">Mid-market</span>
+        </div>
+      </div>
+
+      <div class="insight-box" data-r>
+        <p><strong>AI insight:</strong> Same specification — €1,600 cheaper in Antwerp vs Brussels on average. Cross-border purchase is fully legal within the EU. Our advisor walks you through it, step by step.</p>
+      </div>
+
+      <div data-r style="margin-top:16px">
+        <button class="btn-p" style="font-size:13px;padding:10px 20px">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          Search BE market
+        </button>
+      </div>
+    </div>
+
+    <!-- DE -->
+    <div class="mkt-section" id="section-de" data-ms="2" data-cam="178deg 70deg 2.8m" data-lbl="Dramatic Rear">
+      <div class="mkt-eyebrow">
+        <span class="mkt-flag">🇩🇪</span>
+        <div class="eyebrow"><span class="ey-dot"></span> Germany · Autobahn-grade selection</div>
+      </div>
+      <h2 class="mkt-title fd" data-r>Performance vehicles.<br><em class="it grad">Where they belong.</em></h2>
+      <p class="mkt-sub" data-r>Executive sedans, estates, sports cars — Germany's market is where performance makes sense. Unlimited autobahn, serious selection, origin advantage.</p>
+
+      <div class="ab-badges" data-r>
+        <div class="ab-badge">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></svg>
+          Executive Sedans<span class="ab-spd">250+ km/h</span>
+        </div>
+        <div class="ab-badge">Performance Estates<span class="ab-spd">250+ km/h</span></div>
+        <div class="ab-badge">Sports Cars<span class="ab-spd">300+ km/h</span></div>
+        <div class="ab-badge">GT Coupés<span class="ab-spd">280+ km/h</span></div>
+      </div>
+
+      <div class="mkt-stats" data-r>
+        <div class="mkt-stat"><div class="mkt-stat-n">A+</div><div class="mkt-stat-l">Autobahn rating</div></div>
+        <div class="mkt-stat"><div class="mkt-stat-n">18k+</div><div class="mkt-stat-l">Performance listings</div></div>
+        <div class="mkt-stat"><div class="mkt-stat-n">0</div><div class="mkt-stat-l">Speed limit (autobahn)</div></div>
+        <div class="mkt-stat"><div class="mkt-stat-n">DE</div><div class="mkt-stat-l">Origin advantage</div></div>
+      </div>
+
+      <div data-r style="margin-top:8px">
+        <button class="btn-p" style="font-size:13px;padding:10px 20px">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          Search DE market
+        </button>
+      </div>
+    </div>
+
+    <!-- PL -->
+    <div class="mkt-section" id="section-pl" data-ms="3" data-cam="338deg 76deg 2.8m" data-lbl="Close Front">
+      <div class="mkt-eyebrow">
+        <span class="mkt-flag">🇵🇱</span>
+        <div class="eyebrow"><span class="ey-dot"></span> Poland · Value intelligence</div>
+      </div>
+      <h2 class="mkt-title fd" data-r>Currency advantage.<br><em class="it grad">Real savings.</em></h2>
+      <p class="mkt-sub" data-r>Poland's PLN pricing and lower ownership costs unlock exceptional value. The same car, significantly less. Our AI handles the cross-market maths.</p>
+
+      <div class="val-rows" data-r>
+        <div class="val-row">
+          <div class="val-ico" style="background:rgba(52,211,153,0.1);color:var(--signal)">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
+          <div class="val-body"><div class="val-nm">Škoda Fabia</div><div class="val-sub">Best value · compact · low running costs</div></div>
+          <span class="val-tag" style="background:rgba(52,211,153,0.1);color:var(--signal);border:1px solid rgba(52,211,153,0.2)">Best value</span>
+        </div>
+        <div class="val-row">
+          <div class="val-ico" style="background:rgba(251,191,36,0.1);color:var(--amber)">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-7 8-12a8 8 0 1 0-16 0c0 5 8 12 8 12z"/></svg>
+          </div>
+          <div class="val-body"><div class="val-nm">Toyota Yaris</div><div class="val-sub">Most reliable · hybrid · low maintenance</div></div>
+          <span class="val-tag" style="background:rgba(251,191,36,0.1);color:var(--amber);border:1px solid rgba(251,191,36,0.2)">Most reliable</span>
+        </div>
+        <div class="val-row">
+          <div class="val-ico" style="background:rgba(245,241,234,0.05);color:var(--muted)">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg>
+          </div>
+          <div class="val-body"><div class="val-nm">Volkswagen Golf</div><div class="val-sub">Quality/price balance in PL market</div></div>
+          <span class="val-tag" style="background:rgba(245,241,234,0.05);color:var(--muted);border:1px solid var(--border)">Popular</span>
+        </div>
+      </div>
+
+      <div data-r>
+        <button class="btn-p" style="font-size:13px;padding:10px 20px">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          Search PL market
+        </button>
+      </div>
+    </div>
+
+  </div><!-- /journey-content-col -->
+</div><!-- /journey-wrapper -->
+
+<!-- ==================== HOW IT WORKS ==================== -->
+<section id="how-it-works" style="background:linear-gradient(180deg,#0a0908,#141210 50%,#0a0908);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+  <div class="how-wrap">
+    <div class="sect-head" style="text-align:center;max-width:600px;margin:0 auto 56px">
+      <div class="eyebrow" style="justify-content:center;margin-bottom:12px"><span class="ey-dot"></span> The process</div>
+      <h2 class="sect-title fd" data-r>Three steps to <em class="it grad">confident.</em></h2>
+      <p class="sect-sub" data-r style="margin-left:auto;margin-right:auto">No filtering through 47 dropdowns. No ads. No pressure. Just honest guidance from an AI built to find the right car — not the most expensive one.</p>
+    </div>
+
+    <div class="steps-grid">
+      <div class="step" data-r>
+        <div class="step-n">01</div>
+        <div class="step-ico">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <div class="step-t fd">Chat with the advisor</div>
+        <p class="step-b">Describe what you need in plain language — budget, use case, family size, how you drive. The advisor asks real follow-up questions, like a knowledgeable friend.</p>
+        <div class="match-ex">
+          <p style="font-size:12.5px;color:var(--text2);line-height:1.5">
+            <span style="color:var(--muted)">You:</span> "Two kids, one dog, weekend B-roads, under €35k"<br>
+            <span style="color:var(--amber)">Advisor:</span> "Do you prioritise boot space or driving feel?"
+          </p>
+        </div>
+      </div>
+
+      <div class="step" data-r style="transition-delay:.1s">
+        <div class="step-n">02</div>
+        <div class="step-ico">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>
+        </div>
+        <div class="step-t fd">Smart recommendations</div>
+        <p class="step-b">The AI surfaces cars matched to what you described — scored by fit, not by sponsorship. Each match comes with a confidence percentage and a reason why.</p>
+        <div class="match-ex">
+          <div class="me-h">
+            <span class="me-nm">Audi A4 Avant</span>
+            <span class="me-pct">94%</span>
+          </div>
+          <div class="bar-t"><div class="bar-f" style="width:94%"></div></div>
+          <p style="font-size:11.5px;color:var(--muted);margin-top:7px;line-height:1.4">Estate + rear seats + B-roads + within budget</p>
+        </div>
+      </div>
+
+      <div class="step" data-r style="transition-delay:.2s">
+        <div class="step-n">03</div>
+        <div class="step-ico">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </div>
+        <div class="step-t fd">Browse live offers</div>
+        <p class="step-b">See live listings from dealers and private sellers across NL, BE, DE and PL — filtered to your match, sorted by value, with cross-market price comparison.</p>
+        <div class="match-ex">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px">
+              <span style="color:var(--text2)">Dealer · Amsterdam</span>
+              <span class="fd" style="color:var(--amber)">€28,400</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px">
+              <span style="color:var(--text2)">Private · Antwerp</span>
+              <span class="fd" style="color:var(--signal)">€26,900 ↓</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== TRUST ==================== -->
+<section class="trust-wrap" id="why">
+  <div class="trust-inner">
+    <div style="text-align:center;max-width:540px;margin:0 auto">
+      <div class="eyebrow" style="justify-content:center;margin-bottom:12px"><span class="ey-dot"></span> Why FindMyCar</div>
+      <h2 class="sect-title fd" data-r>Built differently, <em class="it grad">on purpose.</em></h2>
+      <p class="sect-sub" data-r style="margin-left:auto;margin-right:auto">No placement fees. No sponsored slots. No "featured" dealers. The AI ranks for fit — never for who paid the most to be seen.</p>
+    </div>
+
+    <div class="trust-grid">
+      <div class="trust-stat" data-r><div class="trust-n">€0</div><div class="trust-l">Commission charged<br>to buyers, ever</div></div>
+      <div class="trust-stat" data-r style="transition-delay:.1s"><div class="trust-n">4</div><div class="trust-l">Markets — NL,<br>BE, DE, PL</div></div>
+      <div class="trust-stat" data-r style="transition-delay:.2s"><div class="trust-n">94%</div><div class="trust-l">Average match<br>confidence score</div></div>
+      <div class="trust-stat" data-r style="transition-delay:.3s"><div class="trust-n">6</div><div class="trust-l">Languages<br>supported</div></div>
+    </div>
+
+    <div class="testimonial" data-r>
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="var(--amber)" opacity="0.35" style="margin-bottom:14px"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/></svg>
+      <p>"I described what I needed in three sentences. Twenty minutes later I had five real cars to look at — all within budget, all explained. No filters. No overwhelm."</p>
+      <div class="test-author">
+        <div class="test-av">M</div>
+        <div>
+          <div class="test-nm">Michiel van der Berg</div>
+          <div class="test-loc">Amsterdam, Netherlands</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== CTA ==================== -->
+<section class="cta-section" id="contact">
+  <div class="cta-glow" aria-hidden="true"></div>
+  <div class="cta-in">
+    <div class="eyebrow" style="justify-content:center;margin-bottom:14px"><span class="ey-dot"></span> Ready to find your car?</div>
+    <h2 class="cta-title fd" data-r>Your next car is<br><em class="it grad">already out there.</em></h2>
+    <p class="cta-sub" data-r>Start a conversation with the AI advisor. No account required. No spam. Just better car discovery.</p>
+    <div class="cta-form" data-r>
+      <input type="email" class="cta-inp" placeholder="you@example.com" aria-label="Email for early access">
+      <button class="btn-p" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        Get early access
+      </button>
+    </div>
+    <p class="cta-note">No spam. Unsubscribe any time.</p>
+  </div>
+</section>
+
+</main>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="footer-in">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <a href="#" class="logo">
+          <svg width="30" height="30" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+            <defs><linearGradient id="flg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fde047"/><stop offset="100%" stop-color="#d97706"/></linearGradient></defs>
+            <circle cx="24" cy="24" r="21" stroke="url(#flg)" stroke-width="1.5" opacity="0.4"/>
+            <path d="M12 29.5c1.6-4.8 5.6-12 12-12s10.4 7.2 12 12" stroke="url(#flg)" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="17.5" cy="30" r="2.4" fill="var(--amber)"/>
+            <circle cx="30.5" cy="30" r="2.4" fill="var(--amber)" opacity="0.7"/>
+          </svg>
+          <span class="logo-w">Find<em>My</em>Car</span>
+        </a>
+        <p>AI-powered automotive intelligence across the Netherlands, Belgium, Germany and Poland. Find the right car, not the most expensive one.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Discover</h4>
+        <ul>
+          <li><a href="#hero">Start searching</a></li>
+          <li><a href="#markets">Browse markets</a></li>
+          <li><a href="#how-it-works">How it works</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Markets</h4>
+        <ul>
+          <li><a href="#section-nl">Netherlands</a></li>
+          <li><a href="#section-be">Belgium</a></li>
+          <li><a href="#section-de">Germany</a></li>
+          <li><a href="#section-pl">Poland</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Company</h4>
+        <ul>
+          <li><a href="#why">Why FindMyCar</a></li>
+          <li><a href="#contact">Contact</a></li>
+          <li><a href="#">Privacy policy</a></li>
+          <li><a href="#">Terms</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bot">
+      <p>© 2025 FindMyCar. Visual prototype — data is illustrative.</p>
+      <p class="mono" style="font-size:10.5px">Powered by AI · Zero commission · 4 markets</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ── Reveal on scroll ──────────────────────────────────────────────────────────
+const revObs = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('vis'); revObs.unobserve(e.target); }});
+}, { threshold: 0.12 });
+document.querySelectorAll('[data-r]').forEach(el => revObs.observe(el));
+
+// Trigger hero reveals on load
+window.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.hero [data-r]').forEach((el, i) => {
+    setTimeout(() => el.classList.add('vis'), 180 + i * 130);
+  });
+});
+
+// ── Journey model camera control ─────────────────────────────────────────────
+const jModel  = document.getElementById('bmw-j');
+const aLabel  = document.getElementById('alabel');
+const siDots  = document.querySelectorAll('.si-dot');
+const mktSecs = document.querySelectorAll('[data-ms]');
+
+// Camera poses per section index
+const POSES = [
+  { az: 272, pol: 78, r: 4.2 },
+  { az: 218, pol: 74, r: 4.2 },
+  { az: 178, pol: 70, r: 4.2 },
+  { az: 338, pol: 76, r: 4.2 },
+];
+
+let curSec = 0;
+// Country atmosphere overlays (indices 0-3 = NL/BE/DE/PL)
+const gradEls = ['cgl-nl','cgl-be','cgl-de','cgl-pl'].map(id => document.getElementById(id));
+// Bottom-section atmosphere overlays
+const btmEls  = { how: document.getElementById('cgl-how'), trust: document.getElementById('cgl-trust'), cta: document.getElementById('cgl-cta') };
+let inJourney = false;
+
+function clearAll() {
+  gradEls.forEach(g => { if (g) g.classList.remove('active'); });
+  Object.values(btmEls).forEach(g => { if (g) g.classList.remove('active'); });
+}
+
+function activateBtm(key) {
+  clearAll();
+  inJourney = false;
+  if (btmEls[key]) btmEls[key].classList.add('active');
+}
+
+function setOrbit(az, pol, r) {
+  if (!jModel) return;
+  jModel.setAttribute('camera-orbit', `${az.toFixed(1)}deg ${pol.toFixed(1)}deg ${r}m`);
+}
+
+function activateSection(idx) {
+  inJourney = true;
+  Object.values(btmEls).forEach(g => { if (g) g.classList.remove('active'); });
+  if (idx === curSec && siDots[idx]?.classList.contains('act')) return;
+  curSec = idx;
+  const p = POSES[idx];
+  setOrbit(p.az, p.pol, p.r);
+  siDots.forEach((d, i) => d.classList.toggle('act', i === idx));
+  gradEls.forEach((g, i) => { if (g) g.classList.toggle('active', i === idx); });
+  const sec = document.querySelector(`[data-ms="${idx}"]`);
+  if (sec && aLabel) aLabel.textContent = sec.dataset.lbl || '';
+}
+
+// IntersectionObserver for section entry
+const secObs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      activateSection(parseInt(e.target.dataset.ms));
+    }
+  });
+}, { threshold: 0.38, rootMargin: '-8% 0px -8% 0px' });
+mktSecs.forEach(s => secObs.observe(s));
+
+// ── Scroll-driven micro-rotation ─────────────────────────────────────────────
+let raf = false;
+window.addEventListener('scroll', () => {
+  if (raf) return; raf = true;
+  requestAnimationFrame(() => {
+    raf = false;
+    if (!jModel) return;
+    const sec = document.querySelector(`[data-ms="${curSec}"]`);
+    if (!sec) return;
+    const rect = sec.getBoundingClientRect();
+    const h = sec.offsetHeight;
+    const vh = window.innerHeight;
+    const prog = Math.max(0, Math.min(1, (vh - rect.top) / (vh + h)));
+    const p = POSES[curSec];
+    // ±15deg azimuth, ±5deg polar variation — more dramatic scroll response
+    const az  = p.az  + (prog - 0.5) * 30;
+    const pol = p.pol + (prog - 0.5) * 10;
+    setOrbit(az, pol, p.r);
+  });
+}, { passive: true });
+
+// ── Hero model subtle auto-drift ─────────────────────────────────────────────
+const hModel = document.getElementById('bmw-hero');
+let hAz = 315, hDrift = true, hTimer = null, hRaf = null;
+
+function heroDrift() {
+  if (!hDrift || !hModel) return;
+  hAz += 0.012;
+  if (hAz > 380) hAz = 290;
+  hModel.setAttribute('camera-orbit', `${hAz.toFixed(3)}deg 72deg 4.2m`);
+  hRaf = requestAnimationFrame(heroDrift);
+}
+
+if (hModel) {
+  hModel.addEventListener('camera-change', () => {
+    hDrift = false;
+    if (hRaf) { cancelAnimationFrame(hRaf); hRaf = null; }
+    clearTimeout(hTimer);
+    hTimer = setTimeout(() => { hDrift = true; heroDrift(); }, 3200);
+  });
+  hModel.addEventListener('load', () => setTimeout(heroDrift, 800));
+}
+
+// ── Chat prompt fill ──────────────────────────────────────────────────────────
+function fillChat(btn) {
+  const inp = document.getElementById('chat-inp');
+  if (inp) { inp.value = btn.textContent.trim(); inp.focus(); }
+}
+
+// ── Marquee hover pause ───────────────────────────────────────────────────────
+const mq = document.getElementById('mqTrack');
+if (mq) {
+  mq.addEventListener('mouseenter', () => mq.style.animationPlayState = 'paused');
+  mq.addEventListener('mouseleave', () => mq.style.animationPlayState = 'running');
+}
+
+// ── Section indicator dot clicks ─────────────────────────────────────────────
+siDots.forEach(dot => {
+  dot.addEventListener('click', () => {
+    const idx = parseInt(dot.dataset.s);
+    const target = document.querySelector(`[data-ms="${idx}"]`);
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+});
+
+// ── Journey enter/exit: clear country overlays when scrolling away ────────────
+const jWrapper = document.getElementById('markets');
+if (jWrapper) {
+  const jExitObs = new IntersectionObserver(entries => {
+    if (!entries[0].isIntersecting) {
+      gradEls.forEach(g => { if (g) g.classList.remove('active'); });
+      inJourney = false;
+    } else {
+      inJourney = true;
+      Object.values(btmEls).forEach(g => { if (g) g.classList.remove('active'); });
+      gradEls.forEach((g, i) => { if (g) g.classList.toggle('active', i === curSec); });
+    }
+  }, { threshold: 0.05 });
+  jExitObs.observe(jWrapper);
+}
+
+// ── Bottom-section atmosphere observers ───────────────────────────────────────
+const btmSections = [
+  { el: document.getElementById('how-it-works'), key: 'how'   },
+  { el: document.getElementById('why'),          key: 'trust' },
+  { el: document.getElementById('contact'),      key: 'cta'   },
+];
+const btmObs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting && !inJourney) {
+      const key = e.target.dataset.atm;
+      if (key) activateBtm(key);
+    }
+  });
+}, { threshold: 0.25 });
+btmSections.forEach(({ el, key }) => {
+  if (el) { el.dataset.atm = key; btmObs.observe(el); }
+});
+
+// ── Custom cursor ─────────────────────────────────────────────────────────────
+const curDot  = document.getElementById('c-dot');
+const curAura = document.getElementById('c-aura');
+if (curDot && curAura) {
+  let mx = window.innerWidth / 2, my = window.innerHeight / 2;
+  let ax = mx, ay = my;
+
+  document.addEventListener('mousemove', e => {
+    mx = e.clientX; my = e.clientY;
+    curDot.style.left = mx + 'px';
+    curDot.style.top  = my + 'px';
+  }, { passive: true });
+
+  (function tickAura() {
+    ax += (mx - ax) * 0.085;
+    ay += (my - ay) * 0.085;
+    curAura.style.left = ax.toFixed(1) + 'px';
+    curAura.style.top  = ay.toFixed(1) + 'px';
+    requestAnimationFrame(tickAura);
+  })();
+
+  const hovSel = 'a,button,[role=button],.chip,.mkt-stat,.step,.si-dot,.chat-btn,.val-row,.city-card,.trust-stat,.ab-badge,.btn-p,.btn-g';
+  document.querySelectorAll(hovSel).forEach(el => {
+    el.addEventListener('mouseenter', () => { curDot.classList.add('hov'); curAura.classList.add('hov'); });
+    el.addEventListener('mouseleave', () => { curDot.classList.remove('hov'); curAura.classList.remove('hov'); });
+  });
+}
+
+// ── Hero video cycling ────────────────────────────────────────────────────────
+const heroVidEl = document.getElementById('hero-vid');
+const heroVidSrcs = Array.from({ length: 7 }, (_, i) => `./media/Hero/Hero-0${i + 1}.mp4`);
+let hvCur = 0;
+
+if (heroVidEl) {
+  function playHeroVid(idx) {
+    heroVidEl.src = heroVidSrcs[idx];
+    heroVidEl.play().catch(() => {});
+  }
+  heroVidEl.addEventListener('ended', () => {
+    hvCur = (hvCur + 1) % heroVidSrcs.length;
+    playHeroVid(hvCur);
+  });
+  // Start with a random video for variety on refresh
+  hvCur = Math.floor(Math.random() * heroVidSrcs.length);
+  playHeroVid(hvCur);
+}
+</script>
+</body>
+</html>
