@@ -9,12 +9,14 @@ import {
   Clock, History, Bookmark, Phone, MessageSquare, Plus, Trash2, FileText
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import { CALC_DATA, calculateOwnership } from "@/lib/ownership";
 import CinematicIntro from "./components/CinematicIntro";
 import MarketsBento from "./components/MarketsBento";
 import HowItWorksSection from "./components/HowItWorksSection";
 import Showroom from "./components/Showroom";
 import TrustSection from "./components/TrustSection";
 import LuxCursor from "./components/LuxCursor";
+import MarketTools from "./components/MarketTools";
 
 /* ============================================================
    VEHICLE TAXONOMY — generalised make / model / trim classification
@@ -3817,6 +3819,10 @@ try {
         );
       })()}
 
+      {/* QUICK TOOLS — Cost Calculator + VIN Checker modals (real logic) and a
+          jump to live markets; sits above the markets grid */}
+      <div className="mb-14 mt-4"><MarketTools /></div>
+
       {/* MARKETS — concept bento grid; cards open the detail overlay,
           CTAs feed the real advisor chat */}
       <MarketsBento
@@ -5355,99 +5361,8 @@ function Contact() {
    COST CALCULATOR — total cost of ownership across 4 countries
    ============================================================ */
 
-const CALC_DATA = {
-  fuelPrices: {
-    NL: { Petrol: 2.26, Diesel: 2.26, Electric: 0.27, Hybrid: 2.26 },
-    DE: { Petrol: 2.16, Diesel: 2.36, Electric: 0.32, Hybrid: 2.16 },
-    BE: { Petrol: 1.86, Diesel: 2.28, Electric: 0.28, Hybrid: 1.86 },
-    PL: { Petrol: 1.55, Diesel: 1.58, Electric: 0.19, Hybrid: 1.55 },
-  },
-  consumption: { Petrol: 7.0, Diesel: 5.5, Electric: 18, Hybrid: 5.0 }, // per 100km
-  roadTax: {
-    NL: {
-      Petrol:   { Small: 264, Compact: 402, "Mid-Range": 594, Premium: 822 },
-      Diesel:   { Small: 370, Compact: 560, "Mid-Range": 830, Premium: 1150 },
-      Hybrid:   { Small: 132, Compact: 201, "Mid-Range": 297, Premium: 411 },
-      Electric: { Small: 0,   Compact: 0,   "Mid-Range": 0,   Premium: 0 },
-    },
-    DE: {
-      Petrol:   { Small: 100, Compact: 150, "Mid-Range": 210, Premium: 340 },
-      Diesel:   { Small: 280, Compact: 380, "Mid-Range": 500, Premium: 700 },
-      Hybrid:   { Small: 80,  Compact: 120, "Mid-Range": 170, Premium: 270 },
-      Electric: { Small: 0,   Compact: 0,   "Mid-Range": 0,   Premium: 0 },
-    },
-    BE: {
-      Petrol:   { Small: 150, Compact: 300, "Mid-Range": 550, Premium: 900 },
-      Diesel:   { Small: 200, Compact: 400, "Mid-Range": 750, Premium: 1200 },
-      Hybrid:   { Small: 75,  Compact: 150, "Mid-Range": 275, Premium: 450 },
-      Electric: { Small: 25,  Compact: 50,  "Mid-Range": 100, Premium: 150 },
-    },
-    PL: {
-      Petrol:   { Small: 0, Compact: 0, "Mid-Range": 0, Premium: 0 },
-      Diesel:   { Small: 0, Compact: 0, "Mid-Range": 0, Premium: 0 },
-      Hybrid:   { Small: 0, Compact: 0, "Mid-Range": 0, Premium: 0 },
-      Electric: { Small: 0, Compact: 0, "Mid-Range": 0, Premium: 0 },
-    },
-  },
-  maintenance: {
-    NL: { Small: 846, Compact: 948, "Mid-Range": 1128, Premium: 1440 },
-    DE: { Small: 660, Compact: 930, "Mid-Range": 1200, Premium: 1560 },
-    BE: { Small: 720, Compact: 870, "Mid-Range": 1080, Premium: 1440 },
-    PL: { Small: 420, Compact: 570, "Mid-Range": 780,  Premium: 1050 },
-  },
-  maintenanceMultiplier: { Petrol: 1.0, Diesel: 1.0, Hybrid: 0.75, Electric: 0.35 },
-  inspection: {
-    NL: { Petrol: 40, Diesel: 60, Electric: 30, Hybrid: 40 },
-    DE: { Petrol: 35, Diesel: 35, Electric: 25, Hybrid: 35 },
-    BE: { Petrol: 23, Diesel: 23, Electric: 23, Hybrid: 23 },
-    PL: { Petrol: 12, Diesel: 12, Electric: 12, Hybrid: 12 },
-  },
-  depreciationRate: {
-    New:        { Petrol: 0.20,  Diesel: 0.20,  Hybrid: 0.20,  Electric: 0.25 },
-    "Nearly New": { Petrol: 0.135, Diesel: 0.135, Hybrid: 0.135, Electric: 0.165 },
-    Used:       { Petrol: 0.09,  Diesel: 0.09,  Hybrid: 0.09,  Electric: 0.11 },
-    Old:        { Petrol: 0.06,  Diesel: 0.06,  Hybrid: 0.06,  Electric: 0.06 },
-  },
-  officialLinks: {
-    NL: "https://www.belastingdienst.nl",
-    DE: "https://kfz-steuer.wiki/en/car-tax-germany",
-    BE: "https://www.myminfin.be",
-    PL: null,
-  },
-};
-
-function calculateOwnership({ country, size, fuel, price, age, km }) {
-  const d = CALC_DATA;
-
-  // Fuel cost
-  const consumption = d.consumption[fuel];
-  const fuelPrice = d.fuelPrices[country][fuel];
-  const fuelYearly = (km / 100) * consumption * fuelPrice;
-
-  // Road tax
-  const roadTaxYearly = d.roadTax[country][fuel][size] || 0;
-
-  // Maintenance = base × fuel multiplier + inspection
-  const maintBase = d.maintenance[country][size];
-  const maintMult = d.maintenanceMultiplier[fuel];
-  const inspection = d.inspection[country][fuel];
-  const maintenanceYearly = maintBase * maintMult + inspection;
-
-  // Depreciation
-  const depRate = d.depreciationRate[age][fuel];
-  let depreciationYearly = price * depRate;
-  if (country === "BE") depreciationYearly *= 1.10;
-
-  const totalYearly = fuelYearly + roadTaxYearly + maintenanceYearly + depreciationYearly;
-
-  return {
-    fuel: { yearly: fuelYearly, monthly: fuelYearly / 12 },
-    roadTax: { yearly: roadTaxYearly, monthly: roadTaxYearly / 12 },
-    maintenance: { yearly: maintenanceYearly, monthly: maintenanceYearly / 12 },
-    depreciation: { yearly: depreciationYearly, monthly: depreciationYearly / 12 },
-    total: { yearly: totalYearly, monthly: totalYearly / 12 },
-  };
-}
+// CALC_DATA + calculateOwnership now live in lib/ownership.js (shared with the
+// hero-strip Cost Calculator modal). Imported at the top of this file.
 
 function formatEuro(n) {
   // Legacy helper — kept for backward compatibility. CostCalculator uses formatMoney internally.
