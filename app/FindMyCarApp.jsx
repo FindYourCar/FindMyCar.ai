@@ -17,6 +17,7 @@ import Showroom from "./components/Showroom";
 import TrustSection from "./components/TrustSection";
 import LuxCursor from "./components/LuxCursor";
 import MarketTools from "./components/MarketTools";
+import CostCalculatorSection from "./components/CostCalculatorSection";
 
 /* ============================================================
    VEHICLE TAXONOMY — generalised make / model / trim classification
@@ -3126,7 +3127,6 @@ useEffect(() => {
           )}
           {view === "about" && <About />}
           {view === "faq" && <FAQ />}
-          {view === "calculator" && <CostCalculator />}
           {view === "contact" && <Contact />}
           {view === "privacy" && <LegalPage title="Privacy Policy" kind="privacy" />}
           {view === "terms" && <LegalPage title="Terms of Service" kind="terms" />}
@@ -3831,6 +3831,9 @@ try {
           document.getElementById("home-top")?.scrollIntoView({ behavior: "smooth" });
         }}
       />
+
+      {/* COST CALCULATOR — single inline section, real 4-market logic */}
+      <CostCalculatorSection />
 
       {/* HOW IT WORKS — concept process section (anchor id "home-how" preserved) */}
       <HowItWorksSection />
@@ -5369,324 +5372,8 @@ function formatEuro(n) {
   return "€" + Math.round(n).toLocaleString("en-US");
 }
 
-function CostCalculator() {
-  const [country, setCountry] = React.useState("NL");
-  const [size, setSize] = React.useState("Compact");
-  const [fuel, setFuel] = React.useState("Petrol");
-  const [price, setPrice] = React.useState("");
-  const [age, setAge] = React.useState("Nearly New");
-  const [km, setKm] = React.useState("");
-  const [results, setResults] = React.useState(null);
-  const [showSources, setShowSources] = React.useState(false);
-  const [error, setError] = React.useState("");
-
-  const countryNames = { NL: "Netherlands", DE: "Germany", BE: "Belgium", PL: "Poland" };
-  const countryFlags = { NL: "🇳🇱", DE: "🇩🇪", BE: "🇧🇪", PL: "🇵🇱" };
-
-  // ── Currency handling ─────────────────────────────────────────
-  // PL displays in Polish Złoty. All CALC_DATA is in EUR, so we
-  // convert PLN input → EUR for the math, then EUR → PLN for display.
-  const PLN_PER_EUR = 4.35;
-  const isPLN = country === "PL";
-  const currencySymbol = isPLN ? "zł" : "€";
-  const currencyCode = isPLN ? "PLN" : "EUR";
-  const priceStep = isPLN ? 1000 : 500;
-  const kmStep = 5000;
-
-  const formatMoney = (amount) => {
-    // amount is always in EUR internally; convert for display if PLN
-    if (isPLN) {
-      return Math.round(amount * PLN_PER_EUR).toLocaleString("pl-PL") + " zł";
-    }
-    return "€" + Math.round(amount).toLocaleString("en-US");
-  };
-
-  const handleCalculate = () => {
-    setError("");
-    const priceNum = parseFloat(price);
-    const kmNum = parseFloat(km);
-    if (isNaN(priceNum) || priceNum <= 0) {
-      setError("Please enter a valid purchase price.");
-      setResults(null);
-      return;
-    }
-    if (isNaN(kmNum) || kmNum <= 0) {
-      setError("Please enter a valid yearly kilometre total.");
-      setResults(null);
-      return;
-    }
-    // If user is in PL mode, they entered a PLN amount — convert to EUR for math
-    const priceInEur = isPLN ? priceNum / PLN_PER_EUR : priceNum;
-    const r = calculateOwnership({ country, size, fuel, price: priceInEur, age, km: kmNum });
-    setResults(r);
-    setTimeout(() => {
-      const el = document.getElementById("calc-results");
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 100);
-  };
-
-  const handleReset = () => {
-    setPrice(""); setKm(""); setResults(null); setError("");
-  };
-
-  return (
-    <div className="max-w-4xl mx-auto px-6 py-20 page-enter">
-      <div className="text-xs uppercase tracking-[0.2em] amber-text mb-4 stagger" style={{ "--stagger-index": 0 }}>Cost Calculator</div>
-      <h1 className="font-display text-5xl md:text-6xl font-semibold mb-4 leading-[0.95] tracking-tight stagger" style={{ "--stagger-index": 1 }}>
-        True cost of <span className="italic font-light">ownership.</span>
-      </h1>
-      <p className="text-lg text-muted mb-12 max-w-2xl stagger" style={{ "--stagger-index": 2 }}>
-        See what a car actually costs you per year — fuel, road tax, maintenance, depreciation — across NL, DE, BE and PL. All figures based on official April 2026 data.
-      </p>
-
-      {/* Form */}
-      <div className="card-static rounded-3xl p-8 mb-8 stagger" style={{ "--stagger-index": 3 }}>
-        <div className="grid md:grid-cols-2 gap-5">
-          {/* Country */}
-          <div>
-            <label className="text-[10px] uppercase tracking-wider text-muted font-semibold block mb-2">Country</label>
-            <div className="grid grid-cols-2 gap-2">
-              {Object.keys(countryNames).map(c => (
-                <button key={c} onClick={() => setCountry(c)}
-                  className="p-3 rounded-xl flex items-center gap-2 text-sm font-medium transition"
-                  style={country === c
-                    ? { background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.4)", color: "#fbbf24" }
-                    : { background: "rgba(245,241,234,0.03)", border: "1px solid var(--border)", color: "#f5f1ea" }}>
-                  <span className="text-base">{countryFlags[c]}</span>
-                  <span>{countryNames[c]}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Car size */}
-          <div>
-            <label className="text-[10px] uppercase tracking-wider text-muted font-semibold block mb-2">Car size</label>
-            <div className="grid grid-cols-2 gap-2">
-              {["Small", "Compact", "Mid-Range", "Premium"].map(s => (
-                <button key={s} onClick={() => setSize(s)}
-                  className="p-3 rounded-xl text-sm font-medium transition"
-                  style={size === s
-                    ? { background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.4)", color: "#fbbf24" }
-                    : { background: "rgba(245,241,234,0.03)", border: "1px solid var(--border)", color: "#f5f1ea" }}>
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Fuel type */}
-          <div>
-            <label className="text-[10px] uppercase tracking-wider text-muted font-semibold block mb-2">Fuel type</label>
-            <div className="grid grid-cols-2 gap-2">
-              {["Petrol", "Diesel", "Electric", "Hybrid"].map(f => (
-                <button key={f} onClick={() => setFuel(f)}
-                  className="p-3 rounded-xl text-sm font-medium transition"
-                  style={fuel === f
-                    ? { background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.4)", color: "#fbbf24" }
-                    : { background: "rgba(245,241,234,0.03)", border: "1px solid var(--border)", color: "#f5f1ea" }}>
-                  {f}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Car age */}
-          <div>
-            <label className="text-[10px] uppercase tracking-wider text-muted font-semibold block mb-2">Car age</label>
-            <div className="grid grid-cols-2 gap-2">
-              {["New", "Nearly New", "Used", "Old"].map(a => (
-                <button key={a} onClick={() => setAge(a)}
-                  className="p-3 rounded-xl text-sm font-medium transition"
-                  style={age === a
-                    ? { background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.4)", color: "#fbbf24" }
-                    : { background: "rgba(245,241,234,0.03)", border: "1px solid var(--border)", color: "#f5f1ea" }}>
-                  {a}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Purchase price */}
-          <div>
-            <label className="text-[10px] uppercase tracking-wider text-muted font-semibold block mb-2">
-              Purchase price ({currencySymbol})
-            </label>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 amber-text font-semibold text-sm">
-                {currencySymbol}
-              </span>
-              <input
-                type="number"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                step={priceStep}
-                min="0"
-                placeholder={isPLN ? "e.g. 80000" : "e.g. 18500"}
-                className="w-full pl-10 pr-4 py-3 rounded-xl text-sm font-medium outline-none transition"
-                style={{ background: "rgba(245,241,234,0.03)", border: "1px solid var(--border)", color: "#f5f1ea" }}
-              />
-            </div>
-            <div className="text-[10px] text-muted mt-1.5">Steps by {priceStep.toLocaleString(isPLN ? "pl-PL" : "en-US")} {currencyCode}</div>
-          </div>
-
-          {/* Km per year */}
-          <div>
-            <label className="text-[10px] uppercase tracking-wider text-muted font-semibold block mb-2">Kilometres per year</label>
-            <div className="relative">
-              <input
-                type="number"
-                value={km}
-                onChange={(e) => setKm(e.target.value)}
-                step={kmStep}
-                min="0"
-                placeholder="e.g. 15000"
-                className="w-full px-4 pr-12 py-3 rounded-xl text-sm font-medium outline-none transition"
-                style={{ background: "rgba(245,241,234,0.03)", border: "1px solid var(--border)", color: "#f5f1ea" }}
-              />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted text-xs">km</span>
-            </div>
-            <div className="text-[10px] text-muted mt-1.5">Steps by 5,000 km</div>
-          </div>
-        </div>
-
-        {error && (
-          <div className="mt-5 p-3 rounded-xl text-sm"
-            style={{ background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.3)", color: "#fca5a5" }}>
-            {error}
-          </div>
-        )}
-
-        <div className="mt-6 flex items-center gap-3">
-          <button onClick={handleCalculate} className="px-6 py-3 rounded-xl btn-primary flex items-center gap-2 font-semibold">
-            <Gauge className="w-4 h-4" /> Calculate
-          </button>
-          {results && (
-            <button onClick={handleReset} className="px-4 py-3 rounded-xl btn-ghost text-sm">
-              Reset
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Results */}
-      {results && (
-        <div id="calc-results" className="card-static rounded-3xl p-8 mb-6 fade-up">
-          <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
-            <div>
-              <div className="text-[10px] uppercase tracking-[0.2em] amber-text font-bold">Results</div>
-              <div className="font-display text-2xl font-semibold mt-1">
-                {countryFlags[country]} {countryNames[country]} · {size} · {fuel}
-              </div>
-            </div>
-            <div className="text-xs text-muted">Based on {parseFloat(km).toLocaleString("en-US")} km/year</div>
-          </div>
-
-          {/* Line items */}
-          <div className="space-y-2 mb-5">
-            {[
-              { icon: "⛽️", label: "Fuel cost", values: results.fuel },
-              { icon: "🛣", label: "Road tax", values: results.roadTax },
-              { icon: "🔧", label: "Maintenance", values: results.maintenance },
-              { icon: "📉", label: "Depreciation", values: results.depreciation },
-            ].map(row => (
-              <div key={row.label} className="grid grid-cols-[1fr_auto_auto] gap-4 items-center p-4 rounded-xl"
-                style={{ background: "rgba(245,241,234,0.02)", border: "1px solid var(--border)" }}>
-                <div className="flex items-center gap-3">
-                  <div className="text-xl">{row.icon}</div>
-                  <div className="font-semibold">{row.label}</div>
-                </div>
-                <div className="text-right min-w-[100px]">
-                  <div className="text-[10px] uppercase tracking-wider text-muted">Monthly</div>
-                  <div className="font-semibold">{formatMoney(row.values.monthly)}</div>
-                </div>
-                <div className="text-right min-w-[110px]">
-                  <div className="text-[10px] uppercase tracking-wider text-muted">Yearly</div>
-                  <div className="font-semibold amber-text">{formatMoney(row.values.yearly)}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Total */}
-          <div className="grid grid-cols-[1fr_auto_auto] gap-4 items-center p-5 rounded-2xl"
-            style={{
-              background: "linear-gradient(135deg, rgba(251,191,36,0.12), rgba(217,119,6,0.08))",
-              border: "1px solid rgba(251,191,36,0.4)",
-              boxShadow: "0 0 40px rgba(251,191,36,0.1)",
-            }}>
-            <div className="flex items-center gap-3">
-              <div className="text-2xl">💰</div>
-              <div>
-                <div className="text-[10px] uppercase tracking-[0.2em] amber-text font-bold">Total cost of ownership</div>
-                <div className="font-display text-lg font-semibold">All-in, every year</div>
-              </div>
-            </div>
-            <div className="text-right min-w-[100px]">
-              <div className="text-[10px] uppercase tracking-wider text-muted">Monthly</div>
-              <div className="font-display font-bold text-xl amber-text">{formatMoney(results.total.monthly)}</div>
-            </div>
-            <div className="text-right min-w-[110px]">
-              <div className="text-[10px] uppercase tracking-wider text-muted">Yearly</div>
-              <div className="font-display font-bold text-2xl amber-text">{formatMoney(results.total.yearly)}</div>
-            </div>
-          </div>
-
-          {/* Poland note */}
-          {country === "PL" && (
-            <div className="mt-4 p-3 rounded-xl text-xs text-muted" style={{ background: "rgba(245,241,234,0.02)", border: "1px solid var(--border)" }}>
-              ℹ️ Poland has no annual road tax for passenger cars.
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Data sources — collapsed */}
-      {results && (
-        <div className="card-static rounded-2xl overflow-hidden mb-4">
-          <button onClick={() => setShowSources(!showSources)}
-            className="w-full p-5 flex items-center justify-between text-left">
-            <div className="flex items-center gap-2">
-              <Info className="w-4 h-4 amber-text" />
-              <div className="font-display font-semibold">Data Sources</div>
-            </div>
-            <ChevronDown className={`w-5 h-5 amber-text transition ${showSources ? "rotate-180" : ""}`} />
-          </button>
-          {showSources && (
-            <div className="px-5 pb-5 text-sm text-muted space-y-3" style={{ borderTop: "1px solid var(--border)", paddingTop: "16px" }}>
-              <div>
-                Fuel prices, road tax rates, maintenance costs and depreciation schedules are sourced from official national tax and statistics bodies, updated April 2026.
-              </div>
-              <div className="space-y-2">
-                <div className="text-[10px] uppercase tracking-wider amber-text font-semibold">Official tax authorities</div>
-                {Object.entries(CALC_DATA.officialLinks).map(([code, url]) => (
-                  <div key={code} className="flex items-center gap-2">
-                    <span>{countryFlags[code]}</span>
-                    <span className="font-medium">{countryNames[code]}:</span>
-                    {url ? (
-                      <a href={url} target="_blank" rel="noopener noreferrer" className="amber-text hover:underline">
-                        {url.replace(/^https?:\/\//, "")}
-                      </a>
-                    ) : (
-                      <span className="text-muted italic">No annual road tax for passenger cars</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Disclaimer */}
-      {results && (
-        <div className="text-xs text-muted italic text-center">
-          Estimates based on official national data. April 2026.
-        </div>
-      )}
-    </div>
-  );
-}
+// The Cost Calculator is now an inline home section — see
+// app/components/CostCalculatorSection.jsx (single source, real lib/ownership logic).
 
 function LegalPage({ title, kind }) {
   const sections = kind === "privacy" ? [
@@ -5757,7 +5444,7 @@ function Footer({ setView, smoothScrollTo, smoothNavigate, t }) {
                 </button>
               </li>
               <li>
-                <button onClick={() => smoothNavigate ? smoothNavigate("calculator") : setView("calculator")} className="text-sm text-muted hover:text-amber-400 transition">
+                <button onClick={() => smoothScrollTo ? smoothScrollTo("home-calculator", "home") : setView("home")} className="text-sm text-muted hover:text-amber-400 transition">
                   Cost Calculator
                 </button>
               </li>
