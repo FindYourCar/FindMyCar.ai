@@ -1,69 +1,12 @@
 "use client";
 
 import React from "react";
-import { decodeVin } from "@/lib/ownership";
 
 // Hero feature strip — three quick-access cards. Cost Calculator scrolls to the
-// inline calculator section (the single calculator in the app); VIN Checker
-// opens a modal backed by the real ISO 3779 decode in lib/ownership.js; Live
-// Markets scrolls to the markets grid. Styling matches the fmc-feature-strip CSS.
-
-function VinModal({ onClose }) {
-  const [vin, setVin] = React.useState("");
-  const decoded = React.useMemo(() => decodeVin(vin), [vin]);
-  const cleanLen = vin.toUpperCase().replace(/[^A-Z0-9]/g, "").length;
-
-  React.useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = ""; };
-  }, [onClose]);
-
-  return (
-    <div className="fmc-modal open" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="fmc-modal-box" role="dialog" aria-modal="true" aria-label="VIN Checker">
-        <div className="fmc-modal-hdr">
-          <div className="fmc-modal-title">VIN Checker</div>
-          <button className="fmc-modal-close" onClick={onClose} aria-label="Close">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12" /></svg>
-          </button>
-        </div>
-        <div className="fmc-modal-body">
-          <div className="fmc-field">
-            <label>Vehicle Identification Number (17 chars)</label>
-            <input type="text" value={vin} maxLength={20} autoFocus
-              onChange={(e) => setVin(e.target.value.toUpperCase())}
-              placeholder="e.g. WBAWX31080P987654" style={{ letterSpacing: "0.05em", fontFamily: "ui-monospace, monospace" }} />
-            <div className="fmc-hint-line">{cleanLen}/17 characters</div>
-          </div>
-
-          {decoded ? (
-            <div className="fmc-vin-result">
-              <div className="fmc-vin-row"><span className="fmc-vin-label">Manufacturer</span><span className="fmc-vin-val">{decoded.make}</span></div>
-              <div className="fmc-vin-row"><span className="fmc-vin-label">Region of origin</span><span className="fmc-vin-val">{decoded.region}</span></div>
-              <div className="fmc-vin-row"><span className="fmc-vin-label">Model year</span><span className="fmc-vin-val">{decoded.year}</span></div>
-              <div className="fmc-vin-row"><span className="fmc-vin-label">Check digit (ISO 3779)</span><span className="fmc-vin-val">{decoded.checkText}</span></div>
-              <div className="fmc-vin-row"><span className="fmc-vin-label">Stolen / write-off</span><span className="fmc-vin-val">No flags (demo) ✓</span></div>
-              <div className="fmc-disclaimer">
-                Structural decode only — manufacturer, origin and year are derived from the VIN itself.
-                A full history report (mileage, damage, theft) connects to national registries on request.
-              </div>
-            </div>
-          ) : (
-            <div className="fmc-disclaimer" style={{ marginTop: 4 }}>
-              Enter all 17 characters to decode manufacturer, origin, model year and validate the check digit.
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+// inline calculator section; VIN Checker is not live yet (shown as "Coming
+// soon", non-interactive); Live Markets scrolls to the markets grid.
 
 export default function MarketTools() {
-  const [vinOpen, setVinOpen] = React.useState(false);
-
   const scrollTo = (id) =>
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
@@ -83,26 +26,12 @@ export default function MarketTools() {
         .fmc-feat-arrow{color:#5e574f;flex-shrink:0;transition:color .25s ease,transform .25s ease}
         .fmc-feat-card:hover .fmc-feat-arrow{color:#fbbf24;transform:translateX(3px)}
 
-        .fmc-modal{position:fixed;inset:0;background:rgba(5,4,3,0.78);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:9000;display:flex;align-items:flex-start;justify-content:center;padding:5vh 24px;overflow-y:auto;animation:fmcToolsFade .25s ease}
-        .fmc-modal-box{background:linear-gradient(180deg,#1a1714 0%,#110f0c 100%);border:1px solid rgba(255,255,255,0.1);border-radius:20px;width:100%;max-width:480px;overflow:hidden;box-shadow:0 40px 80px rgba(0,0,0,0.7);animation:fmcToolsRise .35s cubic-bezier(.2,.8,.2,1)}
-        .fmc-modal-hdr{padding:18px 22px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:space-between}
-        .fmc-modal-title{font-family:Fraunces,Georgia,serif;font-size:18px;font-weight:600;color:#f9fafb}
-        .fmc-modal-close{width:30px;height:30px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:50%;color:#8a8178;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;flex-shrink:0}
-        .fmc-modal-close:hover{background:rgba(251,191,36,0.1);color:#fbbf24;border-color:rgba(251,191,36,0.3)}
-        .fmc-modal-body{padding:22px;display:flex;flex-direction:column;gap:14px}
-        .fmc-field{display:flex;flex-direction:column;gap:7px}
-        .fmc-field label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8a8178}
-        .fmc-field input{background:rgba(10,9,8,0.7);border:1px solid var(--border);border-radius:10px;padding:11px 13px;color:var(--text);font-size:14px;font-family:inherit;outline:none;transition:border-color .2s;width:100%;box-sizing:border-box}
-        .fmc-field input:focus{border-color:rgba(251,191,36,0.45)}
-        .fmc-hint-line{font-size:11px;color:#5e574f}
-        .fmc-vin-result{margin-top:6px;padding-top:14px;border-top:1px solid var(--border)}
-        .fmc-vin-row{display:flex;justify-content:space-between;gap:12px;font-size:13px;color:#8a8178;padding:8px 0;border-bottom:1px solid rgba(245,241,234,0.05)}
-        .fmc-vin-val{color:var(--text);font-weight:500;white-space:nowrap}
-        .fmc-vin-label{color:#8a8178}
-        .fmc-disclaimer{margin-top:12px;font-size:11px;line-height:1.55;color:#5e574f}
-        @keyframes fmcToolsFade{from{opacity:0}to{opacity:1}}
-        @keyframes fmcToolsRise{from{opacity:0;transform:translateY(22px) scale(.98)}to{opacity:1;transform:none}}
-        @media (prefers-reduced-motion:reduce){.fmc-modal,.fmc-modal-box{animation:none}}
+        /* Coming-soon (unavailable) card */
+        .fmc-feat-card.soon{cursor:default}
+        .fmc-feat-card.soon:hover{border-color:rgba(255,255,255,0.08);background:rgba(20,18,16,0.9);transform:none;box-shadow:none}
+        .fmc-feat-card.soon .fmc-feat-ico{opacity:.5}
+        .fmc-feat-card.soon .fmc-feat-title{color:#8a8178}
+        .fmc-soon-badge{flex-shrink:0;font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#fbbf24;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:999px;padding:4px 9px;white-space:nowrap}
       `}</style>
 
       <div className="fmc-feature-strip">
@@ -117,7 +46,7 @@ export default function MarketTools() {
           <svg className="fmc-feat-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
         </button>
 
-        <button className="fmc-feat-card" type="button" onClick={() => setVinOpen(true)}>
+        <div className="fmc-feat-card soon" aria-disabled="true">
           <span className="fmc-feat-ico">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 12l2 2 4-5" /><path d="M12 3l7 4v5c0 4.5-3 8-7 9-4-1-7-4.5-7-9V7l7-4z" /></svg>
           </span>
@@ -125,8 +54,8 @@ export default function MarketTools() {
             <span className="fmc-feat-title">VIN Checker</span>
             <span className="fmc-feat-sub">History · mileage · stolen check</span>
           </span>
-          <svg className="fmc-feat-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-        </button>
+          <span className="fmc-soon-badge">Coming soon</span>
+        </div>
 
         <button className="fmc-feat-card" type="button" onClick={() => scrollTo("home-markets")}>
           <span className="fmc-feat-ico">
@@ -139,8 +68,6 @@ export default function MarketTools() {
           <svg className="fmc-feat-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
         </button>
       </div>
-
-      {vinOpen && <VinModal onClose={() => setVinOpen(false)} />}
     </div>
   );
 }
