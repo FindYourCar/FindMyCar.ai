@@ -18,6 +18,7 @@ import TrustSection from "./components/TrustSection";
 import LuxCursor from "./components/LuxCursor";
 import MarketTools from "./components/MarketTools";
 import CostCalculatorSection from "./components/CostCalculatorSection";
+import LiveMarketCard from "./components/LiveMarketCard";
 
 /* ============================================================
    VEHICLE TAXONOMY — generalised make / model / trim classification
@@ -2283,13 +2284,22 @@ useEffect(() => {
         level,
         fallbackReason,
         trimDisplay,
-        imageUrl: "https://images.unsplash.com/photo-1511919884226-20f0d3d4d687?auto=format&fit=crop&w=1200&q=80",
-        listingUrl: buildAutoScout24Url(
-          makeSlug || makeName || "",
-          modelSlug || modelDisplay || "",
-          resolvedCountry,
-          { fuel, transmission, minYear, maxMileage, maxPrice: maxBudget }
-        ),
+        // Structured intent — the LiveMarketCard sends this to /api/market-search,
+        // which is the single place URLs are built + validated (no fragile slug
+        // guessing or prebuilt links rendered as if valid).
+        intent: {
+          make: makeName || null,
+          model: modelDisplay || null,
+          country: resolvedCountry,
+          maxMileage: maxMileage || null,
+          maxPrice: maxBudget || null,
+          fuel: fuel && fuel !== "any" ? fuel : null,
+          transmission: transmission && transmission !== "any" ? transmission : null,
+          yearFrom: minYear || null,
+          // Original message so the server can recover make/model if the
+          // upstream extractor dropped them (registry-bound, deterministic).
+          rawText: r.rawText || null,
+        },
         source: "AutoScout24",
       }];
     }
@@ -2341,7 +2351,7 @@ useEffect(() => {
         setListingMaxPrice(intent.budget_max ?? null);
 
         if (hasParsedIntent) {
-          filteredListings = getVisibleListings({ ...intent, level, fallbackReason });
+          filteredListings = getVisibleListings({ ...intent, level, fallbackReason, rawText: text });
           listingReply = filteredListings.length > 0
             ? "I found a live-market search based on your request."
             : "I couldn't build a recommendation from that request.";
@@ -3949,57 +3959,16 @@ function ChatMessage({ message, country, openCar, shortlist, compareList, toggle
                 </p>
                 <div className="space-y-3">
                   {message.listings.slice(0, 2).map((listing) => (
-                    <div key={listing.id} className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
-                      <div className="aspect-[16/9] w-full overflow-hidden bg-black/40">
-                        <img
-                          src={listing.imageUrl}
-                          alt={listing.title}
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
-
-                      <div className="p-3">
-                        <div className="mb-2 flex items-center justify-between gap-2">
-                          <div className="text-sm font-semibold text-white">
-                            {listing.title}
-                          </div>
-                          <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/70">
-                            {listing.country}
-                          </span>
-                        </div>
-
-                        <p className="mb-2 text-xs text-white/65">
-                          {listing.subtitle}
-                        </p>
-
-                        <div className="mb-3 space-y-0.5 text-xs text-white/75">
-                          <div>Budget: {listing.priceLabel}</div>
-                          {listing.fuel && listing.fuel !== "any" && <div>Fuel: {listing.fuel}</div>}
-                          {listing.transmission && listing.transmission !== "any" && <div>Transmission: {listing.transmission}</div>}
-                          {listing.minYear && <div>Year: from {listing.minYear}</div>}
-                          {listing.maxMileage && <div>Max mileage: {listing.maxMileage.toLocaleString()} km</div>}
-                          <div>Source: {listing.source}</div>
-                          {listing.trimDisplay && (
-                            <div style={{ color: "#94a3b8" }}>Trim: {listing.trimDisplay}</div>
-                          )}
-                          {listing.level === "exact" && (
-                            <div style={{ color: "#4ade80" }}>✓ Exact match</div>
-                          )}
-                          {listing.fallbackReason && listing.level !== "exact" && (
-                            <div style={{ color: "#fbbf24" }}>↓ {listing.fallbackReason}</div>
-                          )}
-                        </div>
-
-                        <a
-                          href={listing.listingUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex w-full items-center justify-center rounded-lg bg-[#f5a623] px-3 py-1.5 text-xs font-medium text-black transition hover:bg-[#ffb84d]"
-                        >
-                          View live listings
-                        </a>
-                      </div>
-                    </div>
+                    <LiveMarketCard
+                      key={listing.id}
+                      intent={listing.intent || {
+                        make: null, model: null, country: listing.country,
+                        maxMileage: listing.maxMileage || null, maxPrice: null,
+                        fuel: listing.fuel && listing.fuel !== "any" ? listing.fuel : null,
+                        transmission: listing.transmission && listing.transmission !== "any" ? listing.transmission : null,
+                        yearFrom: listing.minYear || null,
+                      }}
+                    />
                   ))}
                 </div>
               </>
