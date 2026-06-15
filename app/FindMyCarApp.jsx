@@ -5791,8 +5791,41 @@ function Contact() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
+  const [honeypot, setHoneypot] = useState("");
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
 
-  const canSend = name.trim() && email.trim() && message.trim();
+  const canSend = !!name.trim() && !!email.trim() && !!message.trim() && !sending;
+
+  const handleSubmit = async () => {
+    if (!canSend) return;
+
+    setError("");
+    setSending(true);
+
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, subject: "", message, honeypot }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || "Unable to send message.");
+      }
+
+      setSent(true);
+      setName("");
+      setEmail("");
+      setMessage("");
+      setHoneypot("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-20 page-enter">
@@ -5887,12 +5920,22 @@ function Contact() {
               placeholder="How can we help you?"
             />
           </Field>
+          <input
+            type="text"
+            value={honeypot}
+            onChange={(e) => setHoneypot(e.target.value)}
+            autoComplete="off"
+            tabIndex={-1}
+            style={{ position: "absolute", left: "-9999px", top: "-9999px", opacity: 0, height: 0, width: 0 }}
+            aria-hidden="true"
+          />
           <div className="flex items-center justify-between text-xs text-muted mt-2">
             <span>All fields required.</span>
             <span>{message.length}/500</span>
           </div>
+          {error ? <div className="text-sm text-red-300 mt-4">{error}</div> : null}
           <button
-            onClick={() => setSent(true)}
+            onClick={handleSubmit}
             disabled={!canSend}
             className="mt-6 w-full rounded-2xl px-6 py-4 font-semibold uppercase tracking-[0.12em] transition"
             style={{
@@ -5902,7 +5945,7 @@ function Contact() {
               cursor: canSend ? "pointer" : "not-allowed",
             }}
           >
-            Send message
+            {sending ? "Sending..." : "Send message"}
           </button>
         </div>
       ) : (
