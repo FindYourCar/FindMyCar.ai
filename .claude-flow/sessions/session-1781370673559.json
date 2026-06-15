@@ -1,0 +1,14 @@
+{
+  "id": "session-1781370673559",
+  "startedAt": "2026-06-13T17:11:13.559Z",
+  "cwd": "/Users/mishaschur/FindMyCar.ai",
+  "context": {},
+  "metrics": {
+    "edits": 0,
+    "commands": 0,
+    "tasks": 0,
+    "errors": 0
+  },
+  "endedAt": "2026-06-13T18:03:26.222Z",
+  "duration": 3132670
+}
