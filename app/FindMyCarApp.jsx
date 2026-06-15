@@ -5003,8 +5003,39 @@ function Contact() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
-  const canSend = name.trim() && email.trim() && message.trim();
+  const canSend = name.trim() && email.trim() && message.trim() && !submitting;
+
+  const handleSubmit = async () => {
+    if (!canSend) return;
+    setSubmitting(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, message }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data?.error || "Failed to send message. Please try again later.");
+        return;
+      }
+
+      setSent(true);
+      setName("");
+      setEmail("");
+      setMessage("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send message.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-20 page-enter">
@@ -5103,8 +5134,11 @@ function Contact() {
             <span>All fields required.</span>
             <span>{message.length}/500</span>
           </div>
+          {error && (
+            <div className="text-sm text-red-300 mb-4">{error}</div>
+          )}
           <button
-            onClick={() => setSent(true)}
+            onClick={handleSubmit}
             disabled={!canSend}
             className="mt-6 w-full rounded-2xl px-6 py-4 font-semibold uppercase tracking-[0.12em] transition"
             style={{
@@ -5114,7 +5148,7 @@ function Contact() {
               cursor: canSend ? "pointer" : "not-allowed",
             }}
           >
-            Send message
+            {submitting ? "Sending..." : "Send message"}
           </button>
         </div>
       ) : (
@@ -5130,6 +5164,15 @@ function Contact() {
         </div>
       )}
     </div>
+  );
+}
+
+function Field({ label, children }) {
+  return (
+    <label className="block text-sm text-white/90 space-y-3">
+      <span className="font-semibold text-sm text-white/90">{label}</span>
+      {children}
+    </label>
   );
 }
 
