@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Search, Sparkles, Heart, GitCompare, ArrowRight, ArrowLeft, ArrowDown, Check, X,
   Car, Zap, Fuel, Gauge, Users, DoorOpen, MapPin, Star, PlusCircle,
-  ChevronDown, Globe, Filter, Info, Shield, Sliders, MessageCircle,
+  ChevronDown, Globe, Filter, Info, Shield, MessageCircle,
   TrendingUp, Lightbulb, ThumbsUp, Mail, Send, Settings, LogIn, UserPlus,
   Clock, History, Bookmark, Phone, MessageSquare, Plus, Trash2, FileText
 } from "lucide-react";
@@ -2213,7 +2213,6 @@ useEffect(() => {
   const [compareList, setCompareList] = useState([]);
   const [searchCount, setSearchCount] = useState(0);
   const [showAccountModal, setShowAccountModal] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [showShortlist, setShowShortlist] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
@@ -2228,6 +2227,41 @@ useEffect(() => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language]);
+
+  // ── Conversation persistence (10-day TTL) ──────────────────────────────────
+  // The advisor "remembers the conversation for 10 days": persist the chat to
+  // localStorage and restore it on load, expiring after 10 days.
+  const FMC_CHAT_KEY = "fmc.chat.v1";
+  const FMC_CHAT_TTL = 10 * 24 * 60 * 60 * 1000; // 10 days in ms
+  const chatHydrated = React.useRef(false);
+
+  React.useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(FMC_CHAT_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        if (saved && typeof saved.savedAt === "number" && Date.now() - saved.savedAt < FMC_CHAT_TTL) {
+          if (Array.isArray(saved.messages) && saved.messages.length > 1) setMessages(saved.messages);
+          if (typeof saved.chatTurn === "number") setChatTurn(saved.chatTurn);
+          if (Array.isArray(saved.chatSessions)) setChatSessions(saved.chatSessions);
+          if (typeof saved.country === "string") setCountry(saved.country);
+          if (typeof saved.language === "string") setLanguage(saved.language);
+        } else {
+          window.localStorage.removeItem(FMC_CHAT_KEY); // expired
+        }
+      }
+    } catch { /* corrupt or unavailable storage — start fresh */ }
+    chatHydrated.current = true;
+  }, []);
+
+  React.useEffect(() => {
+    if (!chatHydrated.current) return;
+    try {
+      window.localStorage.setItem(FMC_CHAT_KEY, JSON.stringify({
+        savedAt: Date.now(), messages, chatTurn, chatSessions, country, language,
+      }));
+    } catch { /* quota exceeded or unavailable — skip persistence */ }
+  }, [messages, chatTurn, chatSessions, country, language]);
 
   const hasExplicitListingFilters = (text) => {
     const t = text.toLowerCase();
@@ -2467,24 +2501,6 @@ useEffect(() => {
 
   const deleteSession = (id) => {
     setChatSessions((s) => s.filter(x => x.id !== id));
-  };
-
-  const runAdvancedSearch = (filters) => {
-    const cars = recommendCars("Advanced search", filters);
-    const bestFit = cars.filter(c => c.badge === "Best Fit").slice(0, 3);
-    const bestValue = cars.filter(c => c.badge === "Best Value").slice(0, 3);
-    setMessages((m) => [
-      ...m,
-      { role: "user", kind: "text", content: "I used the advanced filters." },
-      { role: "assistant", kind: "text", content: "Got it — let me see what fits those criteria. Here's what I'd consider:" },
-      { role: "assistant", kind: "carGroups", groups: [
-        { label: "★ Best fit", subtitle: "Matched to your filters", cars: bestFit },
-        { label: "€ Best value", subtitle: "Most car for your money", cars: bestValue },
-      ]},
-    ]);
-    const newCount = searchCount + 1;
-    setSearchCount(newCount);
-    if (newCount >= 6 && !hasAccount) setShowAccountModal(true);
   };
 
   const toggleShortlist = (carId) => {
@@ -3117,7 +3133,7 @@ useEffect(() => {
           {view === "home" && (
             <Home
               messages={messages} sendMessage={sendMessage} isTyping={isTyping}
-              startFreshChat={startFreshChat} setShowAdvanced={setShowAdvanced}
+              startFreshChat={startFreshChat}
               country={country} setCountry={setCountry} openCar={openCar}
               shortlist={shortlist} compareList={compareList}
               toggleShortlist={toggleShortlist} toggleCompare={toggleCompare}
@@ -3163,8 +3179,6 @@ useEffect(() => {
         </button>
       )}
 
-      {showAdvanced && <AdvancedSearchModal onClose={() => setShowAdvanced(false)}
-        onSearch={(f) => { setShowAdvanced(false); runAdvancedSearch(f); }} />}
       {showShortlist && <ShortlistDrawer shortlist={shortlist} toggleShortlist={toggleShortlist}
         clearShortlist={clearShortlist}
         onClose={() => setShowShortlist(false)} openCar={(c) => { setShowShortlist(false); openCar(c); }}
@@ -3326,7 +3340,7 @@ function NavBtn({ children, onClick }) {
    HOME (chat-driven)
    ============================================================ */
 
-function Home({ messages, sendMessage, isTyping, startFreshChat, setShowAdvanced, country, setCountry, openCar, shortlist, compareList, toggleShortlist, toggleCompare, language, setShowLanguagePicker, chatSessions, setShowHistory, showListings = false, visibleListings = [], listingsLoading = false, listingsError = "", t }) {
+function Home({ messages, sendMessage, isTyping, startFreshChat, country, setCountry, openCar, shortlist, compareList, toggleShortlist, toggleCompare, language, setShowLanguagePicker, chatSessions, setShowHistory, showListings = false, visibleListings = [], listingsLoading = false, listingsError = "", t }) {
   // DEBUG: confirm this component is the one rendering on your page
   React.useEffect(() => {
     console.log("[FindMyCar] 🏠 Home component MOUNTED from FindMyCarApp.jsx — hero video system should be visible");
@@ -3688,10 +3702,6 @@ try {
             {/* Input */}
             <div className="px-4 py-3" style={{ borderTop: "1px solid var(--border)", background: "rgba(10,9,8,0.5)" }}>
               <div className="flex items-end gap-2">
-                <button onClick={() => setShowAdvanced(true)} title="Advanced filters"
-                  className="p-2.5 rounded-xl btn-ghost shrink-0">
-                  <Sliders className="w-4 h-4" />
-                </button>
                 <div className="flex-1 rounded-2xl flex items-end gap-2 px-4 py-2" style={{ background: "rgba(245,241,234,0.04)", border: "1px solid var(--border)" }}>
                   <textarea
                     value={input}
@@ -4224,212 +4234,6 @@ function EmptyOffers({ car }) {
 /* ============================================================
    ADVANCED SEARCH MODAL
    ============================================================ */
-
-function AdvancedSearchModal({ onClose, onSearch }) {
-  const currentYear = new Date().getFullYear();
-
-  // Defaults — also used by reset
-  const DEFAULTS = {
-    make: "Any", model: "", body: "Any", fuel: "Any", trans: "Any",
-    regFrom: "2015", regTo: String(currentYear),
-    priceMin: "0", priceMax: "50000",
-    countries: ["NL"], city: "", radius: 50,
-    mileageMin: "0", mileageMax: "200000",
-    powerMin: "50", powerMax: "400",
-    doors: "Any", seats: "Any", seller: "Any", crossBorder: false,
-  };
-
-  const [f, setF] = useState({ ...DEFAULTS });
-  const update = (k, v) => setF(prev => ({ ...prev, [k]: v }));
-
-  // ── Number-input helpers (FIX 3 + 4) ─────────────────────
-  // Store as STRING so the field can be empty mid-edit.
-  // Block minus key. Validate on blur: clamp to [min, max].
-  const blockMinus = (e) => {
-    if (e.key === "-" || e.key === "Minus") e.preventDefault();
-  };
-  const numBlur = (key, minVal, maxVal) => () => {
-    const raw = f[key];
-    if (raw === "" || raw === undefined) {
-      update(key, String(minVal));
-      return;
-    }
-    let n = parseInt(raw, 10);
-    if (isNaN(n) || n < minVal) n = minVal;
-    if (maxVal !== undefined && n > maxVal) n = maxVal;
-    update(key, String(n));
-  };
-
-  // Dynamic step for price: Poland → 1000, else → 500
-  const isPL = f.countries.length === 1 && f.countries[0] === "PL";
-  const priceStep = isPL ? 1000 : 500;
-
-  // ── Submit with validation ───────────────────────────────
-  const handleSearch = () => {
-    // Force-clamp all numeric fields before sending
-    const clamped = { ...f };
-    const clamp = (k, min, max) => {
-      let n = parseInt(clamped[k], 10);
-      if (isNaN(n) || n < min) n = min;
-      if (max !== undefined && n > max) n = max;
-      clamped[k] = String(n);
-    };
-    clamp("regFrom", 1980, currentYear);
-    clamp("regTo", 1980, currentYear);
-    clamp("priceMin", 0);
-    clamp("priceMax", 0);
-    clamp("mileageMin", 0);
-    clamp("mileageMax", 0);
-    clamp("powerMin", 0);
-    clamp("powerMax", 0);
-    setF(clamped);
-    onSearch(clamped);
-  };
-
-  // ── Reset (FIX 5) — full restore to every default ────────
-  const handleReset = () => setF({ ...DEFAULTS });
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md fade-up" style={{ background: "rgba(10,9,8,0.8)" }} onClick={onClose}>
-      <div className="card-static rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}
-        style={{ boxShadow: "0 40px 100px rgba(0,0,0,0.7), 0 0 100px rgba(251,191,36,0.08)" }}>
-        <div className="sticky top-0 p-6 flex items-center justify-between z-10" style={{ background: "rgba(20,18,16,0.95)", backdropFilter: "blur(10px)", borderBottom: "1px solid var(--border)" }}>
-          <div>
-            <h2 className="font-display text-2xl font-semibold">Advanced <span className="italic font-light">search</span></h2>
-            <p className="text-sm text-muted">Fine-tune exactly what you're looking for.</p>
-          </div>
-          <button onClick={onClose} className="p-2 rounded-full btn-ghost"><X className="w-5 h-5" /></button>
-        </div>
-        <div className="p-6 grid md:grid-cols-2 gap-5">
-          <Field label="Make">
-            <select value={f.make} onChange={e => update("make", e.target.value)} className="w-full p-3 rounded-xl input-dark">
-              {MAKE_OPTIONS.map(m => <option key={m}>{m}</option>)}
-            </select>
-          </Field>
-          <Field label="Model">
-            <input value={f.model} onChange={e => update("model", e.target.value)} placeholder="e.g. Golf" className="w-full p-3 rounded-xl input-dark" />
-          </Field>
-          <Field label="Body type">
-            <div className="flex flex-wrap gap-2">
-              {BODY_OPTIONS.map(b => (
-                <button key={b} onClick={() => update("body", b)} className={`pill px-3 py-2 rounded-full text-sm ${f.body === b ? "pill-active" : ""}`}>{b}</button>
-              ))}
-            </div>
-          </Field>
-          <Field label="Fuel type">
-            <div className="flex flex-wrap gap-2">
-              {FUEL_OPTIONS.map(b => (
-                <button key={b} onClick={() => update("fuel", b)} className={`pill px-3 py-2 rounded-full text-sm ${f.fuel === b ? "pill-active" : ""}`}>{b}</button>
-              ))}
-            </div>
-          </Field>
-          <Field label="First registration">
-            <div className="flex items-center gap-2">
-              <input type="number" value={f.regFrom} onChange={e => update("regFrom", e.target.value)} onBlur={numBlur("regFrom", 1980, currentYear)} onKeyDown={blockMinus} min="1980" max={currentYear} className="w-full p-3 rounded-xl input-dark" />
-              <span className="text-muted">–</span>
-              <input type="number" value={f.regTo} onChange={e => update("regTo", e.target.value)} onBlur={numBlur("regTo", 1980, currentYear)} onKeyDown={blockMinus} min="1980" max={currentYear} className="w-full p-3 rounded-xl input-dark" />
-            </div>
-          </Field>
-          <Field label={isPL ? "Price (zł)" : "Price (€)"}>
-            <div className="flex items-center gap-2">
-              <input type="number" value={f.priceMin} onChange={e => update("priceMin", e.target.value)} onBlur={numBlur("priceMin", 0)} onKeyDown={blockMinus} min="0" step={priceStep} className="w-full p-3 rounded-xl input-dark" />
-              <span className="text-muted">–</span>
-              <input type="number" value={f.priceMax} onChange={e => update("priceMax", e.target.value)} onBlur={numBlur("priceMax", 0)} onKeyDown={blockMinus} min="0" step={priceStep} className="w-full p-3 rounded-xl input-dark" />
-            </div>
-          </Field>
-          <Field label="Countries">
-            <div className="flex flex-wrap gap-2">
-              {Object.values(COUNTRIES).map(c => {
-                const active = f.countries.includes(c.code);
-                return (
-                  <button key={c.code} onClick={() => update("countries", active ? f.countries.filter(x => x !== c.code) : [...f.countries, c.code])}
-                    className={`pill px-3 py-2 rounded-full text-sm flex items-center gap-1.5 ${active ? "pill-active" : ""}`}>
-                    <span>{c.flag}</span> {c.name}
-                  </button>
-                );
-              })}
-            </div>
-          </Field>
-          <Field label="City / ZIP">
-            <input value={f.city} onChange={e => update("city", e.target.value)} placeholder="e.g. Amsterdam or 1011" className="w-full p-3 rounded-xl input-dark" />
-          </Field>
-          <Field label={`Radius: ${f.radius} km`}>
-            <input type="range" min="10" max="500" value={f.radius} onChange={e => update("radius", +e.target.value)} className="w-full accent-amber-500" />
-          </Field>
-          <Field label="Transmission">
-            <div className="flex flex-wrap gap-2">
-              {TRANS_OPTIONS.map(b => (
-                <button key={b} onClick={() => update("trans", b)} className={`pill px-3 py-2 rounded-full text-sm ${f.trans === b ? "pill-active" : ""}`}>{b}</button>
-              ))}
-            </div>
-          </Field>
-          <Field label="Mileage (km)">
-            <div className="flex items-center gap-2">
-              <input type="number" value={f.mileageMin} onChange={e => update("mileageMin", e.target.value)} onBlur={numBlur("mileageMin", 0)} onKeyDown={blockMinus} min="0" step="5000" className="w-full p-3 rounded-xl input-dark" />
-              <span className="text-muted">–</span>
-              <input type="number" value={f.mileageMax} onChange={e => update("mileageMax", e.target.value)} onBlur={numBlur("mileageMax", 0)} onKeyDown={blockMinus} min="0" step="5000" className="w-full p-3 rounded-xl input-dark" />
-            </div>
-          </Field>
-          <Field label="Power (HP)">
-            <div className="flex items-center gap-2">
-              <input type="number" value={f.powerMin} onChange={e => update("powerMin", e.target.value)} onBlur={numBlur("powerMin", 0)} onKeyDown={blockMinus} min="0" className="w-full p-3 rounded-xl input-dark" />
-              <span className="text-muted">–</span>
-              <input type="number" value={f.powerMax} onChange={e => update("powerMax", e.target.value)} onBlur={numBlur("powerMax", 0)} onKeyDown={blockMinus} min="0" className="w-full p-3 rounded-xl input-dark" />
-            </div>
-          </Field>
-          <Field label="Doors">
-            <div className="flex gap-2">
-              {["Any", "2", "3", "4", "5"].map(d => (
-                <button key={d} onClick={() => update("doors", d)} className={`pill flex-1 py-2 rounded-xl text-sm ${f.doors === d ? "pill-active" : ""}`}>{d}</button>
-              ))}
-            </div>
-          </Field>
-          <Field label="Seats">
-            <div className="flex gap-2">
-              {["Any", "2", "4", "5", "7"].map(d => (
-                <button key={d} onClick={() => update("seats", d)} className={`pill flex-1 py-2 rounded-xl text-sm ${f.seats === d ? "pill-active" : ""}`}>{d}</button>
-              ))}
-            </div>
-          </Field>
-          <Field label="Seller type">
-            <div className="flex gap-2">
-              {["Any", "Dealer", "Private"].map(d => (
-                <button key={d} onClick={() => update("seller", d)} className={`pill flex-1 py-2 rounded-xl text-sm ${f.seller === d ? "pill-active" : ""}`}>{d}</button>
-              ))}
-            </div>
-          </Field>
-          <div className="md:col-span-2">
-            <label className="flex items-center gap-3 p-4 rounded-xl cursor-pointer" style={{ border: "1px solid var(--border)", background: "rgba(245,241,234,0.02)" }}>
-              <input type="checkbox" checked={f.crossBorder} onChange={e => update("crossBorder", e.target.checked)} className="w-4 h-4 accent-amber-500" />
-              <div>
-                <div className="font-medium text-sm">Include cross-border results</div>
-                <div className="text-xs text-muted">Show cars from neighboring countries for a wider selection.</div>
-              </div>
-            </label>
-          </div>
-        </div>
-        <div className="sticky bottom-0 p-5 flex items-center justify-between" style={{ background: "rgba(20,18,16,0.95)", backdropFilter: "blur(10px)", borderTop: "1px solid var(--border)" }}>
-          <button onClick={handleReset} className="text-sm text-muted hover:amber-text">Reset filters</button>
-          <div className="flex gap-2">
-            <button onClick={onClose} className="px-5 py-2.5 rounded-xl btn-ghost text-sm">Cancel</button>
-            <button onClick={handleSearch} className="px-6 py-2.5 rounded-xl btn-primary text-sm flex items-center gap-2">
-              Find my car <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Field({ label, children }) {
-  return (
-    <div>
-      <div className="text-xs font-semibold uppercase tracking-wider text-muted mb-2">{label}</div>
-      {children}
-    </div>
-  );
-}
 
 /* ============================================================
    SHORTLIST DRAWER
