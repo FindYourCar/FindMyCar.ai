@@ -41,7 +41,7 @@ export default function TrustSection() {
           <div className="twy-stat"><div className="twy-n">€0</div><div className="twy-l">Commission charged<br />to buyers, ever</div></div>
           <div className="twy-stat"><div className="twy-n">4</div><div className="twy-l">Markets — NL,<br />BE, DE, PL</div></div>
           <div className="twy-stat"><div className="twy-n">94%</div><div className="twy-l">Average match<br />confidence score</div></div>
-          <div className="twy-stat"><div className="twy-n">6</div><div className="twy-l">Languages<br />supported</div></div>
+          <div className="twy-stat"><div className="twy-n">4</div><div className="twy-l">Languages<br />supported</div></div>
         </div>
 
         <div className="twy-quote">
