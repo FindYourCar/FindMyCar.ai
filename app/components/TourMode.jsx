@@ -4,12 +4,13 @@ import React from "react";
 
 // Hands-free demo driver for recording a walkthrough video.
 // Activates ONLY when the URL has ?tour=1 (or ?tour) — normal visitors never
-// see it. It plays the cinematic intro, auto-clicks "Explore", then runs a
-// smooth, timed tour through every section (with a live chat search and the
-// cost calculator), then returns to the top. Press record, load ?tour=1, done.
+// see it. It plays the cinematic intro, auto-clicks "Explore", runs a scripted
+// advisor exchange (deterministic, ends by offering listings — no real listings
+// shown), then glides through every section, scrolling each one fully into view
+// (incl. the market overlay and the calculator results) before moving on.
 //
-// A faint "REC" pill + progress bar shows while the tour runs so you can trim
-// cleanly; both are hidden from normal users.
+// A faint "REC" pill + top progress bar shows while it runs so the take is easy
+// to trim. Both are hidden from normal users.
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -32,9 +33,12 @@ function setNativeValue(el, value) {
   el.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-function scrollToId(id) {
-  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-}
+const USER_MSG =
+  "Hey! 👋 I need a reliable family car, budget around €25k, mostly city with the odd weekend trip — which model would you suggest? 🙂";
+const ADVISOR_REPLY =
+  "Great brief — that actually narrows things down nicely 🙂\n\n" +
+  "For ~€25k, family use, mostly city plus weekend getaways, I'd steer you toward a Toyota Corolla Touring Sports Hybrid 🚗 — properly roomy, famously reliable, and the hybrid keeps city running costs low. Two strong alternatives: a Škoda Octavia 🧳 (huge boot, superb value) or a Honda Civic e:HEV ⚡ for a bit more polish.\n\n" +
+  "Want me to pull up some live listings for one of these? 🔎";
 
 export default function TourMode() {
   const [active, setActive] = React.useState(false);
@@ -49,6 +53,22 @@ export default function TourMode() {
     let cancelled = false;
     const guard = () => cancelled;
 
+    // Scroll a section to the top, dwell, then — if it is taller than the
+    // viewport — reveal its lower half so the whole section is shown.
+    async function showSection(id, topMs = 2400, revealMs = 2800) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      await sleep(topMs);
+      if (guard()) return;
+      const r = el.getBoundingClientRect();
+      if (r.height > window.innerHeight + 60) {
+        const top = r.bottom + window.scrollY - window.innerHeight + 28;
+        window.scrollTo({ top, behavior: "smooth" });
+        await sleep(revealMs);
+      }
+    }
+
     (async () => {
       // ── Phase 0: let the cinematic intro breathe ──────────────
       setProgress(0.04);
@@ -58,50 +78,59 @@ export default function TourMode() {
 
       // ── Phase 1: Explore → acceleration transition ────────────
       if (cta) cta.click();
-      await sleep(1800);
+      await sleep(1900);
       if (guard()) return;
       setProgress(0.12);
 
-      // ── Phase 2: hero + advisor chat (live search) ────────────
-      scrollToId("home-top");
-      await sleep(2600);
-      if (guard()) return;
-
+      // ── Phase 2: advisor chat (scripted, deterministic) ───────
+      const hook = window.__fmcTourChat;
+      hook?.reset();   // clear any persisted history so the take is clean
+      await sleep(300);
+      document.getElementById("home-top")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      await sleep(2000);
       const ta = document.querySelector("textarea");
-      if (ta) {
+      if (ta && hook) {
         ta.focus();
-        const query = "Show me a Mercedes CLE with max 50,000 km in Belgium";
-        // Type it out so the recording shows real input
-        for (let i = 1; i <= query.length && !guard(); i++) {
-          setNativeValue(ta, query.slice(0, i));
-          await sleep(22);
+        for (let i = 1; i <= USER_MSG.length && !guard(); i++) {
+          setNativeValue(ta, USER_MSG.slice(0, i));
+          await sleep(16);
         }
-        await sleep(500);
-        const sendBtn = document.querySelector("button.btn-primary.shrink-0");
-        if (sendBtn && !sendBtn.disabled) sendBtn.click();
-        else ta.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-        // Wait for the live-market card to render
-        await waitFor(".lmc", 9000);
-        await sleep(3200);
+        await sleep(550);
+        setNativeValue(ta, "");        // clear the box as if sent
+        hook.user(USER_MSG);
+        await sleep(750);
+        hook.typing(true);
+        await sleep(1700);
+        if (guard()) return;
+        hook.typing(false);
+        hook.assistant(ADVISOR_REPLY);
+        await sleep(5200);             // dwell so the reply is readable
       }
       if (guard()) return;
       setProgress(0.3);
 
-      // ── Phase 3: markets bento (+ open one overlay) ───────────
-      scrollToId("home-markets");
+      // ── Phase 3: markets bento + full market overlay ──────────
+      document.getElementById("home-markets")?.scrollIntoView({ behavior: "smooth", block: "start" });
       await sleep(2400);
       const firstCard = document.querySelector("#home-markets .bento-card");
       if (firstCard) {
         firstCard.click();
-        await sleep(3000);
+        await sleep(1600);
+        const ov = document.querySelector(".mkt-overlay");
+        if (ov) {
+          ov.scrollTo({ top: ov.scrollHeight, behavior: "smooth" }); // reveal full market detail
+          await sleep(4200);
+          ov.scrollTo({ top: 0, behavior: "smooth" });
+          await sleep(1500);
+        }
         document.querySelector(".mo-close")?.click();
-        await sleep(900);
+        await sleep(1000);
       }
       if (guard()) return;
-      setProgress(0.45);
+      setProgress(0.46);
 
-      // ── Phase 4: cost calculator (fill + calculate) ───────────
-      scrollToId("home-calculator");
+      // ── Phase 4: cost calculator (fill, calculate, show results) ─
+      document.getElementById("home-calculator")?.scrollIntoView({ behavior: "smooth", block: "start" });
       await sleep(2200);
       const calcInputs = document.querySelectorAll("#home-calculator .calc-input-wrap input");
       if (calcInputs.length >= 2) {
@@ -110,32 +139,36 @@ export default function TourMode() {
         setNativeValue(calcInputs[1], "15000");
         await sleep(500);
         document.querySelector("#home-calculator .calc-btn-go")?.click();
-        await sleep(3200);
+        await sleep(1400);
+        // reveal the results panel fully
+        const calc = document.getElementById("home-calculator");
+        if (calc) {
+          const r = calc.getBoundingClientRect();
+          window.scrollTo({ top: r.bottom + window.scrollY - window.innerHeight + 28, behavior: "smooth" });
+          await sleep(3400);
+        }
       }
       if (guard()) return;
-      setProgress(0.6);
+      setProgress(0.62);
 
       // ── Phase 5: how it works ─────────────────────────────────
-      scrollToId("home-how");
-      await sleep(3000);
+      await showSection("home-how", 2800, 2600);
       if (guard()) return;
-      setProgress(0.72);
+      setProgress(0.74);
 
       // ── Phase 6: 3D showroom (let it rotate) ──────────────────
-      scrollToId("home-showroom");
-      await sleep(5000);
+      document.getElementById("home-showroom")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      await sleep(5200);
       if (guard()) return;
-      setProgress(0.84);
+      setProgress(0.85);
 
       // ── Phase 7: why us / trust ───────────────────────────────
-      scrollToId("home-why");
-      await sleep(3000);
+      await showSection("home-why", 2600, 2400);
       if (guard()) return;
-      setProgress(0.92);
+      setProgress(0.93);
 
       // ── Phase 8: FAQ + footer ─────────────────────────────────
-      scrollToId("home-faq");
-      await sleep(2600);
+      await showSection("home-faq", 2400, 2200);
       window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
       await sleep(2600);
       if (guard()) return;
@@ -143,7 +176,7 @@ export default function TourMode() {
 
       // ── Close: glide back to the top ──────────────────────────
       window.scrollTo({ top: 0, behavior: "smooth" });
-      await sleep(1600);
+      await sleep(1700);
       setProgress(1);
       await sleep(1200);
       if (!guard()) setActive(false);

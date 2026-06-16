@@ -2548,6 +2548,30 @@ useEffect(() => {
     setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 50);
   };
 
+  // ── Recording tour hook (only active with ?tour=1) ───────────
+  // Lets TourMode inject a deterministic, scripted advisor exchange so the
+  // walkthrough video is identical every take and never depends on the live
+  // LLM. No effect for normal visitors.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let isTour = false;
+    try { isTour = new URLSearchParams(window.location.search).has("tour"); } catch {}
+    if (!isTour) return;
+    window.__fmcTourChat = {
+      reset: () => {
+        // Start from a clean chat so no persisted history leaks into the take
+        setShowListings(false);
+        setChatTurn(0);
+        setMessages([makeWelcome(language)]);
+        try { window.localStorage.removeItem(FMC_CHAT_KEY); } catch {}
+      },
+      user: (text) => { setShowListings(false); setMessages((m) => [...m, { role: "user", kind: "text", content: text }]); },
+      typing: (on) => setIsTyping(on),
+      assistant: (text) => setMessages((m) => [...m, { role: "assistant", kind: "text", content: text, lang: language, mode: "advisor" }]),
+    };
+    return () => { try { delete window.__fmcTourChat; } catch {} };
+  }, [language]);
+
   const visibleListings = getVisibleListings(listings, listingFilter, listingModel, listingLocation, listingMaxPrice);
 
   return (
