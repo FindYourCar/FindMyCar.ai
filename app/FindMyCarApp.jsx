@@ -16,6 +16,7 @@ import HowItWorksSection from "./components/HowItWorksSection";
 import Showroom from "./components/Showroom";
 import TrustSection from "./components/TrustSection";
 import LuxCursor from "./components/LuxCursor";
+import TourMode from "./components/TourMode";
 import MarketTools from "./components/MarketTools";
 import CostCalculatorSection from "./components/CostCalculatorSection";
 import LiveMarketCard from "./components/LiveMarketCard";
@@ -2553,6 +2554,7 @@ useEffect(() => {
     
     <div className={`min-h-screen text-[#f5f1ea] relative ${arriving ? "fmc-arrive" : ""}`} style={{ background: "#0a0908", fontFamily: "'Inter Tight', ui-sans-serif, system-ui" }}>
       <LuxCursor />
+      <TourMode />
       {!introDone && (
         <CinematicIntro
           onDone={({ instant } = {}) => {
