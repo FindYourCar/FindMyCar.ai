@@ -11,11 +11,12 @@ import React from "react";
 const INTRO_VIDEOS = [
   "https://res.cloudinary.com/df4m9e0ob/video/upload/v1779230148/Hero-06_rosiqi.mp4",
   "https://res.cloudinary.com/df4m9e0ob/video/upload/v1779230150/Hero-01_nwecg8.mp4",
-  "https://res.cloudinary.com/df4m9e0ob/video/upload/v1779230153/Hero-03_xniqnn.mp4",
+  "https://res.cloudinary.com/df4m9e0ob/video/upload/v1781695688/Hero-03_apbgz1.mp4",
   "https://res.cloudinary.com/df4m9e0ob/video/upload/v1779230150/Hero-07_gswtag.mp4",
   "https://res.cloudinary.com/df4m9e0ob/video/upload/v1779230147/Hero-02_w9jaow.mp4",
   "https://res.cloudinary.com/df4m9e0ob/video/upload/v1779230163/Hero-04_nlp39h.mp4",
   "https://res.cloudinary.com/df4m9e0ob/video/upload/v1779230159/Hero-05_tbc7ym.mp4",
+  "https://res.cloudinary.com/df4m9e0ob/video/upload/v1781695752/Hero-08_wdihgg.mp4",
 ];
 
 const SPEED_LINES = Array.from({ length: 30 }, (_, i) => ({
