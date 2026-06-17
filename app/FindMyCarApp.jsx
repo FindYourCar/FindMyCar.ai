@@ -5093,10 +5093,6 @@ function Contact() {
             <a href="tel:+48798353930" className="block transition hover:text-amber-300">
               +48 798 353 930
             </a>
-            <div className="flex items-start gap-3">
-              <MapPin className="w-4 h-4 mt-0.5 amber-text shrink-0" />
-              <div>Gerard Doustraat 64-1, Amsterdam</div>
-            </div>
           </div>
         </div>
 
@@ -5118,10 +5114,6 @@ function Contact() {
             <a href="tel:+380503153863" className="block transition hover:text-amber-300">
               +380 50 315 3863
             </a>
-            <div className="flex items-start gap-3">
-              <MapPin className="w-4 h-4 mt-0.5 amber-text shrink-0" />
-              <div>Gravenstraat 3D, Amsterdam</div>
-            </div>
           </div>
         </div>
       </div>
@@ -5330,8 +5322,8 @@ function Footer({ setView, smoothScrollTo, smoothNavigate, t }) {
           </h3>
           <div className="grid gap-5 md:grid-cols-2 max-w-4xl">
             {[
-              { icon: Sparkles, name: "Fryderyk Strycharz", role: "CEO & Founder", email: "06fryderyk@gmail.com", phone: "+48 798 353 930", phoneHref: "+48798353930", addr: "Gerard Doustraat 64-1, Amsterdam" },
-              { icon: Star, name: "Mykhailo Shchur", role: "Founder", email: "m.shchur2006@gmail.com", phone: "+380 50 315 3863", phoneHref: "+380503153863", addr: "Gravenstraat 3D, Amsterdam" },
+              { icon: Sparkles, name: "Fryderyk Strycharz", role: "CEO & Founder", email: "06fryderyk@gmail.com", phone: "+48 798 353 930", phoneHref: "+48798353930" },
+              { icon: Star, name: "Mykhailo Shchur", role: "Founder", email: "m.shchur2006@gmail.com", phone: "+380 50 315 3863", phoneHref: "+380503153863" },
             ].map((p) => (
               <div key={p.name} className="rounded-3xl p-6"
                 style={{ background: "linear-gradient(180deg, #161310 0%, #0f0d0b 100%)", border: "1px solid var(--border)", boxShadow: "inset 0 1px 0 rgba(251,191,36,0.07)" }}>
@@ -5348,10 +5340,6 @@ function Footer({ setView, smoothScrollTo, smoothNavigate, t }) {
                 <div className="space-y-2.5 text-sm text-muted">
                   <a href={`mailto:${p.email}`} className="block hover:text-amber-400 transition">{p.email}</a>
                   <a href={`tel:${p.phoneHref}`} className="block hover:text-amber-400 transition">{p.phone}</a>
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-3.5 h-3.5 amber-text shrink-0" />
-                    <span>{p.addr}</span>
-                  </div>
                 </div>
               </div>
             ))}
