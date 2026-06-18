@@ -7,6 +7,7 @@ import type { CarSearchIntent } from "./types";
 import {
   AUTOSCOUT_BASE, COUNTRY_CY, FUEL_CODES, GEAR_CODES, PARAM_NAMES,
 } from "./registry";
+import { BODY_CODES } from "./taxonomy";
 
 export interface BuiltUrl {
   url: string;
@@ -45,6 +46,10 @@ export function buildAutoscoutUrl(intent: CarSearchIntent, opts: BuildOpts = {})
   if (intent.fuel && FUEL_CODES[intent.fuel]) params.set(PARAM_NAMES.fuel, FUEL_CODES[intent.fuel]);
   if (intent.transmission && GEAR_CODES[intent.transmission]) {
     params.set(PARAM_NAMES.transmission, GEAR_CODES[intent.transmission]);
+  }
+  // Body style refines the SAME model (e.g. Golf vs Golf Variant) — safe at any level.
+  if (intent.bodyStyle && BODY_CODES[intent.bodyStyle]) {
+    params.set("body", BODY_CODES[intent.bodyStyle]);
   }
 
   // Path: make → make/model (only when model slug is registry-verified)

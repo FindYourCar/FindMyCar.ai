@@ -31,13 +31,23 @@ export interface RawCarIntent {
   rawText?: string | null;
 }
 
+export type BodyStyle = "hatchback" | "sedan" | "estate" | "suv" | "coupe" | "cabriolet" | "mpv" | "van";
+
+/** A model the resolver considered plausible when the request was ambiguous. */
+export interface ModelCandidate {
+  display: string;
+  slug: string;
+}
+
 /** Clean, normalized intent — every field is either a valid value or null. */
 export interface CarSearchIntent {
   make: string | null;        // display, e.g. "Mercedes-Benz"
   makeSlug: string | null;    // registry slug, e.g. "mercedes-benz"
   model: string | null;       // display, e.g. "CLE"
   modelSlug: string | null;   // registry slug, e.g. "cle" (null if unknown)
-  modelVerified: boolean;     // true when modelSlug came from the curated registry
+  modelVerified: boolean;     // true when modelSlug came from the taxonomy
+  bodyStyle: BodyStyle | null;
+  trims: string[];
   country: CountryCode;
   countryLabel: string;
   maxMileage: number | null;
@@ -47,10 +57,18 @@ export interface CarSearchIntent {
   transmission: TransmissionType | null;
   yearFrom: number | null;
   yearTo: number | null;
+  /** 0..1 — how sure the resolver is about make+model. */
+  confidence: number;
+  /** Plausible models when the request was ambiguous (drives clarification). */
+  modelCandidates: ModelCandidate[];
+  /** True when the resolver couldn't safely pick one model. */
+  needsClarification: boolean;
+  /** Human question to ask the user when needsClarification is true. */
+  clarification: string | null;
   missingFields: string[];
 }
 
-export type MarketSearchStatus = "success" | "no_match" | "error";
+export type MarketSearchStatus = "success" | "no_match" | "needs_clarification" | "error";
 
 export interface MarketSearchResult {
   status: MarketSearchStatus;

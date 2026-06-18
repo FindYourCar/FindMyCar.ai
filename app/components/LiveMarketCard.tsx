@@ -8,9 +8,9 @@ import type { MarketSearchResult, RawCarIntent } from "@/lib/autoscout/types";
 // loading / success / no-match / error states — never a blank broken card.
 // The image steps through the server-provided fallback chain on error.
 
-type Phase = "loading" | "success" | "no_match" | "error";
+type Phase = "loading" | "success" | "no_match" | "needs_clarification" | "error";
 
-export default function LiveMarketCard({ intent }: { intent: RawCarIntent }) {
+export default function LiveMarketCard({ intent, onPick }: { intent: RawCarIntent; onPick?: (text: string) => void }) {
   const [phase, setPhase] = React.useState<Phase>("loading");
   const [data, setData] = React.useState<MarketSearchResult | null>(null);
   const [imgIdx, setImgIdx] = React.useState(0);
@@ -33,7 +33,12 @@ export default function LiveMarketCard({ intent }: { intent: RawCarIntent }) {
         const json: MarketSearchResult = await res.json();
         if (!alive) return;
         setData(json);
-        setPhase(json.status === "success" ? "success" : json.status === "no_match" ? "no_match" : "error");
+        setPhase(
+          json.status === "success" ? "success"
+            : json.status === "needs_clarification" ? "needs_clarification"
+            : json.status === "no_match" ? "no_match"
+            : "error",
+        );
       } catch {
         if (alive) setPhase("error");
       }
@@ -63,6 +68,9 @@ export default function LiveMarketCard({ intent }: { intent: RawCarIntent }) {
         .lmc-cta:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(217,119,6,.4)}
         .lmc-msg{padding:22px 16px;text-align:center;color:rgba(255,255,255,.7);font-size:13px;line-height:1.6}
         .lmc-msg b{color:#f5f1ea;font-weight:600}
+        .lmc-choices{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:12px}
+        .lmc-choice{border-radius:999px;border:1px solid rgba(251,191,36,.35);background:rgba(251,191,36,.08);color:#fbbf24;font-size:12.5px;font-weight:600;padding:7px 14px;cursor:pointer;transition:all .2s;font-family:inherit}
+        .lmc-choice:hover{background:rgba(251,191,36,.16);transform:translateY(-1px)}
         .lmc-skel{background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(255,255,255,.09) 37%,rgba(255,255,255,.04) 63%);background-size:400% 100%;animation:lmcShimmer 1.4s ease infinite;border-radius:8px}
         .lmc-skel-line{height:11px;margin:8px 16px}
         @keyframes lmcShimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
@@ -118,6 +126,27 @@ export default function LiveMarketCard({ intent }: { intent: RawCarIntent }) {
             </a>
           </div>
         </>
+      )}
+
+      {phase === "needs_clarification" && data && (
+        <div className="lmc-msg">
+          <b>{data.note || "Which model did you mean?"}</b>
+          <div className="lmc-choices">
+            {data.intent.modelCandidates.map((c) => {
+              const label = `${data.intent.make ?? ""} ${c.display}`.trim();
+              return (
+                <button
+                  key={c.slug}
+                  type="button"
+                  className="lmc-choice"
+                  onClick={() => onPick?.(label)}
+                >
+                  {c.display}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       {phase === "no_match" && (

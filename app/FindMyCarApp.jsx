@@ -2323,16 +2323,17 @@ useEffect(() => {
         // which is the single place URLs are built + validated (no fragile slug
         // guessing or prebuilt links rendered as if valid).
         intent: {
-          make: makeName || null,
-          model: modelDisplay || null,
+          // Send the RAW extracted make/model strings + the original message so the
+          // server-side taxonomy resolver (lib/autoscout/resolve.ts) is the single
+          // source of truth — no pre-resolution here that could demote to brand level.
+          make: r.rawMake || makeName || null,
+          model: r.rawModel || modelDisplay || null,
           country: resolvedCountry,
           maxMileage: maxMileage || null,
           maxPrice: maxBudget || null,
           fuel: fuel && fuel !== "any" ? fuel : null,
           transmission: transmission && transmission !== "any" ? transmission : null,
           yearFrom: minYear || null,
-          // Original message so the server can recover make/model if the
-          // upstream extractor dropped them (registry-bound, deterministic).
           rawText: r.rawText || null,
         },
         source: "AutoScout24",
@@ -2386,7 +2387,7 @@ useEffect(() => {
         setListingMaxPrice(intent.budget_max ?? null);
 
         if (hasParsedIntent) {
-          filteredListings = getVisibleListings({ ...intent, level, fallbackReason, rawText: text });
+          filteredListings = getVisibleListings({ ...intent, level, fallbackReason, rawText: text, rawMake: intentRaw.make, rawModel: intentRaw.model });
           listingReply = filteredListings.length > 0
             ? "I found a live-market search based on your request."
             : "I couldn't build a recommendation from that request.";
@@ -4005,6 +4006,7 @@ function ChatMessage({ message, country, openCar, shortlist, compareList, toggle
                         transmission: listing.transmission && listing.transmission !== "any" ? listing.transmission : null,
                         yearFrom: listing.minYear || null,
                       }}
+                      onPick={onChip}
                     />
                   ))}
                 </div>

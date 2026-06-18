@@ -24,6 +24,16 @@ export async function POST(req: Request) {
   const image = resolveCarImage(intent);
   const title = [intent.make, intent.model].filter(Boolean).join(" ").trim();
 
+  // Ambiguous model (e.g. two plausible families) → ask instead of guessing wrong.
+  if (intent.needsClarification && intent.modelCandidates.length > 0) {
+    return NextResponse.json({
+      ...baseResult(intent, image),
+      status: "needs_clarification" as const,
+      title: title || `${intent.make ?? "Car"} — which model?`,
+      note: intent.clarification ?? "Which model did you mean?",
+    });
+  }
+
   // Need at least a make (or a numeric filter) to produce a useful link.
   const hasAnyFilter =
     intent.makeSlug || intent.maxMileage || intent.maxPrice || intent.minPrice ||
@@ -89,8 +99,9 @@ function errorResult(note: string): MarketSearchResult {
     title: "Search error", note,
     intent: {
       make: null, makeSlug: null, model: null, modelSlug: null, modelVerified: false,
-      country: "NL", countryLabel: "Netherlands", maxMileage: null, minPrice: null,
-      maxPrice: null, fuel: null, transmission: null, yearFrom: null, yearTo: null, missingFields: [],
+      bodyStyle: null, trims: [], country: "NL", countryLabel: "Netherlands", maxMileage: null,
+      minPrice: null, maxPrice: null, fuel: null, transmission: null, yearFrom: null, yearTo: null,
+      confidence: 0, modelCandidates: [], needsClarification: false, clarification: null, missingFields: [],
     },
     image: { primary: "", fallbacks: [], alt: "" },
   };
