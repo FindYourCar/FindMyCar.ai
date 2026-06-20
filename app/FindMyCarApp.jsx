@@ -5085,7 +5085,7 @@ function Contact() {
             </div>
             <div>
               <div className="font-display text-2xl font-semibold">Fryderyk Strycharz</div>
-              <div className="text-xs uppercase tracking-[0.25em] text-muted mt-1">CEO & Founder</div>
+              <div className="text-xs uppercase tracking-[0.25em] text-muted mt-1">Co-Founder</div>
             </div>
           </div>
           <div className="space-y-4 text-sm text-muted">
@@ -5106,7 +5106,7 @@ function Contact() {
             </div>
             <div>
               <div className="font-display text-2xl font-semibold">Mykhailo Shchur</div>
-              <div className="text-xs uppercase tracking-[0.25em] text-muted mt-1">Founder</div>
+              <div className="text-xs uppercase tracking-[0.25em] text-muted mt-1">Co-Founder</div>
             </div>
           </div>
           <div className="space-y-4 text-sm text-muted">
@@ -5324,8 +5324,8 @@ function Footer({ setView, smoothScrollTo, smoothNavigate, t }) {
           </h3>
           <div className="grid gap-5 md:grid-cols-2 max-w-4xl">
             {[
-              { icon: Sparkles, name: "Fryderyk Strycharz", role: "CEO & Founder", email: "06fryderyk@gmail.com", phone: "+48 798 353 930", phoneHref: "+48798353930" },
-              { icon: Star, name: "Mykhailo Shchur", role: "Founder", email: "m.shchur2006@gmail.com", phone: "+380 50 315 3863", phoneHref: "+380503153863" },
+              { icon: Sparkles, name: "Fryderyk Strycharz", role: "Co-Founder", email: "06fryderyk@gmail.com", phone: "+48 798 353 930", phoneHref: "+48798353930" },
+              { icon: Star, name: "Mykhailo Shchur", role: "Co-Founder", email: "m.shchur2006@gmail.com", phone: "+380 50 315 3863", phoneHref: "+380503153863" },
             ].map((p) => (
               <div key={p.name} className="rounded-3xl p-6"
                 style={{ background: "linear-gradient(180deg, #161310 0%, #0f0d0b 100%)", border: "1px solid var(--border)", boxShadow: "inset 0 1px 0 rgba(251,191,36,0.07)" }}>
