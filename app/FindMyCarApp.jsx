@@ -330,6 +330,61 @@ function reclassifyDemoted(t) {
   return "trim"; // safe default
 }
 
+// ─── Intent classifier ───────────────────────────────────────────────────────
+// Decides what the user actually wants BEFORE any listing is built, so an
+// information question ("what engine did the Audi S5 2015 have?") never triggers
+// a live-market card. Returns a coarse intent + a single gate `wantsListings`.
+//   CAR_INFO | BUYING_ADVICE | COMPARE_CARS | MARKET_SEARCH | FOLLOW_UP_REFINEMENT | OTHER
+// Only MARKET_SEARCH / explicit show-offers / a refinement of an existing search
+// render listings. Deterministic (no LLM) so it's fast and predictable.
+function classifyIntent(text, prevWasListings = false) {
+  const t = (text || "").toLowerCase().trim();
+  if (!t) return { intent: "OTHER", wantsListings: false };
+
+  const hasMake = MAKE_REGEX.test(t);
+
+  // Explicit "show me the listings/offers/results" — strongest buy-now signal.
+  const explicitShow =
+    /\b(show|see|view|pull up|browse|open|get|give)\b[^?]*\b(listing|listings|offer|offers|deal|deals|result|results|for sale|ad|ads)\b/.test(t) ||
+    /\b(listings?|offers?)\b/.test(t) && /\b(show|see|view|browse|find|any|some|me|the|those)\b/.test(t) ||
+    /^(yes|yeah|yep|sure|ok|okay|please)\b[^?]*\b(show|see|listing|offer|result)/.test(t);
+
+  // Information / advice / comparison phrasing → conversational, NOT listings.
+  const compareSignal = /\b(compare|versus|vs\.?|difference between|or the\b|better than)\b/.test(t);
+  const adviceSignal = /\b(is (the |a |an |it )?[a-z0-9].* (a )?good|good (first |daily |family )?car|worth (it|buying|the)|should i (buy|get|go)|reliable|reliability|pros and cons|any good)\b/.test(t);
+  const infoSignal =
+    /\b(what (do you know|can you tell|are|is|engine|engines|year|years|hp|bhp|power|spec|specs)|tell me|how (much|many|fast|reliable|good|powerful)|which engine|what about|info on|information on|specs?|specifications|horsepower|torque|fuel economy|mpg|consumption|review|opinion|thoughts on|details on)\b/.test(t);
+  const isQuestion = /\?\s*$/.test(t);
+
+  // Market-search signals — note: a bare 4-digit YEAR is NOT a budget.
+  const buyVerb = /\b(buy|purchase|looking for|searching for|search for|find me|find a|i want a?|i need a?|in the market for|for sale|get me a)\b/.test(t);
+  const placeIn = /\b(in|from|located in|near)\s+(the\s+)?(netherlands|nl|belgium|be|germany|de|poland|pl|holland|nederland|belgie|belgië|deutschland|polska)\b/.test(t);
+  const hasBudget =
+    /(€|eur|euros?|zł|pln|budget|under|below|up to|max(?:imum)?|less than|cheaper than|priced?)\s*€?\s*\d/.test(t) ||
+    /\d[\d.,\s]*\s*(?:€|eur|euros?|zł|pln)\b/.test(t) ||
+    /\b\d+\s*k\b/.test(t);
+  const hasMileage = /\b\d[\d.,\s]*\s*(?:k\s*)?(?:km|kms|kilomet|miles|mileage)\b/.test(t);
+  const marketScore = (buyVerb ? 1 : 0) + (hasBudget ? 1 : 0) + (hasMileage ? 1 : 0) + (placeIn ? 1 : 0);
+
+  // A genuine purchase request can override info phrasing ("find me an A4 under 20k").
+  const strongMarket = explicitShow || (buyVerb && marketScore >= 2) || (hasMake && buyVerb && (hasBudget || hasMileage || placeIn));
+
+  if (strongMarket) return { intent: "MARKET_SEARCH", wantsListings: true };
+  if (compareSignal) return { intent: "COMPARE_CARS", wantsListings: false };
+  if (adviceSignal) return { intent: "BUYING_ADVICE", wantsListings: false };
+  if (infoSignal || isQuestion) return { intent: "CAR_INFO", wantsListings: false };
+
+  // No info phrasing: treat make + at least one concrete filter as a search.
+  if (hasMake && marketScore >= 1) return { intent: "MARKET_SEARCH", wantsListings: true };
+  if (marketScore >= 2) return { intent: "MARKET_SEARCH", wantsListings: true };
+
+  // Refinement of an existing search ("make it automatic, under 80,000 km").
+  if (prevWasListings && (hasBudget || hasMileage || /\b(automatic|manual|diesel|petrol|electric|hybrid|cheaper|newer|older|lower mileage|less km)\b/.test(t))) {
+    return { intent: "FOLLOW_UP_REFINEMENT", wantsListings: true };
+  }
+  return { intent: hasMake ? "CAR_INFO" : "OTHER", wantsListings: false };
+}
+
 // ─── Stage 1 (sync fallback): regex-based intent extractor ───────────────────
 // Extracts raw fields only — no slug resolution.  resolveVehicle() does that.
 function regexExtractIntent(query) {
@@ -2264,14 +2319,6 @@ useEffect(() => {
     } catch { /* quota exceeded or unavailable — skip persistence */ }
   }, [messages, chatTurn, chatSessions, country, language]);
 
-  const hasExplicitListingFilters = (text) => {
-    const t = text.toLowerCase();
-    const hasMake = MAKE_REGEX.test(t);
-    const hasListingIntent = /\b(show me|find me|find a|looking for|i want a?|i need a?|can you find|can you show|search for|listings?)\b/i.test(t);
-    const hasBudget = /\b(?:under|up to|max|budget)\s*(?:€\s*)?\d[\d.,]*(k)?\b/i.test(t) || /(?:^|[^A-Za-z0-9€])(?:€\s*)?\d{4,}\b/i.test(t);
-    const hasMileage = /\d[\d.,]*\s*k?m\b/i.test(t) && /\b(km|kilometres|kilometers)\b/i.test(t);
-    return (hasMake && hasListingIntent) || (hasMake && hasBudget) || (hasListingIntent && hasBudget) || (hasListingIntent && hasMileage);
-  };
   const getVisibleListings = (sourceListings, filter, model, locationFilter, maxPrice) => {
     if (sourceListings && !Array.isArray(sourceListings) && typeof sourceListings === "object") {
       const r = sourceListings;
@@ -2362,8 +2409,11 @@ useEffect(() => {
     const turn = chatTurn + 1;
     setChatTurn(turn);
 
-    const hasExplicitFilters = hasExplicitListingFilters(text);
-    const isListingRequest = /\blistings?\b/i.test(text) || hasExplicitFilters;
+    // Intent gating: only build a live-market card when the user actually wants
+    // offers. Info/advice/comparison questions stay conversational (no card).
+    const prevWasListings = messages.some((m) => m.kind === "listings");
+    const userIntent = classifyIntent(text, prevWasListings);
+    const isListingRequest = userIntent.wantsListings;
     let listingReply = "";
     let filteredListings = [];
 
@@ -2479,7 +2529,7 @@ useEffect(() => {
       setListingLocation(session.listingLocation ?? "");
       setListingMaxPrice(session.listingMaxPrice ?? null);
     } else {
-      const lastListingUser = [...session.messages].reverse().find((m) => m.role === "user" && hasExplicitListingFilters(m.content));
+      const lastListingUser = [...session.messages].reverse().find((m) => m.role === "user" && classifyIntent(m.content).wantsListings);
       if (lastListingUser) {
         const rawIntent = regexExtractIntent(lastListingUser.content);
         const intent = resolveVehicle(rawIntent);

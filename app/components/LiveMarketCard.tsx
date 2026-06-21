@@ -52,19 +52,19 @@ export default function LiveMarketCard({ intent, onPick }: { intent: RawCarInten
   return (
     <div className="lmc">
       <style>{`
-        .lmc{overflow:hidden;border-radius:16px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04)}
-        .lmc-imgwrap{position:relative;aspect-ratio:16/9;width:100%;overflow:hidden;background:linear-gradient(180deg,#161310,#0c0a08)}
-        .lmc-img{height:100%;width:100%;object-fit:cover;display:block}
-        .lmc-body{padding:14px 16px}
-        .lmc-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
-        .lmc-title{font-size:14px;font-weight:600;color:#fff}
-        .lmc-pill{border-radius:999px;background:rgba(255,255,255,.1);padding:2px 9px;font-size:11px;color:rgba(255,255,255,.72);white-space:nowrap}
-        .lmc-specs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
-        .lmc-spec{font-size:11px;color:rgba(255,255,255,.72);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:3px 8px}
-        .lmc-flag{display:inline-flex;align-items:center;gap:6px;font-size:11px;margin-bottom:10px}
+        .lmc{overflow:hidden;border-radius:14px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);max-width:420px}
+        .lmc-imgwrap{position:relative;aspect-ratio:16/7;max-height:150px;width:100%;overflow:hidden;background:linear-gradient(180deg,#161310,#0c0a08)}
+        .lmc-img{height:100%;width:100%;object-fit:cover;object-position:center 42%;display:block}
+        .lmc-body{padding:11px 13px}
+        .lmc-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:7px}
+        .lmc-title{font-size:13.5px;font-weight:600;color:#fff}
+        .lmc-pill{border-radius:999px;background:rgba(255,255,255,.1);padding:2px 9px;font-size:10.5px;color:rgba(255,255,255,.72);white-space:nowrap}
+        .lmc-specs{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+        .lmc-spec{font-size:10.5px;color:rgba(255,255,255,.72);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:2px 7px}
+        .lmc-flag{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;margin-bottom:9px}
         .lmc-flag.ok{color:#4ade80}
         .lmc-flag.warn{color:#fbbf24}
-        .lmc-cta{display:inline-flex;width:100%;align-items:center;justify-content:center;gap:7px;border-radius:10px;background:linear-gradient(135deg,#fbbf24,#d97706);padding:9px 12px;font-size:13px;font-weight:700;color:#1a0f00;transition:transform .2s,box-shadow .2s}
+        .lmc-cta{display:inline-flex;width:100%;align-items:center;justify-content:center;gap:7px;border-radius:10px;background:linear-gradient(135deg,#fbbf24,#d97706);padding:8px 12px;font-size:12.5px;font-weight:700;color:#1a0f00;transition:transform .2s,box-shadow .2s}
         .lmc-cta:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(217,119,6,.4)}
         .lmc-msg{padding:22px 16px;text-align:center;color:rgba(255,255,255,.7);font-size:13px;line-height:1.6}
         .lmc-msg b{color:#f5f1ea;font-weight:600}

@@ -8,9 +8,14 @@
 
 import type { CountryCode, FuelType, TransmissionType } from "./types";
 
-// International domain is the most permissive for model path-slugs; localized
-// domains (.be/.nl) 404 on newer slugs. Country is passed via the `cy` param.
-export const AUTOSCOUT_BASE = "https://www.autoscout24.com/lst";
+// Domain choice (verified 2026-06): autoscout24.COM is effectively deprecated as
+// a marketplace — it has almost no inventory (e.g. Audi A4 → "4 offers") and
+// 404s most model paths (/lst/bmw/1er 308-redirects to /lst/bmw/1-series → 404).
+// autoscout24.DE serves the full pan-European inventory, accepts the German
+// model slugs in taxonomy.ts (1er, c-klasse, …), and honors the `cy` country
+// param for cross-border search (e.g. ?cy=B = Belgium sellers). So .de is the
+// reliable base for model-filtered links; country still travels via `cy`.
+export const AUTOSCOUT_BASE = "https://www.autoscout24.de/lst";
 
 // ⚙️ ADJUST IF NEEDED — AutoScout24 query-param names.
 export const PARAM_NAMES = {
