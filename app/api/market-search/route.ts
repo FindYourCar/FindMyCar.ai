@@ -9,6 +9,7 @@ import { normalizeIntent } from "@/lib/autoscout/normalize";
 import { buildAutoscoutUrl } from "@/lib/autoscout/buildUrl";
 import { validateAutoscoutUrl } from "@/lib/autoscout/validate";
 import { resolveCarImage } from "@/lib/autoscout/image";
+import { resolveModelSlugLive, resolveMakeSlugLive } from "@/lib/autoscout/liveResolve";
 
 export const runtime = "nodejs";
 
@@ -21,6 +22,28 @@ export async function POST(req: Request) {
   }
 
   const intent = normalizeIntent(raw);
+
+  // ── Tier 2: live resolution for the long tail ────────────────────────────
+  // (a) Make named but not recognized by either map → probe its make slug live.
+  if (!intent.makeSlug && typeof raw.make === "string" && raw.make.trim()) {
+    const liveMake = await resolveMakeSlugLive(raw.make);
+    if (liveMake) {
+      intent.makeSlug = liveMake;
+      intent.make = intent.make ?? raw.make.trim();
+      if (intent.missingFields.includes("make")) intent.missingFields = intent.missingFields.filter((f) => f !== "make");
+    }
+  }
+  // (b) Model family named but not in the curated taxonomy → generate slug
+  //     candidates, validate against AutoScout, use the first that resolves.
+  if (intent.makeSlug && !intent.modelSlug && intent.model && !intent.needsClarification) {
+    const live = await resolveModelSlugLive(intent.makeSlug, intent.model);
+    if (live) {
+      intent.modelSlug = live.slug;
+      intent.modelVerified = true;
+      intent.missingFields = intent.missingFields.filter((f) => f !== "model");
+    }
+  }
+
   const image = resolveCarImage(intent);
   const title = [intent.make, intent.model].filter(Boolean).join(" ").trim();
 

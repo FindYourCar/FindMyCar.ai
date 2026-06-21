@@ -20,6 +20,7 @@ import {
   BODY_ALIASES, ENGINE_INFERENCE, MAKE_ALIAS_INDEX, MAKE_BY_SLUG, TAXONOMY,
   type BodyStyle, type ModelFamily,
 } from "./taxonomy";
+import { ALL_MAKES } from "./makes";
 
 export interface ResolvedVehicle {
   makeKey: string | null;
@@ -48,13 +49,36 @@ function hasWord(text: string, alias: string): boolean {
   return new RegExp(`(^|[^a-z0-9])${esc(alias)}([^a-z0-9]|$)`, "i").test(text);
 }
 
-function resolveMakeKey(makeRaw: string, text: string): string | null {
+interface ResolvedMake { key: string; display: string; slug: string; families: ModelFamily[] }
+
+// Resolve a make in two layers:
+//   1. the rich TAXONOMY (brings curated families for confident model matching)
+//   2. the comprehensive ALL_MAKES namespace (brings a verified make slug for
+//      brands without a curated family list; families = [] so the model is then
+//      resolved live in the route). Free text is scanned longest-alias-first.
+function resolveMake(makeRaw: string, text: string): ResolvedMake | null {
   const m = clean(makeRaw);
-  if (m && MAKE_ALIAS_INDEX[m]) return MAKE_ALIAS_INDEX[m];
-  if (m && MAKE_BY_SLUG[m]) return m;
-  // Scan free text — longest alias first so "mercedes-benz" beats "mercedes".
-  const aliases = Object.keys(MAKE_ALIAS_INDEX).sort((a, b) => b.length - a.length);
-  for (const a of aliases) if (hasWord(text, a)) return MAKE_ALIAS_INDEX[a];
+
+  let key: string | null = null;
+  if (m && MAKE_ALIAS_INDEX[m]) key = MAKE_ALIAS_INDEX[m];
+  else if (m && MAKE_BY_SLUG[m]) key = m;
+  if (!key) {
+    const aliases = Object.keys(MAKE_ALIAS_INDEX).sort((a, b) => b.length - a.length);
+    for (const a of aliases) if (hasWord(text, a)) { key = MAKE_ALIAS_INDEX[a]; break; }
+  }
+  if (key) {
+    const t = MAKE_BY_SLUG[key];
+    return { key, display: t.display, slug: t.slug, families: t.families };
+  }
+
+  // Comprehensive brand namespace (no curated families).
+  let am = m ? ALL_MAKES[m] : undefined;
+  if (!am) {
+    const aliases = Object.keys(ALL_MAKES).sort((a, b) => b.length - a.length);
+    for (const a of aliases) if (hasWord(text, a)) { am = ALL_MAKES[a]; break; }
+  }
+  if (am) return { key: am.slug, display: am.display, slug: am.slug, families: [] };
+
   return null;
 }
 
@@ -99,9 +123,10 @@ export function resolveVehicle(makeRaw: string | null | undefined, modelRaw: str
     candidates: [], needsClarification: false, clarification: null, reason: "no-make",
   };
 
-  const makeKey = resolveMakeKey(clean(makeRaw), text);
-  if (!makeKey) return { ...empty, reason: "no-make" };
-  const make = MAKE_BY_SLUG[makeKey];
+  const mk = resolveMake(clean(makeRaw), text);
+  if (!mk) return { ...empty, reason: "no-make" };
+  const make = mk;            // { display, slug, families }
+  const makeKey = mk.key;
 
   const bodyStyle = resolveBodyStyle(combined);
 

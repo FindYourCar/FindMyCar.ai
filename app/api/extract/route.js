@@ -32,9 +32,10 @@ Schema:
 }
 
 Rules:
-- make: canonical brand name only (e.g. "Mercedes-Benz", "BMW", "Volkswagen"). Never write "Mercedes Benz" with a space — always "Mercedes-Benz".
-- model: specific model only, NO make words, NO filter words (e.g. "C-Class", "A4", "306", "320d Touring", "Avant"). Never include words like "only", "please", "petrol", "under".
-- budget_max / mileage_max / year_min: plain numbers only, never strings.
+- Use your broad car knowledge to identify the brand and model FAMILY for ANY make in the market (mainstream or niche), then output structured fields only. NEVER output a URL, link, slug, or path — only the fields below.
+- make: canonical brand name only (e.g. "Mercedes-Benz", "BMW", "Volkswagen", "Alfa Romeo", "Lexus", "Opel"). Never write "Mercedes Benz" with a space — always "Mercedes-Benz".
+- model: the model FAMILY name in its normal written form, with NO make words, NO trim/engine/body words, NO filter words. Examples: "3 Series" (not "320d Touring"), "A4" (not "A4 Avant"), "C-Class", "Giulia", "MX-5", "RAV4", "Superb", "Insignia", "IS", "Stinger". Drop badges (320d, c220d), bodies (Avant, Touring, Variant, Estate, Sportback) and trims (AMG, Quadrifoglio, Competizione).
+- budget_max / mileage_max / year_min: plain numbers only, never strings. A 4-digit year is a year, never a budget.
 - confidence: 0.0 = vague/no make, 0.5 = make known, 0.8 = make + model, 1.0 = fully specific.`,
           },
           { role: "user", content: `Extract intent from: "${query}"` },
