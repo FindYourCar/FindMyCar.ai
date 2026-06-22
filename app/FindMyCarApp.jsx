@@ -385,6 +385,38 @@ function classifyIntent(text, prevWasListings = false) {
   return { intent: hasMake ? "CAR_INFO" : "OTHER", wantsListings: false };
 }
 
+// ─── Anti-fabrication sanitizer ───────────────────────────────────────────────
+// HARD trust rule: the app has NO real listing objects (only a validated AutoScout
+// search URL), so the assistant must never describe a specific car as if it's for
+// sale (invented year/mileage/price/trim/gearbox/location/offer counts). The chat
+// model is prompted against this, but this is the deterministic backstop: if the
+// reply looks like it's listing specific offers and we have no verified listing
+// data, we drop the fabricated prose and return safe link-card messaging instead.
+const SAFE_LISTING_REPLY = "I found a live AutoScout24 search for your request. Open the verified results in the card below.";
+const SAFE_INFO_REDIRECT = "I can't show specific cars for sale here — I don't have live listing data in chat. Tell me the make, model, budget and country and I'll open a live AutoScout24 search; the verified results appear in a card. I'm happy to talk through the model in general terms too.";
+
+const FABRICATION_PATTERNS = [
+  /\bfor example,?\s+there'?s\s+(a|an)\b/i,                              // explicit sample template
+  /\bthere'?s\s+(a|an|another)\b[^.!?]*(€|£|\$|\bzł\b|\b(19|20)\d{2}\b|\bkm\b)/i,
+  /\banother (option|one) is\b[^.!?]*(€|\b(19|20)\d{2}\b|\bkm\b)/i,
+  /\bi (found|spotted|see|have)\b[^.!?]*(€|\b(19|20)\d{2}\b|\bkm\b)/i,
+  /€\s?\d[\d.,]*\b[^.!?]*\bkm\b/i,                                        // price + mileage = a unit
+  /\b(19|20)\d{2}\b[^.!?]*\b\d[\d.,]*\s*km\b/i,                           // year + mileage = a unit
+  /\bthere (are|were)\s+\d+\s+(cars|offers|listings|available|results)\b/i, // fake offer counts
+  /\b(available|in stock|listed|priced)\s+(for|from|at)\s*€?\s?\d/i,
+];
+function looksFabricated(text) {
+  return !!text && FABRICATION_PATTERNS.some((re) => re.test(text));
+}
+// hasVerifiedListingsData: true ONLY when we hold real structured offer objects
+// from a verified source. We don't yet (the card links to a live search), so this
+// is false today — flip when a real listings feed is wired in.
+function sanitizeAdvisorText(text, hasVerifiedListingsData) {
+  if (hasVerifiedListingsData) return text;
+  if (looksFabricated(text)) return SAFE_INFO_REDIRECT;
+  return text;
+}
+
 // ─── Stage 1 (sync fallback): regex-based intent extractor ───────────────────
 // Extracts raw fields only — no slug resolution.  resolveVehicle() does that.
 function regexExtractIntent(query) {
@@ -2439,8 +2471,8 @@ useEffect(() => {
         if (hasParsedIntent) {
           filteredListings = getVisibleListings({ ...intent, level, fallbackReason, rawText: text, rawMake: intentRaw.make, rawModel: intentRaw.model });
           listingReply = filteredListings.length > 0
-            ? "I found a live-market search based on your request."
-            : "I couldn't build a recommendation from that request.";
+            ? SAFE_LISTING_REPLY
+            : "I couldn't build a search from that request. Try naming a make, model, budget, mileage or country.";
         } else {
           listingReply = "I couldn't understand that listing request. Try including a make, model, year, price, or mileage.";
         }
@@ -2451,7 +2483,10 @@ useEffect(() => {
       setMessages(m => {
         const next = [...m, {
           role: "assistant", kind: "text",
-          content: isListingRequest ? listingReply : replyText,
+          // No verified listing objects exist in chat → market-search uses the
+          // canned link message; info replies pass through the fabrication
+          // sanitizer so invented "for-sale" cars are never shown.
+          content: isListingRequest ? listingReply : sanitizeAdvisorText(replyText, false),
           lang: language, mode: "advisor",
         }];
         if (isListingRequest) {
