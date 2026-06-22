@@ -10,6 +10,7 @@ import { buildAutoscoutUrl } from "@/lib/autoscout/buildUrl";
 import { validateAutoscoutUrl } from "@/lib/autoscout/validate";
 import { resolveCarImage } from "@/lib/autoscout/image";
 import { resolveModelSlugLive, resolveMakeSlugLive } from "@/lib/autoscout/liveResolve";
+import { buildOtomotoUrl } from "@/lib/autoscout/otomoto";
 
 export const runtime = "nodejs";
 
@@ -67,6 +68,30 @@ export async function POST(req: Request) {
     );
   }
 
+  // ── Poland → otomoto.pl ──────────────────────────────────────────────────
+  // AutoScout has ~zero PL inventory, so an explicit Poland request is served by
+  // the real Polish marketplace instead of ever being shown German results.
+  // The country is honored; the model honestly degrades to make-level (otomoto
+  // uses Polish model slugs we don't carry), with a clear note.
+  if (intent.country === "PL") {
+    const oto = buildOtomotoUrl(intent);
+    const otoState = await validateAutoscoutUrl(oto.url);
+    return NextResponse.json({
+      status: "success" as const,
+      url: oto.url,
+      verified: otoState === "ok",
+      degraded: oto.modelOmitted,
+      degradeReason: oto.modelOmitted
+        ? `Poland is served by otomoto.pl — showing all ${intent.make ?? "matching"} results there (exact model filtering on the Polish source isn’t available yet).`
+        : null,
+      title: title || "Live market search · Poland",
+      intent,
+      image,
+      provider: "otomoto" as const,
+      note: "Poland uses otomoto.pl, the local marketplace — not AutoScout24.",
+    });
+  }
+
   // 1) Best-precision URL (make + verified model when available).
   const primary = buildAutoscoutUrl(intent);
   let finalUrl = primary.url;
@@ -105,6 +130,7 @@ export async function POST(req: Request) {
     title: title || "Live market search",
     intent,
     image,
+    provider: "autoscout24",
     note: !verified && degraded === false ? "Link built from verified data (live check skipped)." : null,
   };
   return NextResponse.json(result);
@@ -124,7 +150,7 @@ function errorResult(note: string): MarketSearchResult {
       make: null, makeSlug: null, model: null, modelSlug: null, modelVerified: false,
       bodyStyle: null, trims: [], country: "NL", countryLabel: "Netherlands", maxMileage: null,
       minPrice: null, maxPrice: null, fuel: null, transmission: null, yearFrom: null, yearTo: null,
-      confidence: 0, modelCandidates: [], needsClarification: false, clarification: null, missingFields: [],
+      confidence: 0, modelCandidates: [], needsClarification: false, clarification: null, missingFields: [], narrowingHints: [],
     },
     image: { primary: "", fallbacks: [], alt: "" },
   };

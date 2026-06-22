@@ -61,6 +61,8 @@ export default function LiveMarketCard({ intent, onPick }: { intent: RawCarInten
         .lmc-pill{border-radius:999px;background:rgba(255,255,255,.1);padding:2px 9px;font-size:10.5px;color:rgba(255,255,255,.72);white-space:nowrap}
         .lmc-specs{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
         .lmc-spec{font-size:10.5px;color:rgba(255,255,255,.72);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:2px 7px}
+        .lmc-hints{font-size:10.5px;color:rgba(255,255,255,.6);margin-bottom:9px;line-height:1.45}
+        .lmc-hints-note{color:rgba(255,255,255,.38)}
         .lmc-flag{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;margin-bottom:9px}
         .lmc-flag.ok{color:#4ade80}
         .lmc-flag.warn{color:#fbbf24}
@@ -113,15 +115,25 @@ export default function LiveMarketCard({ intent, onPick }: { intent: RawCarInten
               {data.intent.yearFrom && <span className="lmc-spec">from {data.intent.yearFrom}</span>}
             </div>
 
+            {data.intent.narrowingHints && data.intent.narrowingHints.length > 0 && (
+              <div className="lmc-hints">
+                Also matching: {data.intent.narrowingHints.join(" · ")}
+                <span className="lmc-hints-note"> (refined as a hint, not a hard filter)</span>
+              </div>
+            )}
+
             {data.verified && !data.degraded && (
               <div className="lmc-flag ok">✓ Verified live results</div>
             )}
             {data.degraded && data.degradeReason && (
               <div className="lmc-flag warn">↓ {data.degradeReason}</div>
             )}
+            {data.provider === "otomoto" && (
+              <div className="lmc-flag warn">↳ {data.note}</div>
+            )}
 
             <a className="lmc-cta" href={data.url!} target="_blank" rel="noopener noreferrer">
-              View live listings on AutoScout24
+              {data.provider === "otomoto" ? "View listings on otomoto.pl" : "View live listings on AutoScout24"}
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
             </a>
           </div>

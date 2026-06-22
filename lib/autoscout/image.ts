@@ -1,25 +1,15 @@
-// Model-specific vehicle imagery with a deterministic fallback chain.
+// Vehicle imagery with a deterministic, WATERMARK-FREE fallback chain.
 //
-// Primary source: imagin.studio CDN — renders a clean studio image from
-// make + model + angle, no API key needed for the public demo customer. We
-// return an ordered candidate list so the client can step through on <img>
-// onError: model render → curated still → make still → generic premium car.
+// Image policy (strict):
+//   1. clean representative make image (no watermark)
+//   2. premium neutral car fallback (no watermark)
+//   3. inline SVG last resort
+// We deliberately do NOT use the imagin.studio demo bucket: its free "img"
+// customer stamps a visible watermark, and a watermarked "exact" render must
+// never be preferred over a clean representative image. A licensed CDN key can
+// be reintroduced later as priority 1 ONLY if it returns watermark-free output.
 
 import type { CarSearchIntent } from "./types";
-
-// ⚙️ ADJUST IF NEEDED — imagin.studio demo customer key. Swap for your own
-// licensed key in production for guaranteed availability + higher quality.
-const IMAGIN_CUSTOMER = "img"; // public demo bucket
-const imaginUrl = (make: string, model: string) => {
-  const u = new URL("https://cdn.imagin.studio/getimage");
-  u.searchParams.set("customer", IMAGIN_CUSTOMER);
-  u.searchParams.set("make", make);
-  u.searchParams.set("modelFamily", model);
-  u.searchParams.set("angle", "23");
-  u.searchParams.set("width", "1200");
-  u.searchParams.set("zoomType", "fullscreen");
-  return u.toString();
-};
 
 // Curated, always-available stills keyed by "makeSlug" or "makeSlug:modelSlug".
 // Extend with licensed/own-hosted images for the models you care most about.
@@ -61,20 +51,18 @@ export interface CarImage {
 export function resolveCarImage(intent: CarSearchIntent): CarImage {
   const candidates: string[] = [];
 
-  if (intent.makeSlug && intent.modelVerified && intent.modelSlug) {
-    candidates.push(imaginUrl(intent.makeSlug, intent.modelSlug));
+  // 1. clean per-model still if we curated one (no watermark)
+  if (intent.makeSlug && intent.modelSlug) {
     const curatedModel = CURATED[`${intent.makeSlug}:${intent.modelSlug}`];
     if (curatedModel) candidates.push(curatedModel);
-  } else if (intent.makeSlug && intent.model) {
-    // Unverified model — still try a render from the raw model family.
-    candidates.push(imaginUrl(intent.makeSlug, intent.model));
   }
-
+  // 2. clean representative make still (no watermark)
   if (intent.makeSlug && CURATED[intent.makeSlug]) candidates.push(CURATED[intent.makeSlug]);
+  // 3. premium neutral fallback + inline SVG
   candidates.push(GENERIC);
   candidates.push(PLACEHOLDER_SVG);
 
-  const alt = [intent.make, intent.model].filter(Boolean).join(" ") || "Car listing";
+  const alt = [intent.make, intent.model].filter(Boolean).join(" ") || "Car";
   const [primary, ...fallbacks] = Array.from(new Set(candidates));
-  return { primary, fallbacks, alt: `${alt} - example photo` };
+  return { primary, fallbacks, alt: `${alt} — representative image` };
 }

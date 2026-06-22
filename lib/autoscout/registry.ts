@@ -30,13 +30,14 @@ export const PARAM_NAMES = {
 } as const;
 
 // ⚙️ ADJUST IF NEEDED — AutoScout24 `cy` country codes. Note these are NOT ISO:
-// Germany = D, Belgium = B, Netherlands = NL. Poland is not an AutoScout market,
-// so it is omitted (general .com results returned). Repoint to otomoto.pl later.
+// Germany = D, Belgium = B, Netherlands = NL. AutoScout has ~zero PL inventory
+// (cy=PL returns 0), so Poland is routed to otomoto.pl in the route — never shown
+// German results. PL kept non-null so the country is still carried if reached.
 export const COUNTRY_CY: Record<CountryCode, string | null> = {
   NL: "NL",
   BE: "B",
   DE: "D",
-  PL: null,
+  PL: "PL",
 };
 
 export const COUNTRY_LABELS: Record<CountryCode, string> = {

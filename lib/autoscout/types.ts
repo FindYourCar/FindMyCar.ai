@@ -66,6 +66,10 @@ export interface CarSearchIntent {
   /** Human question to ask the user when needsClarification is true. */
   clarification: string | null;
   missingFields: string[];
+  /** Trim/badge/drivetrain/body terms understood from the request but NOT
+   *  translated into a hard provider filter — surfaced as honest narrowing
+   *  hints, never as a guaranteed filter. */
+  narrowingHints: string[];
 }
 
 export type MarketSearchStatus = "success" | "no_match" | "needs_clarification" | "error";
@@ -87,4 +91,6 @@ export interface MarketSearchResult {
     alt: string;
   };
   note: string | null;
+  /** Which marketplace served this result. PL uses otomoto.pl. */
+  provider?: "autoscout24" | "otomoto";
 }

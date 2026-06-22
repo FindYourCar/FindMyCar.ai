@@ -88,6 +88,22 @@ export function normalizeIntent(raw: RawCarIntent): CarSearchIntent {
   if (!v.makeSlug) missingFields.push("make");
   if (!v.modelSlug) missingFields.push("model");
 
+  // Narrowing hints: terms we understood but do NOT translate into a hard
+  // provider filter (so we never over-promise a trim-level guarantee). Drawn
+  // from the resolved trims, body style, and a drivetrain scan of the text.
+  const DRIVETRAIN_HINTS: Record<string, string> = {
+    xdrive: "xDrive", quattro: "quattro", "4matic": "4MATIC", "4motion": "4MOTION",
+    awd: "AWD", "4wd": "4WD", "4x4": "4x4", "all-wheel drive": "AWD", allrad: "Allrad",
+  };
+  const narrowingHints: string[] = [];
+  for (const tr of v.trims) narrowingHints.push(tr.toUpperCase());
+  for (const [alias, label] of Object.entries(DRIVETRAIN_HINTS)) {
+    if (text && new RegExp(`(^|[^a-z0-9])${alias.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")}([^a-z0-9]|$)`, "i").test(text)) {
+      if (!narrowingHints.includes(label)) narrowingHints.push(label);
+    }
+  }
+  if (v.bodyStyle) narrowingHints.push(v.bodyStyle.charAt(0).toUpperCase() + v.bodyStyle.slice(1));
+
   return {
     make: v.make,
     makeSlug: v.makeSlug,
@@ -110,6 +126,7 @@ export function normalizeIntent(raw: RawCarIntent): CarSearchIntent {
     needsClarification: v.needsClarification,
     clarification: v.clarification,
     missingFields,
+    narrowingHints: Array.from(new Set(narrowingHints)),
   };
 }
 
