@@ -131,6 +131,9 @@ export default function LiveMarketCard({ intent, onPick }: { intent: RawCarInten
             {data.provider === "otomoto" && (
               <div className="lmc-flag warn">↳ {data.note}</div>
             )}
+            {data.provider !== "otomoto" && data.note && !data.degraded && (
+              <div className="lmc-flag warn">↳ {data.note}</div>
+            )}
 
             <a className="lmc-cta" href={data.url!} target="_blank" rel="noopener noreferrer">
               {data.provider === "otomoto" ? "View listings on otomoto.pl" : "View live listings on AutoScout24"}

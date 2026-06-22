@@ -61,6 +61,32 @@ export async function resolveModelSlugLive(
   return null;
 }
 
+/** Validate explicit performance-family slug candidates (e.g. m6, golf-r) with
+ *  the same strict-subset rule. Returns the first that is a real subset of the
+ *  make total (so a soft make-fallback like /audi/rs-3 == all-Audi is rejected). */
+export async function resolvePerformanceSlug(
+  makeSlug: string | null | undefined,
+  candidates: string[] | null | undefined,
+  timeoutMs = 6000,
+): Promise<{ slug: string; count: number } | null> {
+  if (!makeSlug || !candidates || candidates.length === 0) return null;
+
+  let makeTotal: number | null = hasCachedSlug("_total", makeSlug)
+    ? Number(getCachedSlug("_total", makeSlug))
+    : null;
+  if (makeTotal == null) {
+    makeTotal = await fetchOfferCount(`${AUTOSCOUT_BASE}/${makeSlug}?atype=C`, timeoutMs);
+    if (makeTotal != null) setCachedSlug("_total", makeSlug, String(makeTotal));
+  }
+  if (makeTotal == null) return null;
+
+  for (const cand of candidates.slice(0, 3)) {
+    const count = await fetchOfferCount(`${AUTOSCOUT_BASE}/${makeSlug}/${cand}?atype=C`, timeoutMs);
+    if (count != null && count > 0 && count < makeTotal) return { slug: cand, count };
+  }
+  return null;
+}
+
 /** Resolve an unknown make NAME to a verified AutoScout make slug, or null. */
 export async function resolveMakeSlugLive(
   makeName: string | null | undefined,

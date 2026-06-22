@@ -9,8 +9,9 @@ import { normalizeIntent } from "@/lib/autoscout/normalize";
 import { buildAutoscoutUrl } from "@/lib/autoscout/buildUrl";
 import { validateAutoscoutUrl } from "@/lib/autoscout/validate";
 import { resolveCarImage } from "@/lib/autoscout/image";
-import { resolveModelSlugLive, resolveMakeSlugLive } from "@/lib/autoscout/liveResolve";
+import { resolveModelSlugLive, resolveMakeSlugLive, resolvePerformanceSlug } from "@/lib/autoscout/liveResolve";
 import { buildOtomotoUrl } from "@/lib/autoscout/otomoto";
+import { detectPerformanceTrim } from "@/lib/autoscout/perfTrim";
 
 export const runtime = "nodejs";
 
@@ -42,6 +43,28 @@ export async function POST(req: Request) {
       intent.modelSlug = live.slug;
       intent.modelVerified = true;
       intent.missingFields = intent.missingFields.filter((f) => f !== "model");
+    }
+  }
+
+  // ── Tier-A: performance / halo trim (M, AMG, R, GTI, RS, vRS, OPC, GR…) ──
+  // If a distinct performance family slug exists on the provider (validated by
+  // strict-subset offer count), prefer it over the base family and relabel.
+  // Otherwise keep the base family and add an HONEST hint — never pretend the
+  // results were filtered to the trim when they weren't.
+  let perfHint: string | null = null;
+  if (intent.makeSlug && !intent.needsClarification) {
+    const perf = detectPerformanceTrim(intent.makeSlug, intent.modelSlug, intent.model, raw.rawText ?? intent.model);
+    if (perf) {
+      const got = await resolvePerformanceSlug(intent.makeSlug, perf.candidates);
+      if (got) {
+        intent.modelSlug = got.slug;
+        intent.modelVerified = true;
+        intent.model = perf.label;
+        intent.missingFields = intent.missingFields.filter((f) => f !== "model");
+      } else {
+        if (!intent.narrowingHints.includes(perf.label)) intent.narrowingHints.unshift(perf.label);
+        perfHint = `${perf.label} requested as a performance trim — the marketplace has no separate ${perf.label} listing page, so results include the broader ${intent.model ?? "base"} family.`;
+      }
     }
   }
 
@@ -131,7 +154,7 @@ export async function POST(req: Request) {
     intent,
     image,
     provider: "autoscout24",
-    note: !verified && degraded === false ? "Link built from verified data (live check skipped)." : null,
+    note: perfHint ?? (!verified && degraded === false ? "Link built from verified data (live check skipped)." : null),
   };
   return NextResponse.json(result);
 }
