@@ -388,6 +388,23 @@ function classifyIntent(text, prevWasListings = false) {
   return { intent: "OTHER", wantsListings: false };
 }
 
+// Affirmative reply to the advisor's "want to see options?" offer.
+function isAffirmativeReply(text) {
+  return /^\s*(ye(s|ah|p)|yup|sure|ok(ay)?|please|go ahead|do it|sounds good|show me|let'?s see|see them|absolutely|definitely)\b/i.test(text || "");
+}
+
+// Scans the conversation (most recent first) for the last message naming a car
+// make, so an affirmation ("yes please") can still build a search for the car
+// under discussion. Assistant messages count — the model name is often
+// introduced by the advisor (e.g. "The Skoda Octavia ...").
+function findConversationCar(msgs) {
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const c = msgs[i] && msgs[i].content ? msgs[i].content : "";
+    if (MAKE_REGEX.test(c)) return c;
+  }
+  return "";
+}
+
 // ─── Anti-fabrication sanitizer ───────────────────────────────────────────────
 // HARD trust rule: the app has NO real listing objects (only a validated AutoScout
 // search URL), so the assistant must never describe a specific car as if it's for
@@ -2452,14 +2469,33 @@ useEffect(() => {
     // offers. Info/advice/comparison questions stay conversational (no card).
     const prevWasListings = messages.some((m) => m.kind === "listings");
     const userIntent = classifyIntent(text, prevWasListings);
-    const isListingRequest = userIntent.wantsListings;
+    let isListingRequest = userIntent.wantsListings;
+
+    // Affirmation to the advisor's offer ("Would you like to see options?" → "yes
+    // please"). classifyIntent can't see the offer, so handle it here: if the last
+    // advisor message offered to show options and the user affirms, search the car
+    // already under discussion (the make/model lives in earlier messages, not "yes").
+    let searchText = text;
+    if (!isListingRequest && isAffirmativeReply(text)) {
+      const lastAdvisor = [...messages].reverse().find((m) => m.role === "assistant" && m.kind === "text");
+      const advisorOfferedListings = lastAdvisor &&
+        /\b(see|show|check|view|browse|pull up)\b[^.?!]{0,40}\b(option|options|listing|listings|offer|offers|market|available)\b/i.test(lastAdvisor.content || "");
+      if (advisorOfferedListings) {
+        const contextCar = findConversationCar(messages);
+        if (contextCar) {
+          isListingRequest = true;
+          searchText = contextCar;
+        }
+      }
+    }
+
     let listingReply = "";
     let filteredListings = [];
 
     try {
       // Run intent extraction and chat response in parallel to save time
       const [intentRaw, replyText] = await Promise.all([
-        isListingRequest ? extractSearchIntent(text) : Promise.resolve(null),
+        isListingRequest ? extractSearchIntent(searchText) : Promise.resolve(null),
         hybridChatSend(updatedMsgs),
       ]);
 
