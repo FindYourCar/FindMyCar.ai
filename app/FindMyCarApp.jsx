@@ -2534,26 +2534,28 @@ useEffect(() => {
         loadListings();
       }
 
-      setMessages(m => {
-        const next = [...m, {
-          role: "assistant", kind: "text",
-          // No verified listing objects exist in chat → market-search uses the
-          // canned link message; info replies pass through the fabrication
-          // sanitizer so invented "for-sale" cars are never shown.
-          // Best-deal / "best car" style asks get the advisor's reasoned answer
-          // (guidance + ranked picks) instead of the canned link, with the live
-          // card kept below as evidence; if the model fabricated listings we fall
-          // back to the safe canned line.
-          content: isListingRequest
-            ? (wantsAdvice(text) && !looksFabricated(replyText) ? replyText : listingReply)
-            : sanitizeAdvisorText(replyText, false),
-          lang: language, mode: "advisor",
-        }];
-        if (isListingRequest) {
-          next.push({ role: "assistant", kind: "listings", listings: filteredListings });
-        }
-        return next;
-      });
+      // No verified listing objects exist in chat → market-search uses the canned
+      // link message; info replies pass through the fabrication sanitizer so
+      // invented "for-sale" cars are never shown. Best-deal / "best car" style
+      // asks get the advisor's reasoned answer (guidance + ranked picks) instead
+      // of the canned link, with the live card kept below as evidence; if the
+      // model fabricated listings we fall back to the safe canned line.
+      const textContent = isListingRequest
+        ? (wantsAdvice(text) && !looksFabricated(replyText) ? replyText : listingReply)
+        : sanitizeAdvisorText(replyText, false);
+
+      // Reveal the text progressively (animate:true), then stage the listings card
+      // to appear once the text has finished streaming — text first, cards after.
+      setMessages(m => [...m, {
+        role: "assistant", kind: "text", content: textContent, animate: true,
+        lang: language, mode: "advisor",
+      }]);
+      if (isListingRequest) {
+        const revealMs = estimateRevealMs(textContent);
+        setTimeout(() => {
+          setMessages(m => [...m, { role: "assistant", kind: "listings", listings: filteredListings }]);
+        }, revealMs);
+      }
 
       const newCount = searchCount + 1;
       setSearchCount(newCount);
@@ -3605,6 +3607,14 @@ try {
     }
   }, [messages, isTyping]);
 
+  // Keep the newest text pinned to the bottom while a message streams in.
+  // Instant (not smooth) so rapid per-word ticks don't fight the scroll animation.
+  const streamScroll = React.useCallback(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, []);
+
   const onSend = () => {
     if (!input.trim()) return;
     sendMessage(input);
@@ -3855,7 +3865,7 @@ try {
                 <ChatMessage key={i} message={m} country={country} openCar={openCar}
                   shortlist={shortlist} compareList={compareList}
                   toggleShortlist={toggleShortlist} toggleCompare={toggleCompare}
-                  onChip={onChip}
+                  onChip={onChip} onStream={streamScroll}
                 />
               ))}
               {isTyping && (
@@ -4063,7 +4073,61 @@ try {
   );
 }
 
-function ChatMessage({ message, country, openCar, shortlist, compareList, toggleShortlist, toggleCompare, onChip }) {
+// Word-boundary offsets for a string ("hello world" → [6, 11]). Used to reveal
+// text one word at a time while preserving all original whitespace/newlines.
+function wordOffsets(full) {
+  const offsets = [];
+  const re = /\S+\s*/g;
+  let m;
+  while ((m = re.exec(full))) offsets.push(m.index + m[0].length);
+  return offsets;
+}
+const STREAM_TICK_MS = 40;
+const STREAM_MAX_TICKS = 90; // cap total reveal ≈ 3.6s regardless of length
+// Estimated time for TypewriterText to finish revealing `text`, so callers can
+// stage follow-up content (e.g. listing cards) to appear right after.
+function estimateRevealMs(text) {
+  const n = wordOffsets(text || "").length;
+  if (n === 0) return 200;
+  const chunk = Math.max(1, Math.ceil(n / STREAM_MAX_TICKS));
+  return Math.ceil(n / chunk) * STREAM_TICK_MS + 120;
+}
+
+// Reveals `text` progressively (word by word) on mount, ChatGPT-style. Falls
+// back to the full text instantly if animation isn't requested. Renders a
+// blinking caret while streaming and calls onReveal() each tick (for autoscroll).
+function TypewriterText({ text, onReveal }) {
+  const full = text || "";
+  const [len, setLen] = React.useState(0);
+  React.useEffect(() => {
+    const offsets = wordOffsets(full);
+    if (offsets.length === 0) { setLen(full.length); return; }
+    const chunk = Math.max(1, Math.ceil(offsets.length / STREAM_MAX_TICKS));
+    let i = 0;
+    setLen(0);
+    const id = setInterval(() => {
+      i += chunk;
+      if (i >= offsets.length) {
+        setLen(full.length);
+        clearInterval(id);
+      } else {
+        setLen(offsets[i - 1]);
+      }
+      if (onReveal) onReveal();
+    }, STREAM_TICK_MS);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [full]);
+  const done = len >= full.length;
+  return (
+    <>
+      {full.slice(0, len)}
+      {!done && <span className="animate-pulse" style={{ opacity: 0.7 }}>▍</span>}
+    </>
+  );
+}
+
+function ChatMessage({ message, country, openCar, shortlist, compareList, toggleShortlist, toggleCompare, onChip, onStream }) {
   if (message.role === "user") {
     return (
       <div className="flex justify-end chat-enter-user">
@@ -4171,7 +4235,9 @@ function ChatMessage({ message, country, openCar, shortlist, compareList, toggle
       </div>
       <div className="max-w-[85%]">
         <div className="bubble-assistant rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-line" style={{ color: "#f5f1ea" }}>
-          {message.content}
+          {message.animate
+            ? <TypewriterText text={message.content} onReveal={onStream} />
+            : message.content}
         </div>
         {message.chips && (
           <div className="flex flex-wrap gap-1.5 mt-2">
