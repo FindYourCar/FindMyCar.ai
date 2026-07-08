@@ -405,6 +405,15 @@ function findConversationCar(msgs) {
   return "";
 }
 
+// "Best deal / best value / cheapest / worth it / which should I buy" — the user
+// wants the advisor's reasoning, not just a link. For these we surface the
+// advisor's guidance as the answer and keep the live search card as supporting
+// evidence. Fabricated for-sale specifics are still blocked by looksFabricated().
+const ADVICE_INTENT_RE = /\b(best|top|cheapest|good|great|better|worth|value|deal|deals|bargain|recommend|recommendation|should i (buy|get|choose|pick)|which (car|one|model)|compare)\b/i;
+function wantsAdvice(text) {
+  return ADVICE_INTENT_RE.test(text || "");
+}
+
 // ─── Anti-fabrication sanitizer ───────────────────────────────────────────────
 // HARD trust rule: the app has NO real listing objects (only a validated AutoScout
 // search URL), so the assistant must never describe a specific car as if it's for
@@ -2531,7 +2540,13 @@ useEffect(() => {
           // No verified listing objects exist in chat → market-search uses the
           // canned link message; info replies pass through the fabrication
           // sanitizer so invented "for-sale" cars are never shown.
-          content: isListingRequest ? listingReply : sanitizeAdvisorText(replyText, false),
+          // Best-deal / "best car" style asks get the advisor's reasoned answer
+          // (guidance + ranked picks) instead of the canned link, with the live
+          // card kept below as evidence; if the model fabricated listings we fall
+          // back to the safe canned line.
+          content: isListingRequest
+            ? (wantsAdvice(text) && !looksFabricated(replyText) ? replyText : listingReply)
+            : sanitizeAdvisorText(replyText, false),
           lang: language, mode: "advisor",
         }];
         if (isListingRequest) {
