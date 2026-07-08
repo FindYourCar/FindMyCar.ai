@@ -723,12 +723,12 @@ function resolveVehicle(raw) {
 }
 
 // ─── Stage 1 (async): LLM extraction with sync regex fallback ────────────────
-async function extractSearchIntent(query) {
+async function extractSearchIntent(query, context) {
   try {
     const res = await fetch("/api/extract", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query }),
+      body: JSON.stringify({ query, context }),
     });
     if (res.ok) {
       const data = await res.json();
@@ -2551,41 +2551,51 @@ useEffect(() => {
     const turn = chatTurn + 1;
     setChatTurn(turn);
 
-    // Intent gating: only build a live-market card when the user actually wants
-    // offers. Info/advice/comparison questions stay conversational (no card).
+    // Intent gating: prefer the LLM's structured judgment — it classifies intent
+    // AND resolves references like "yes please" / "give me listings" using the
+    // conversation. The deterministic classifier + heuristics stay as a fallback
+    // for when Groq is unavailable, so gating never fully depends on the network.
     const prevWasListings = messages.some((m) => m.kind === "listings");
-    const userIntent = classifyIntent(text, prevWasListings);
-    let isListingRequest = userIntent.wantsListings;
+    const heuristic = classifyIntent(text, prevWasListings);
 
-    // Affirmation to the advisor's offer ("Would you like to see options?" → "yes
-    // please"). classifyIntent can't see the offer, so handle it here: if the last
-    // advisor message offered to show options and the user affirms, treat it as a
-    // listing request.
-    if (!isListingRequest && isAffirmativeReply(text)) {
-      const lastAdvisor = [...messages].reverse().find((m) => m.role === "assistant" && m.kind === "text");
-      const advisorOfferedListings = lastAdvisor &&
-        /\b(see|show|check|view|browse|pull up)\b[^.?!]{0,40}\b(option|options|listing|listings|offer|offers|market|available)\b/i.test(lastAdvisor.content || "");
-      if (advisorOfferedListings) isListingRequest = true;
-    }
-
-    // When we're searching but the message itself names no car (e.g. "give me live
-    // listings", "yes please", "show me the offers"), the make/model lives in
-    // earlier messages — fall back to the car already under discussion.
-    let searchText = text;
-    if (isListingRequest && !MAKE_REGEX.test(text)) {
-      const contextCar = findConversationCar(messages);
-      if (contextCar) searchText = contextCar;
-    }
+    // Recent turns give the extractor the context to resolve pronouns/affirmations
+    // to the car under discussion and to judge intent accurately.
+    const recentContext = messages
+      .filter((m) => m && typeof m.content === "string" && m.content.trim())
+      .slice(-6)
+      .map((m) => ({ role: m.role, content: m.content }));
 
     let listingReply = "";
     let filteredListings = [];
 
     try {
-      // Run intent extraction and chat response in parallel to save time
-      const [intentRaw, replyText] = await Promise.all([
-        isListingRequest ? extractSearchIntent(searchText) : Promise.resolve(null),
+      // Context-aware extraction and the chat reply run in parallel.
+      const [primaryIntent, replyText] = await Promise.all([
+        extractSearchIntent(text, recentContext),
         hybridChatSend(updatedMsgs),
       ]);
+
+      // Primary gate = the LLM's wantsListings when present; else the classifier.
+      const llmWants = primaryIntent && typeof primaryIntent.wantsListings === "boolean"
+        ? primaryIntent.wantsListings : null;
+      let isListingRequest = llmWants != null ? llmWants : heuristic.wantsListings;
+      let intentRaw = primaryIntent;
+
+      // Deterministic safety net (only when the LLM didn't decide): an affirmation
+      // right after we offered to show options counts as a listing request.
+      if (llmWants == null && !isListingRequest && isAffirmativeReply(text)) {
+        const lastAdvisor = [...messages].reverse().find((m) => m.role === "assistant" && m.kind === "text");
+        const advisorOfferedListings = lastAdvisor &&
+          /\b(see|show|check|view|browse|pull up)\b[^.?!]{0,40}\b(option|options|listing|listings|offer|offers|market|available)\b/i.test(lastAdvisor.content || "");
+        if (advisorOfferedListings) isListingRequest = true;
+      }
+
+      // If we're searching but no car was resolved from the message (e.g. "yes
+      // please", "give me listings"), search the car already under discussion.
+      if (isListingRequest && !(intentRaw && (intentRaw.make || intentRaw.model))) {
+        const contextCar = findConversationCar(messages);
+        if (contextCar) intentRaw = await extractSearchIntent(contextCar);
+      }
 
       if (isListingRequest && intentRaw) {
         setShowListings(true);
