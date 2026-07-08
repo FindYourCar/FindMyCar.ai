@@ -221,6 +221,37 @@ const PERF_MODEL_MAP = {
   "volkswagen:polo:gti":"polo-gti",
 };
 
+// Reverse index of MODEL_FAMILY_MAP: first model token → make slug. Lets a
+// model-only query ("golf gti", "octavia") infer its make and trigger a search
+// even when no make word is present. MODEL_GATE_REGEX holds the unambiguous
+// (>=4-letter) model tokens used for intent gating and make inference.
+// Model tokens that are also common English words — excluded from the gate so
+// normal chat ("let's focus on budget") doesn't trigger a car search. They still
+// work when the make is named (e.g. "ford focus") via the make path.
+const AMBIGUOUS_MODEL_WORDS = new Set([
+  "focus","jazz","note","move","city","soul","cross","spark","smart","combo",
+  "life","active","country","land","cross-country",
+]);
+const MODEL_TO_MAKE = {};
+const _modelGateTokens = new Set();
+for (const key of Object.keys(MODEL_FAMILY_MAP)) {
+  const ci = key.indexOf(":");
+  if (ci < 0) continue;
+  const mk = key.slice(0, ci);
+  const firstTok = key.slice(ci + 1).trim().split(/\s+/)[0];
+  if (!firstTok) continue;
+  if (!(firstTok in MODEL_TO_MAKE)) MODEL_TO_MAKE[firstTok] = mk;
+  if (/^[a-z]{4,}$/.test(firstTok) && !AMBIGUOUS_MODEL_WORDS.has(firstTok)) {
+    _modelGateTokens.add(firstTok);
+  }
+}
+const MODEL_GATE_REGEX = _modelGateTokens.size
+  ? new RegExp(`\\b(${[..._modelGateTokens].join("|")})\\b`, "i")
+  : /(?!)/;
+function hasKnownModel(text) {
+  return MODEL_GATE_REGEX.test(text || "");
+}
+
 // ─── Token classification sets ────────────────────────────────────────────────
 
 // Body style variants → role "body": metadata only, never in URL path
@@ -355,6 +386,9 @@ function classifyIntent(text, prevWasListings = false) {
   if (!t) return { intent: "OTHER", wantsListings: false };
 
   const hasMake = MAKE_REGEX.test(t);
+  // A known model name ("golf", "octavia") counts too — many queries name only
+  // the model, not the make ("give me golf gti").
+  const hasModel = hasKnownModel(t);
 
   // Explicit "show me the listings/offers/results" — strongest buy-now signal.
   const explicitShow =
@@ -387,17 +421,17 @@ function classifyIntent(text, prevWasListings = false) {
   if (adviceSignal) return { intent: "BUYING_ADVICE", wantsListings: false };
   if (infoSignal || isQuestion) return { intent: "CAR_INFO", wantsListings: false };
 
-  // No info phrasing: treat make + at least one concrete filter as a search.
-  if (hasMake && marketScore >= 1) return { intent: "MARKET_SEARCH", wantsListings: true };
+  // No info phrasing: treat make/model + at least one concrete filter as a search.
+  if ((hasMake || hasModel) && marketScore >= 1) return { intent: "MARKET_SEARCH", wantsListings: true };
   if (marketScore >= 2) return { intent: "MARKET_SEARCH", wantsListings: true };
 
   // Refinement of an existing search ("make it automatic, under 80,000 km").
   if (prevWasListings && (hasBudget || hasMileage || /\b(automatic|manual|diesel|petrol|electric|hybrid|cheaper|newer|older|lower mileage|less km)\b/.test(t))) {
     return { intent: "FOLLOW_UP_REFINEMENT", wantsListings: true };
   }
-  // A bare make with no info/advice/comparison/question phrasing (all handled
-  // above) is a model-first search — e.g. "for skoda", "vw golf". Surface the card.
-  if (hasMake) return { intent: "MARKET_SEARCH", wantsListings: true };
+  // A bare make or model with no info/advice/comparison/question phrasing (all
+  // handled above) is a model-first search — e.g. "for skoda", "golf gti". Card.
+  if (hasMake || hasModel) return { intent: "MARKET_SEARCH", wantsListings: true };
   return { intent: "OTHER", wantsListings: false };
 }
 
@@ -464,13 +498,27 @@ function sanitizeAdvisorText(text, hasVerifiedListingsData) {
 function regexExtractIntent(query) {
   const q = (query || "").toLowerCase();
   const makeMatch = q.match(MAKE_REGEX);
-  const makeEntry = makeMatch ? CANONICAL_MAKES[makeMatch[1].toLowerCase()] : null;
+  let makeEntry = makeMatch ? CANONICAL_MAKES[makeMatch[1].toLowerCase()] : null;
 
-  // Collect post-make tokens. Stop only at STOP_TOKENS / year / price.
+  // Where model tokens begin: just after the make, or — for a model-only query
+  // like "golf gti" — at the model token itself, with the make inferred from it.
+  let modelStart = makeMatch ? makeMatch.index + makeMatch[0].length : -1;
+  if (!makeEntry) {
+    const modelHit = q.match(MODEL_GATE_REGEX);
+    if (modelHit) {
+      const slug = MODEL_TO_MAKE[modelHit[1].toLowerCase()];
+      if (slug) {
+        makeEntry = CANONICAL_MAKES[slug] || { name: slug, slug };
+        modelStart = modelHit.index;
+      }
+    }
+  }
+
+  // Collect model tokens. Stop only at STOP_TOKENS / year / price.
   // Trim, body, drivetrain words pass through — resolveVehicle classifies them.
   let model = null;
-  if (makeMatch) {
-    const after = q.slice(makeMatch.index + makeMatch[0].length).trim();
+  if (modelStart >= 0) {
+    const after = q.slice(modelStart).trim();
     const kept = [];
     for (const raw of after.split(/\s+/)) {
       const t = raw.replace(/[^a-z0-9-]/gi, "").toLowerCase();
