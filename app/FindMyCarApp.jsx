@@ -2473,20 +2473,22 @@ useEffect(() => {
 
     // Affirmation to the advisor's offer ("Would you like to see options?" → "yes
     // please"). classifyIntent can't see the offer, so handle it here: if the last
-    // advisor message offered to show options and the user affirms, search the car
-    // already under discussion (the make/model lives in earlier messages, not "yes").
-    let searchText = text;
+    // advisor message offered to show options and the user affirms, treat it as a
+    // listing request.
     if (!isListingRequest && isAffirmativeReply(text)) {
       const lastAdvisor = [...messages].reverse().find((m) => m.role === "assistant" && m.kind === "text");
       const advisorOfferedListings = lastAdvisor &&
         /\b(see|show|check|view|browse|pull up)\b[^.?!]{0,40}\b(option|options|listing|listings|offer|offers|market|available)\b/i.test(lastAdvisor.content || "");
-      if (advisorOfferedListings) {
-        const contextCar = findConversationCar(messages);
-        if (contextCar) {
-          isListingRequest = true;
-          searchText = contextCar;
-        }
-      }
+      if (advisorOfferedListings) isListingRequest = true;
+    }
+
+    // When we're searching but the message itself names no car (e.g. "give me live
+    // listings", "yes please", "show me the offers"), the make/model lives in
+    // earlier messages — fall back to the car already under discussion.
+    let searchText = text;
+    if (isListingRequest && !MAKE_REGEX.test(text)) {
+      const contextCar = findConversationCar(messages);
+      if (contextCar) searchText = contextCar;
     }
 
     let listingReply = "";
