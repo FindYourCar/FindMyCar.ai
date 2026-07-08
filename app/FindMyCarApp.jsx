@@ -382,7 +382,10 @@ function classifyIntent(text, prevWasListings = false) {
   if (prevWasListings && (hasBudget || hasMileage || /\b(automatic|manual|diesel|petrol|electric|hybrid|cheaper|newer|older|lower mileage|less km)\b/.test(t))) {
     return { intent: "FOLLOW_UP_REFINEMENT", wantsListings: true };
   }
-  return { intent: hasMake ? "CAR_INFO" : "OTHER", wantsListings: false };
+  // A bare make with no info/advice/comparison/question phrasing (all handled
+  // above) is a model-first search — e.g. "for skoda", "vw golf". Surface the card.
+  if (hasMake) return { intent: "MARKET_SEARCH", wantsListings: true };
+  return { intent: "OTHER", wantsListings: false };
 }
 
 // ─── Anti-fabrication sanitizer ───────────────────────────────────────────────
@@ -2228,7 +2231,11 @@ useEffect(() => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: name } },
+      options: {
+        data: { full_name: name },
+        emailRedirectTo:
+          typeof window !== "undefined" ? window.location.origin + "/" : undefined,
+      },
     });
     if (error) return { error: mapAuthError(error) };
     if (data?.session?.user) {
