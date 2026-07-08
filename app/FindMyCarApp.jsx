@@ -206,6 +206,19 @@ const MODEL_FAMILY_DISPLAY = {
   "santa-fe":"Santa Fe","ioniq-5":"IONIQ 5","ioniq-6":"IONIQ 6",
   "model-3":"Model 3","model-s":"Model S","model-x":"Model X","model-y":"Model Y",
   "mustang-mach-e":"Mustang Mach-E","gt-r":"GT-R","sx4-s-cross":"SX4 S-Cross",
+  "golf-gti":"Golf GTI","golf-r":"Golf R","golf-gtd":"Golf GTD","golf-gte":"Golf GTE",
+  "polo-gti":"Polo GTI",
+};
+
+// Performance variants AutoScout24 lists as their OWN model slug (distinct from
+// the base family). Key: "{makeSlug}:{familyKey}:{trimToken}" → variant slug.
+// Without this, "Golf GTI" resolves to a generic Golf search (the trim is dropped).
+const PERF_MODEL_MAP = {
+  "volkswagen:golf:gti":"golf-gti",
+  "volkswagen:golf:r":"golf-r",
+  "volkswagen:golf:gtd":"golf-gtd",
+  "volkswagen:golf:gte":"golf-gte",
+  "volkswagen:polo:gti":"polo-gti",
 };
 
 // ─── Token classification sets ────────────────────────────────────────────────
@@ -588,6 +601,22 @@ function resolveVehicle(raw) {
       if (pfx) {
         inferredSlug = ENGINE_PREFIX_TO_MODEL[`${makeSlug}:${pfx}`] || null;
         if (inferredSlug) { modelSlug = inferredSlug; break; }
+      }
+    }
+  }
+
+  // 4b. Performance variants AutoScout24 lists as their own model slug
+  //     (Golf GTI → golf-gti, Golf R → golf-r, Polo GTI → polo-gti). When the
+  //     base family resolved and a trim badge completes a known variant, upgrade
+  //     the slug and consume that trim so it isn't repeated in the card metadata.
+  if (modelSlug && matchedFamilyTokens.length && metaTrim.length && makeSlug) {
+    const familyKey = matchedFamilyTokens.join(" ");
+    for (let i = 0; i < metaTrim.length; i++) {
+      const perfSlug = PERF_MODEL_MAP[`${makeSlug}:${familyKey}:${metaTrim[i]}`];
+      if (perfSlug) {
+        modelSlug = perfSlug;
+        metaTrim.splice(i, 1);
+        break;
       }
     }
   }
