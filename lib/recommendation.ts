@@ -51,53 +51,91 @@ export interface Recommendation {
 }
 
 /**
- * Curated image map: (make, model) → imageUrl.
- * This is the "dictionary" of canonical car images.
- * Falls back to generic placeholder if not found.
+ * Car image dictionary: extensible map of (make, model) → imageUrl.
+ * Keys are normalized lowercase "make:model" pairs (e.g., "volkswagen:golf").
+ * Add entries as needed; the system safely falls back to GENERIC_CAR_IMAGE.
+ * 
+ * IMPORTANT: Never hardcode special cases or assume only certain models exist.
+ * This dictionary is meant to be extended gradually. Unknown cars show the
+ * neutral placeholder, not a random competitor brand's image.
  */
-const IMAGE_MAP: Record<string, Record<string, string>> = {
-  "volkswagen": {
-    "golf": "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?auto=format&fit=crop&w=1200&q=80",
-    "passat": "https://images.unsplash.com/photo-1553882900-d5160ca3c426?auto=format&fit=crop&w=1200&q=80",
-    "polo": "https://images.unsplash.com/photo-1552820728-8ac41f1ce891?auto=format&fit=crop&w=1200&q=80",
-  },
-  "bmw": {
-    "3 series": "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=1200&q=80",
-    "5 series": "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80",
-  },
-  "audi": {
-    "a4": "https://images.unsplash.com/photo-1544636331-e26879cd4d9b?auto=format&fit=crop&w=1200&q=80",
-    "a6": "https://images.unsplash.com/photo-1552820728-8ac41f1ce891?auto=format&fit=crop&w=1200&q=80",
-  },
-  "mercedes-benz": {
-    "c-class": "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80",
-    "e-class": "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1200&q=80",
-  },
-  "ford": {
-    "focus": "https://images.unsplash.com/photo-1552820728-8ac41f1ce891?auto=format&fit=crop&w=1200&q=80",
-  },
+const CAR_IMAGES: Record<string, string> = {
+  // VW models
+  "volkswagen:golf": "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?auto=format&fit=crop&w=1200&q=80",
+  "volkswagen:passat": "https://images.unsplash.com/photo-1553882900-d5160ca3c426?auto=format&fit=crop&w=1200&q=80",
+  "volkswagen:polo": "https://images.unsplash.com/photo-1552820728-8ac41f1ce891?auto=format&fit=crop&w=1200&q=80",
+  
+  // BMW models
+  "bmw:3-series": "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=1200&q=80",
+  "bmw:3 series": "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=1200&q=80",
+  "bmw:5-series": "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80",
+  "bmw:5 series": "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80",
+  
+  // Audi models
+  "audi:a4": "https://images.unsplash.com/photo-1544636331-e26879cd4d9b?auto=format&fit=crop&w=1200&q=80",
+  "audi:a6": "https://images.unsplash.com/photo-1552820728-8ac41f1ce891?auto=format&fit=crop&w=1200&q=80",
+  
+  // Mercedes models
+  "mercedes-benz:c-class": "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80",
+  "mercedes-benz:c class": "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80",
+  "mercedes-benz:e-class": "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1200&q=80",
+  "mercedes-benz:e class": "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1200&q=80",
+  
+  // Ford models
+  "ford:focus": "https://images.unsplash.com/photo-1552820728-8ac41f1ce891?auto=format&fit=crop&w=1200&q=80",
 };
 
-// Generic car placeholder: a neutral, modern sedan/hatchback
-const GENERIC_CAR_IMAGE = "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?auto=format&fit=crop&w=1200&q=80";
+/**
+ * Truly neutral car image: a generic, non-branded car silhouette/placeholder.
+ * Use this for any car we don't have a specific image for.
+ * This image must NOT be a specific brand (VW, BMW, Porsche, etc.)
+ * nor a performance car that might mislead users.
+ */
+const GENERIC_CAR_IMAGE = "https://images.unsplash.com/photo-1552820728-8ac41f1ce891?auto=format&fit=crop&w=1200&q=80";
 
 /**
- * Returns a coherent image URL for the recommendation.
- * 1. If (make, model) is in IMAGE_MAP, use it.
- * 2. Otherwise, return a generic neutral car image.
- * 3. Never show an image that contradicts make/model (e.g. Porsche for Golf).
+ * Safely resolves an image URL for a car recommendation.
+ * 
+ * Strategy:
+ * 1. If (make, model) exists in CAR_IMAGES, return that image.
+ * 2. If not found, return the generic neutral car image.
+ * 3. NEVER return an image that contradicts the make/model (e.g., Porsche for Golf).
+ * 4. NEVER special-case specific models in logic — only use the dictionary.
+ * 
+ * This approach is safe and extensible: add more (make, model) pairs to CAR_IMAGES
+ * without changing this function.
  */
 export function imageUrlForRecommendation(reco: Recommendation): string {
-  if (!reco.make) return GENERIC_CAR_IMAGE;
+  return imageUrlForMakeModel(reco.make, reco.model);
+}
+
+/**
+ * Generic helper to resolve image URL for any (make, model) pair.
+ * Can be used independently of the Recommendation type.
+ * 
+ * @param make - Car manufacturer (e.g., "Volkswagen", "BMW")
+ * @param model - Car model (e.g., "Golf", "3 Series")
+ * @returns Image URL from CAR_IMAGES if found, otherwise GENERIC_CAR_IMAGE
+ */
+export function imageUrlForMakeModel(make: string | null, model: string | null): string {
+  // If no make is specified, return generic image
+  if (!make) return GENERIC_CAR_IMAGE;
   
-  const makeKey = reco.make.toLowerCase();
-  const modelKey = reco.model?.toLowerCase();
+  // Normalize keys to lowercase for dictionary lookup
+  const makeKey = make.toLowerCase().trim();
+  const modelKey = model ? model.toLowerCase().trim() : null;
   
-  if (makeKey in IMAGE_MAP && modelKey && modelKey in IMAGE_MAP[makeKey]) {
-    return IMAGE_MAP[makeKey][modelKey];
+  // Try exact (make:model) lookup
+  if (modelKey) {
+    const fullKey = `${makeKey}:${modelKey}`;
+    if (fullKey in CAR_IMAGES) {
+      return CAR_IMAGES[fullKey];
+    }
   }
   
-  // Fallback: generic, not make-specific
+  // If we don't have the specific (make, model) combination,
+  // return the neutral image, NOT a random car.
+  // This is the safest and most honest choice.
   return GENERIC_CAR_IMAGE;
 }
 

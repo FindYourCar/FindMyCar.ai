@@ -13,7 +13,7 @@ import { resolveCarImage } from "@/lib/autoscout/image";
 import { resolveModelSlugLive, resolveMakeSlugLive, resolvePerformanceSlug } from "@/lib/autoscout/liveResolve";
 import { buildOtomotoUrl } from "@/lib/autoscout/otomoto";
 import { detectPerformanceTrim } from "@/lib/autoscout/perfTrim";
-import { imageUrlForRecommendation } from "@/lib/recommendation";
+import { imageUrlForMakeModel } from "@/lib/recommendation";
 
 export const runtime = "nodejs";
 
@@ -122,10 +122,7 @@ export async function POST(req: Request) {
       state: "any",
       damageState: "any",
       location: null,
-      imageUrl: imageUrlForRecommendation({
-        make: intent.make,
-        model: intent.model,
-      } as any),
+      imageUrl: imageUrlForMakeModel(intent.make, intent.model),
       imageAlt: title || "Car marketplace search",
       searchUrl: oto.url,
       degraded: oto.modelOmitted,
@@ -193,10 +190,7 @@ export async function POST(req: Request) {
     state: "any",
     damageState: "any",
     location: null,
-    imageUrl: imageUrlForRecommendation({
-      make: intent.make,
-      model: intent.model,
-    } as any),
+    imageUrl: imageUrlForMakeModel(intent.make, intent.model),
     imageAlt: title || "Car marketplace search",
     searchUrl: finalUrl,
     degraded,
@@ -236,10 +230,7 @@ function baseRecommendation(
     state: "any",
     damageState: "any",
     location: null,
-    imageUrl: imageUrlForRecommendation({
-      make: intent.make,
-      model: intent.model,
-    } as any),
+    imageUrl: imageUrlForMakeModel(intent.make, intent.model),
     imageAlt: title || "Car search",
     searchUrl: "",
     degraded: false,
