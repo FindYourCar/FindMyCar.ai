@@ -1,19 +1,18 @@
 "use client";
 
 import React from "react";
-import type { MarketSearchResult, RawCarIntent } from "@/lib/autoscout/types";
+import type { RawCarIntent } from "@/lib/autoscout/types";
+import type { Recommendation } from "@/lib/recommendation";
 
 // Renders one "Live market links" result. Takes a loose intent, calls the
 // server route (the only place URLs are built/validated), and shows proper
 // loading / success / no-match / error states — never a blank broken card.
-// The image steps through the server-provided fallback chain on error.
 
 type Phase = "loading" | "success" | "no_match" | "needs_clarification" | "error";
 
 export default function LiveMarketCard({ intent, onPick }: { intent: RawCarIntent; onPick?: (text: string) => void }) {
   const [phase, setPhase] = React.useState<Phase>("loading");
-  const [data, setData] = React.useState<MarketSearchResult | null>(null);
-  const [imgIdx, setImgIdx] = React.useState(0);
+  const [data, setData] = React.useState<Recommendation | null>(null);
 
   // Stable key so we only refetch when the intent actually changes.
   const intentKey = JSON.stringify(intent);
@@ -22,7 +21,6 @@ export default function LiveMarketCard({ intent, onPick }: { intent: RawCarInten
     let alive = true;
     setPhase("loading");
     setData(null);
-    setImgIdx(0);
     (async () => {
       try {
         const res = await fetch("/api/market-search", {
@@ -30,7 +28,7 @@ export default function LiveMarketCard({ intent, onPick }: { intent: RawCarInten
           headers: { "Content-Type": "application/json" },
           body: intentKey,
         });
-        const json: MarketSearchResult = await res.json();
+        const json: Recommendation = await res.json();
         if (!alive) return;
         setData(json);
         setPhase(
@@ -45,9 +43,6 @@ export default function LiveMarketCard({ intent, onPick }: { intent: RawCarInten
     })();
     return () => { alive = false; };
   }, [intentKey]);
-
-  const imgChain = data ? [data.image.primary, ...data.image.fallbacks].filter(Boolean) : [];
-  const imgSrc = imgChain[Math.min(imgIdx, imgChain.length - 1)] || "";
 
   return (
     <div className="lmc">
@@ -95,29 +90,28 @@ export default function LiveMarketCard({ intent, onPick }: { intent: RawCarInten
           <div className="lmc-imgwrap">
             <img
               className="lmc-img"
-              src={imgSrc}
-              alt={data.image.alt}
+              src={data.imageUrl}
+              alt={data.imageAlt}
               loading="lazy"
-              onError={() => setImgIdx((i) => (i < imgChain.length - 1 ? i + 1 : i))}
             />
           </div>
           <div className="lmc-body">
             <div className="lmc-row">
               <span className="lmc-title">{data.title}</span>
-              <span className="lmc-pill">{data.intent.countryLabel}</span>
+              <span className="lmc-pill">{data.sourceIntent.countryLabel}</span>
             </div>
 
             <div className="lmc-specs">
-              {data.intent.maxMileage != null && <span className="lmc-spec">≤ {data.intent.maxMileage.toLocaleString()} km</span>}
-              {data.intent.maxPrice != null && <span className="lmc-spec">≤ €{data.intent.maxPrice.toLocaleString()}</span>}
-              {data.intent.fuel && <span className="lmc-spec">{data.intent.fuel.replace(/_/g, " ")}</span>}
-              {data.intent.transmission && <span className="lmc-spec">{data.intent.transmission}</span>}
-              {data.intent.yearFrom && <span className="lmc-spec">from {data.intent.yearFrom}</span>}
+              {data.mileageTo != null && <span className="lmc-spec">≤ {data.mileageTo.toLocaleString()} km</span>}
+              {data.priceTo != null && <span className="lmc-spec">≤ €{data.priceTo.toLocaleString()}</span>}
+              {data.fuelType && <span className="lmc-spec">{data.fuelType.replace(/_/g, " ")}</span>}
+              {data.gearbox && <span className="lmc-spec">{data.gearbox}</span>}
+              {data.yearFrom && <span className="lmc-spec">from {data.yearFrom}</span>}
             </div>
 
-            {data.intent.narrowingHints && data.intent.narrowingHints.length > 0 && (
+            {data.sourceIntent.narrowingHints && data.sourceIntent.narrowingHints.length > 0 && (
               <div className="lmc-hints">
-                Also matching: {data.intent.narrowingHints.join(" · ")}
+                Also matching: {data.sourceIntent.narrowingHints.join(" · ")}
                 <span className="lmc-hints-note"> (refined as a hint, not a hard filter)</span>
               </div>
             )}
@@ -128,15 +122,15 @@ export default function LiveMarketCard({ intent, onPick }: { intent: RawCarInten
             {data.degraded && data.degradeReason && (
               <div className="lmc-flag warn">↓ {data.degradeReason}</div>
             )}
-            {data.provider === "otomoto" && (
-              <div className="lmc-flag warn">↳ {data.note}</div>
+            {data.marketplace === "otomoto" && (
+              <div className="lmc-flag warn">↳ {data.explanation || "Poland uses otomoto.pl, the local marketplace."}</div>
             )}
-            {data.provider !== "otomoto" && data.note && !data.degraded && (
-              <div className="lmc-flag warn">↳ {data.note}</div>
+            {data.marketplace !== "otomoto" && data.explanation && !data.degraded && (
+              <div className="lmc-flag warn">↳ {data.explanation}</div>
             )}
 
-            <a className="lmc-cta" href={data.url!} target="_blank" rel="noopener noreferrer">
-              {data.provider === "otomoto" ? "View listings on otomoto.pl" : "View live listings on AutoScout24"}
+            <a className="lmc-cta" href={data.searchUrl} target="_blank" rel="noopener noreferrer">
+              {data.marketplace === "otomoto" ? "View listings on otomoto.pl" : "View live listings on AutoScout24"}
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
             </a>
           </div>
@@ -145,10 +139,10 @@ export default function LiveMarketCard({ intent, onPick }: { intent: RawCarInten
 
       {phase === "needs_clarification" && data && (
         <div className="lmc-msg">
-          <b>{data.note || "Which model did you mean?"}</b>
+          <b>{data.explanation || "Which model did you mean?"}</b>
           <div className="lmc-choices">
-            {data.intent.modelCandidates.map((c) => {
-              const label = `${data.intent.make ?? ""} ${c.display}`.trim();
+            {data.sourceIntent.modelCandidates.map((c) => {
+              const label = `${data.sourceIntent.make ?? ""} ${c.display}`.trim();
               return (
                 <button
                   key={c.slug}
@@ -168,7 +162,7 @@ export default function LiveMarketCard({ intent, onPick }: { intent: RawCarInten
         <div className="lmc-msg">
           <b>No exact market match</b>
           <br />
-          {data?.note || "Try naming a brand, model, budget or mileage and I’ll pull live listings."}
+          {data?.explanation || "Try naming a brand, model, budget or mileage and I'll pull live listings."}
         </div>
       )}
 
@@ -176,7 +170,7 @@ export default function LiveMarketCard({ intent, onPick }: { intent: RawCarInten
         <div className="lmc-msg">
           <b>Couldn’t reach the market right now</b>
           <br />
-          {data?.note || "Please try that search again in a moment."}
+          {data?.explanation || "Please try that search again in a moment."}
         </div>
       )}
     </div>

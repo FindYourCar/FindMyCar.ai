@@ -19,6 +19,18 @@ const OTOMOTO_FUEL: Record<string, string> = {
   plug_in_hybrid: "plugin-hybrid",
 };
 
+// Otomoto body type mappings (Polish: Typ nadwozia)
+const OTOMOTO_BODY_TYPE: Record<string, string> = {
+  "sedan": "sedan",
+  "hatchback": "hatchback",
+  "suv": "suv",
+  "estate": "combi",
+  "coupe": "coupe",
+  "cabriolet": "cabriolet",
+  "mpv": "mpv",
+  "van": "van",
+};
+
 export interface OtomotoUrl {
   url: string;
   /** true when a model was requested but we could only filter at make level */
@@ -31,13 +43,33 @@ export function buildOtomotoUrl(intent: CarSearchIntent): OtomotoUrl {
   const path = segs.length ? `/${segs.join("/")}` : "";
 
   const p = new URLSearchParams();
+  
+  // Price filters
   if (intent.maxPrice) p.set("search[filter_float_price:to]", String(intent.maxPrice));
   if (intent.minPrice) p.set("search[filter_float_price:from]", String(intent.minPrice));
+  
+  // Mileage filters
   if (intent.maxMileage) p.set("search[filter_float_mileage:to]", String(intent.maxMileage));
+  
+  // Year filters (registration year)
   if (intent.yearFrom) p.set("search[filter_float_first_registration_year:from]", String(intent.yearFrom));
   if (intent.yearTo) p.set("search[filter_float_first_registration_year:to]", String(intent.yearTo));
-  if (intent.fuel && OTOMOTO_FUEL[intent.fuel]) p.set("search[filter_enum_fuel_type]", OTOMOTO_FUEL[intent.fuel]);
-  if (intent.transmission) p.set("search[filter_enum_gearbox]", intent.transmission === "automatic" ? "automatic" : "manual");
+  
+  // Fuel type (Rodzaj paliwa)
+  if (intent.fuel && OTOMOTO_FUEL[intent.fuel]) {
+    p.set("search[filter_enum_fuel_type]", OTOMOTO_FUEL[intent.fuel]);
+  }
+  
+  // Gearbox (Skrzynia biegów)
+  if (intent.transmission) {
+    p.set("search[filter_enum_gearbox]", intent.transmission === "automatic" ? "automatic" : "manual");
+  }
+  
+  // Body type (Typ nadwozia)
+  if (intent.bodyStyle && OTOMOTO_BODY_TYPE[intent.bodyStyle]) {
+    p.set("search[filter_enum_body_type]", OTOMOTO_BODY_TYPE[intent.bodyStyle]);
+  }
+  
   p.set("utm_source", "findmycar");
 
   const qs = p.toString();

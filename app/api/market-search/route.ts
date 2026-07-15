@@ -1,10 +1,11 @@
 // POST /api/market-search
-// The ONLY place AutoScout24 URLs are built + validated. Frontend sends a loose
-// RawCarIntent; we normalize → build → validate → (degrade on dead) → attach a
-// model image, and return a MarketSearchResult the card can render safely.
+// The ONLY place AutoScout24 and Otomoto URLs are built + validated. Frontend sends a loose
+// RawCarIntent; we normalize → build → validate → attach a model image, and return a
+// structured Recommendation object that the UI card can render with full consistency.
 
 import { NextResponse } from "next/server";
 import type { MarketSearchResult, RawCarIntent } from "@/lib/autoscout/types";
+import type { Recommendation } from "@/lib/recommendation";
 import { normalizeIntent } from "@/lib/autoscout/normalize";
 import { buildAutoscoutUrl } from "@/lib/autoscout/buildUrl";
 import { validateAutoscoutUrl } from "@/lib/autoscout/validate";
@@ -12,6 +13,7 @@ import { resolveCarImage } from "@/lib/autoscout/image";
 import { resolveModelSlugLive, resolveMakeSlugLive, resolvePerformanceSlug } from "@/lib/autoscout/liveResolve";
 import { buildOtomotoUrl } from "@/lib/autoscout/otomoto";
 import { detectPerformanceTrim } from "@/lib/autoscout/perfTrim";
+import { imageUrlForRecommendation } from "@/lib/recommendation";
 
 export const runtime = "nodejs";
 
@@ -68,17 +70,17 @@ export async function POST(req: Request) {
     }
   }
 
-  const image = resolveCarImage(intent);
   const title = [intent.make, intent.model].filter(Boolean).join(" ").trim();
 
   // Ambiguous model (e.g. two plausible families) → ask instead of guessing wrong.
   if (intent.needsClarification && intent.modelCandidates.length > 0) {
-    return NextResponse.json({
-      ...baseResult(intent, image),
-      status: "needs_clarification" as const,
-      title: title || `${intent.make ?? "Car"} — which model?`,
-      note: intent.clarification ?? "Which model did you mean?",
-    });
+    return NextResponse.json(
+      baseRecommendation(intent, {
+        status: "needs_clarification",
+        title: title || `${intent.make ?? "Car"} — which model?`,
+        explanation: intent.clarification ?? "Which model did you mean?",
+      })
+    );
   }
 
   // Need at least a make (or a numeric filter) to produce a useful link.
@@ -87,7 +89,7 @@ export async function POST(req: Request) {
     intent.yearFrom || intent.fuel || intent.transmission;
   if (!hasAnyFilter) {
     return NextResponse.json(
-      noMatchResult(intent, image, "We couldn’t pull structured filters from that request — try naming a brand, budget, or mileage."),
+      noMatchRecommendation(intent, "We couldn't pull structured filters from that request — try naming a brand, budget, or mileage."),
     );
   }
 
@@ -99,20 +101,47 @@ export async function POST(req: Request) {
   if (intent.country === "PL") {
     const oto = buildOtomotoUrl(intent);
     const otoState = await validateAutoscoutUrl(oto.url);
-    return NextResponse.json({
-      status: "success" as const,
-      url: oto.url,
-      verified: otoState === "ok",
+
+    const reco: Recommendation = {
+      status: "success",
+      title: title || "Live market search · Poland",
+      country: "PL",
+      marketplace: "otomoto",
+      make: intent.make,
+      model: intent.model,
+      generation: intent.model ? (intent.narrowingHints[0] || null) : null,
+      bodyType: intent.bodyStyle || null,
+      fuelType: intent.fuel || null,
+      gearbox: intent.transmission || null,
+      yearFrom: intent.yearFrom,
+      yearTo: intent.yearTo,
+      priceFrom: intent.minPrice,
+      priceTo: intent.maxPrice,
+      mileageFrom: null,
+      mileageTo: intent.maxMileage,
+      state: "any",
+      damageState: "any",
+      location: null,
+      imageUrl: imageUrlForRecommendation({
+        make: intent.make,
+        model: intent.model,
+      } as any),
+      imageAlt: title || "Car marketplace search",
+      searchUrl: oto.url,
       degraded: oto.modelOmitted,
       degradeReason: oto.modelOmitted
-        ? `Poland is served by otomoto.pl — showing all ${intent.make ?? "matching"} results there (exact model filtering on the Polish source isn’t available yet).`
+        ? `Poland is served by otomoto.pl — showing all ${intent.make ?? "matching"} results there (exact model filtering on the Polish source isn't available yet).`
         : null,
-      title: title || "Live market search · Poland",
-      intent,
-      image,
-      provider: "otomoto" as const,
-      note: "Poland uses otomoto.pl, the local marketplace — not AutoScout24.",
-    });
+      verified: otoState === "ok",
+      explanation:
+        perfHint ||
+        (oto.modelOmitted
+          ? `Model filtering not available on otomoto.pl — showing ${intent.make || "all"} results.`
+          : "Poland uses otomoto.pl, the local marketplace."),
+      sourceIntent: intent,
+    };
+
+    return NextResponse.json(reco);
   }
 
   // 1) Best-precision URL (make + verified model when available).
@@ -144,37 +173,142 @@ export async function POST(req: Request) {
   }
   // state === "inconclusive": keep the registry-built URL, verified stays false.
 
-  const result: MarketSearchResult = {
+  const reco: Recommendation = {
     status: "success",
-    url: finalUrl,
-    verified,
+    title: title || "Live market search",
+    country: intent.country,
+    marketplace: "autoscout24",
+    make: intent.make,
+    model: intent.model,
+    generation: null,
+    bodyType: intent.bodyStyle || null,
+    fuelType: intent.fuel || null,
+    gearbox: intent.transmission || null,
+    yearFrom: intent.yearFrom,
+    yearTo: intent.yearTo,
+    priceFrom: intent.minPrice,
+    priceTo: intent.maxPrice,
+    mileageFrom: null,
+    mileageTo: intent.maxMileage,
+    state: "any",
+    damageState: "any",
+    location: null,
+    imageUrl: imageUrlForRecommendation({
+      make: intent.make,
+      model: intent.model,
+    } as any),
+    imageAlt: title || "Car marketplace search",
+    searchUrl: finalUrl,
     degraded,
     degradeReason,
-    title: title || "Live market search",
-    intent,
-    image,
-    provider: "autoscout24",
-    note: perfHint ?? (!verified && degraded === false ? "Link built from verified data (live check skipped)." : null),
+    verified,
+    explanation:
+      perfHint ??
+      (!verified && degraded === false ? "Link built from verified data (live check skipped)." : null),
+    sourceIntent: intent,
   };
-  return NextResponse.json(result);
+
+  return NextResponse.json(reco);
 }
 
-function baseResult(intent: MarketSearchResult["intent"], image: MarketSearchResult["image"]) {
-  return { url: null, verified: false, degraded: false, degradeReason: null, intent, image };
-}
-function noMatchResult(intent: MarketSearchResult["intent"], image: MarketSearchResult["image"], note: string): MarketSearchResult {
-  return { ...baseResult(intent, image), status: "no_match", title: "No structured match", note };
-}
-function errorResult(note: string): MarketSearchResult {
+function baseRecommendation(
+  intent: MarketSearchResult["intent"],
+  overrides?: Partial<Recommendation> & { status?: Recommendation["status"] }
+): Recommendation {
+  const title = [intent.make, intent.model].filter(Boolean).join(" ").trim();
   return {
-    status: "error", url: null, verified: false, degraded: false, degradeReason: null,
-    title: "Search error", note,
-    intent: {
-      make: null, makeSlug: null, model: null, modelSlug: null, modelVerified: false,
-      bodyStyle: null, trims: [], country: "NL", countryLabel: "Netherlands", maxMileage: null,
-      minPrice: null, maxPrice: null, fuel: null, transmission: null, yearFrom: null, yearTo: null,
-      confidence: 0, modelCandidates: [], needsClarification: false, clarification: null, missingFields: [], narrowingHints: [],
+    status: "error",
+    title,
+    country: intent.country,
+    marketplace: "autoscout24",
+    make: intent.make,
+    model: intent.model,
+    generation: null,
+    bodyType: intent.bodyStyle || null,
+    fuelType: intent.fuel || null,
+    gearbox: intent.transmission || null,
+    yearFrom: intent.yearFrom,
+    yearTo: intent.yearTo,
+    priceFrom: intent.minPrice,
+    priceTo: intent.maxPrice,
+    mileageFrom: null,
+    mileageTo: intent.maxMileage,
+    state: "any",
+    damageState: "any",
+    location: null,
+    imageUrl: imageUrlForRecommendation({
+      make: intent.make,
+      model: intent.model,
+    } as any),
+    imageAlt: title || "Car search",
+    searchUrl: "",
+    degraded: false,
+    degradeReason: null,
+    verified: false,
+    explanation: null,
+    sourceIntent: intent,
+    ...overrides,
+  };
+}
+
+function noMatchRecommendation(intent: MarketSearchResult["intent"], note: string): Recommendation {
+  return baseRecommendation(intent, {
+    status: "no_match",
+    explanation: note,
+  });
+}
+
+function errorResult(note: string): Recommendation {
+  return {
+    status: "error",
+    title: "Search error",
+    country: "NL",
+    marketplace: "autoscout24",
+    make: null,
+    model: null,
+    generation: null,
+    bodyType: null,
+    fuelType: null,
+    gearbox: null,
+    yearFrom: null,
+    yearTo: null,
+    priceFrom: null,
+    priceTo: null,
+    mileageFrom: null,
+    mileageTo: null,
+    state: null,
+    damageState: null,
+    location: null,
+    imageUrl: "",
+    imageAlt: "Error",
+    searchUrl: "",
+    degraded: false,
+    degradeReason: null,
+    verified: false,
+    explanation: note,
+    sourceIntent: {
+      make: null,
+      makeSlug: null,
+      model: null,
+      modelSlug: null,
+      modelVerified: false,
+      bodyStyle: null,
+      trims: [],
+      country: "NL",
+      countryLabel: "Netherlands",
+      maxMileage: null,
+      minPrice: null,
+      maxPrice: null,
+      fuel: null,
+      transmission: null,
+      yearFrom: null,
+      yearTo: null,
+      confidence: 0,
+      modelCandidates: [],
+      needsClarification: false,
+      clarification: null,
+      missingFields: [],
+      narrowingHints: [],
     },
-    image: { primary: "", fallbacks: [], alt: "" },
   };
 }
