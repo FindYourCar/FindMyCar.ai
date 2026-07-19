@@ -7,13 +7,18 @@ import { NextResponse } from "next/server";
 import type { MarketSearchResult, RawCarIntent } from "@/lib/autoscout/types";
 import type { Recommendation } from "@/lib/recommendation";
 import { normalizeIntent } from "@/lib/autoscout/normalize";
-import { buildAutoscoutUrl } from "@/lib/autoscout/buildUrl";
 import { validateAutoscoutUrl } from "@/lib/autoscout/validate";
-import { resolveCarImage } from "@/lib/autoscout/image";
 import { resolveModelSlugLive, resolveMakeSlugLive, resolvePerformanceSlug } from "@/lib/autoscout/liveResolve";
-import { buildOtomotoUrl } from "@/lib/autoscout/otomoto";
 import { detectPerformanceTrim } from "@/lib/autoscout/perfTrim";
-import { imageUrlForMakeModel } from "@/lib/recommendation";
+import {
+  buildAutoScout24MakeOnly,
+  detectGeneration,
+  marketplaceForCountry,
+  MODEL_IMAGE_PLACEHOLDER,
+  resolveMarketplaceProvider,
+  resolveModelImage,
+} from "@/lib/marketplaces";
+import type { MarketplaceSearchInput } from "@/lib/marketplaces";
 
 export const runtime = "nodejs";
 
@@ -93,14 +98,41 @@ export async function POST(req: Request) {
     );
   }
 
-  // ── Poland → otomoto.pl ──────────────────────────────────────────────────
-  // AutoScout has ~zero PL inventory, so an explicit Poland request is served by
-  // the real Polish marketplace instead of ever being shown German results.
-  // The country is honored; the model honestly degrades to make-level (otomoto
-  // uses Polish model slugs we don't carry), with a clear note.
+  // Generation ("Golf 8" → "8") drives both the Otomoto generation filter and
+  // the model-image lookup. Detected conservatively — see lib/marketplaces.
+  const generation = detectGeneration(intent.model, raw.rawText ?? intent.model);
+
+  const searchInput: MarketplaceSearchInput = {
+    countryCode: intent.country,
+    make: intent.make ?? "",
+    model: intent.model ?? undefined,
+    generation: generation ?? undefined,
+    makeSlug: intent.makeSlug ?? undefined,
+    modelSlug: intent.modelSlug ?? undefined,
+    modelVerified: intent.modelVerified,
+    minYear: intent.yearFrom ?? undefined,
+    maxYear: intent.yearTo ?? undefined,
+    maxMileageKm: intent.maxMileage ?? undefined,
+    minPriceEur: intent.minPrice ?? undefined,
+    maxPriceEur: intent.maxPrice ?? undefined,
+    fuelType: intent.fuel ?? undefined,
+    bodyType: intent.bodyStyle ?? undefined,
+    transmission: intent.transmission ?? undefined,
+  };
+
+  const image = resolveModelImage(intent.make, intent.model, generation);
+
+  // ── Poland → Otomoto (a first-class market, not a fallback) ──────────────
+  // AutoScout has ~zero PL inventory, so Poland is served by its real local
+  // marketplace with genuine make + model + generation + numeric filters.
   if (intent.country === "PL") {
-    const oto = buildOtomotoUrl(intent);
-    const otoState = await validateAutoscoutUrl(oto.url);
+    const built = resolveMarketplaceProvider({ countryCode: "PL" }).buildSearchUrl(searchInput);
+    const otoState = await validateAutoscoutUrl(built.url);
+
+    // Honest note when a filter the user asked for couldn't be expressed.
+    const unsupportedNote = built.unsupportedFilters.length
+      ? `Couldn't apply ${built.unsupportedFilters.join(", ")} on Otomoto — narrowed by year range instead.`
+      : null;
 
     const reco: Recommendation = {
       status: "success",
@@ -109,7 +141,7 @@ export async function POST(req: Request) {
       marketplace: "otomoto",
       make: intent.make,
       model: intent.model,
-      generation: intent.model ? (intent.narrowingHints[0] || null) : null,
+      generation,
       bodyType: intent.bodyStyle || null,
       fuelType: intent.fuel || null,
       gearbox: intent.transmission || null,
@@ -122,27 +154,24 @@ export async function POST(req: Request) {
       state: "any",
       damageState: "any",
       location: null,
-      imageUrl: imageUrlForMakeModel(intent.make, intent.model),
-      imageAlt: title || "Car marketplace search",
-      searchUrl: oto.url,
-      degraded: oto.modelOmitted,
-      degradeReason: oto.modelOmitted
-        ? `Poland is served by otomoto.pl — showing all ${intent.make ?? "matching"} results there (exact model filtering on the Polish source isn't available yet).`
-        : null,
+      imageUrl: image.url,
+      imageFallbacks: image.fallbacks,
+      imageAlt: image.alt,
+      searchUrl: built.url,
+      degraded: built.degraded,
+      degradeReason: built.degradeReason,
       verified: otoState === "ok",
-      explanation:
-        perfHint ||
-        (oto.modelOmitted
-          ? `Model filtering not available on otomoto.pl — showing ${intent.make || "all"} results.`
-          : "Poland uses otomoto.pl, the local marketplace."),
+      explanation: perfHint ?? unsupportedNote,
       sourceIntent: intent,
     };
 
     return NextResponse.json(reco);
   }
 
+  // ── NL / BE / DE → AutoScout24 ───────────────────────────────────────────
   // 1) Best-precision URL (make + verified model when available).
-  const primary = buildAutoscoutUrl(intent);
+  const provider = resolveMarketplaceProvider({ countryCode: intent.country });
+  const primary = provider.buildSearchUrl(searchInput);
   let finalUrl = primary.url;
   let degraded = primary.degraded;
   let degradeReason = primary.degradeReason;
@@ -151,9 +180,9 @@ export async function POST(req: Request) {
   const state = await validateAutoscoutUrl(primary.url);
   if (state === "ok") {
     verified = true;
-  } else if (state === "dead" && primary.hasModelPath) {
+  } else if (state === "dead" && primary.hasModelFilter) {
     // 2) Model page is dead → fall back to make-only (reliably resolves).
-    const makeOnly = buildAutoscoutUrl(intent, { forceMakeOnly: true });
+    const makeOnly = buildAutoScout24MakeOnly(searchInput);
     const makeState = await validateAutoscoutUrl(makeOnly.url);
     finalUrl = makeOnly.url;
     degraded = true;
@@ -162,7 +191,14 @@ export async function POST(req: Request) {
     verified = makeState === "ok";
   } else if (state === "dead") {
     // Make-level path itself dead (rare) → general country search.
-    const general = buildAutoscoutUrl({ ...intent, makeSlug: null, modelSlug: null, modelVerified: false });
+    const general = provider.buildSearchUrl({
+      ...searchInput,
+      make: "",
+      model: undefined,
+      makeSlug: undefined,
+      modelSlug: undefined,
+      modelVerified: false,
+    });
     finalUrl = general.url;
     degraded = true;
     degradeReason = "Exact results were unavailable — showing the broader market search.";
@@ -177,7 +213,7 @@ export async function POST(req: Request) {
     marketplace: "autoscout24",
     make: intent.make,
     model: intent.model,
-    generation: null,
+    generation,
     bodyType: intent.bodyStyle || null,
     fuelType: intent.fuel || null,
     gearbox: intent.transmission || null,
@@ -190,8 +226,9 @@ export async function POST(req: Request) {
     state: "any",
     damageState: "any",
     location: null,
-    imageUrl: imageUrlForMakeModel(intent.make, intent.model),
-    imageAlt: title || "Car marketplace search",
+    imageUrl: image.url,
+    imageFallbacks: image.fallbacks,
+    imageAlt: image.alt,
     searchUrl: finalUrl,
     degraded,
     degradeReason,
@@ -210,11 +247,12 @@ function baseRecommendation(
   overrides?: Partial<Recommendation> & { status?: Recommendation["status"] }
 ): Recommendation {
   const title = [intent.make, intent.model].filter(Boolean).join(" ").trim();
+  const image = resolveModelImage(intent.make, intent.model);
   return {
     status: "error",
     title,
     country: intent.country,
-    marketplace: "autoscout24",
+    marketplace: marketplaceForCountry(intent.country),
     make: intent.make,
     model: intent.model,
     generation: null,
@@ -230,8 +268,9 @@ function baseRecommendation(
     state: "any",
     damageState: "any",
     location: null,
-    imageUrl: imageUrlForMakeModel(intent.make, intent.model),
-    imageAlt: title || "Car search",
+    imageUrl: image.url,
+    imageFallbacks: image.fallbacks,
+    imageAlt: image.alt,
     searchUrl: "",
     degraded: false,
     degradeReason: null,
@@ -270,8 +309,9 @@ function errorResult(note: string): Recommendation {
     state: null,
     damageState: null,
     location: null,
-    imageUrl: "",
-    imageAlt: "Error",
+    imageUrl: MODEL_IMAGE_PLACEHOLDER,
+    imageFallbacks: [],
+    imageAlt: "Car marketplace search",
     searchUrl: "",
     degraded: false,
     degradeReason: null,

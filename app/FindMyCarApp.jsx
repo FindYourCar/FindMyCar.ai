@@ -20,6 +20,12 @@ import TourMode from "./components/TourMode";
 import MarketTools from "./components/MarketTools";
 import CostCalculatorSection from "./components/CostCalculatorSection";
 import LiveMarketCard from "./components/LiveMarketCard";
+import {
+  getLiveMarketIntro,
+  getLiveMarketSubtitle,
+  marketplaceBrand,
+  marketplaceForCountry,
+} from "@/lib/marketplaces";
 
 /* ============================================================
    VEHICLE TAXONOMY — generalised make / model / trim classification
@@ -468,8 +474,12 @@ function wantsAdvice(text) {
 // model is prompted against this, but this is the deterministic backstop: if the
 // reply looks like it's listing specific offers and we have no verified listing
 // data, we drop the fabricated prose and return safe link-card messaging instead.
-const SAFE_LISTING_REPLY = "I found a live AutoScout24 search for your request. Open the verified results in the card below.";
-const SAFE_INFO_REDIRECT = "I can't show specific cars for sale here — I don't have live listing data in chat. Tell me the make, model, budget and country and I'll open a live AutoScout24 search; the verified results appear in a card. I'm happy to talk through the model in general terms too.";
+// Marketplace-aware: Poland is served by Otomoto, so the chat line must name
+// Otomoto — not AutoScout24 with a footnote. Same copy source as the card, so
+// the bubble and the card can never disagree (lib/marketplaces).
+const safeListingReply = (country) =>
+  getLiveMarketIntro(marketplaceForCountry(country), country);
+const SAFE_INFO_REDIRECT = "I can't show specific cars for sale here — I don't have live listing data in chat. Tell me the make, model, budget and country and I'll open a live marketplace search; the verified results appear in a card. I'm happy to talk through the model in general terms too.";
 
 const FABRICATION_PATTERNS = [
   /\bfor example,?\s+there'?s\s+(a|an)\b/i,                              // explicit sample template
@@ -2525,7 +2535,7 @@ useEffect(() => {
           yearFrom: minYear || null,
           rawText: r.rawText || null,
         },
-        source: "AutoScout24",
+        source: marketplaceBrand(marketplaceForCountry(resolvedCountry)),
       }];
     }
 
@@ -2612,7 +2622,7 @@ useEffect(() => {
         if (hasParsedIntent) {
           filteredListings = getVisibleListings({ ...intent, level, fallbackReason, rawText: text, rawMake: intentRaw.make, rawModel: intentRaw.model });
           listingReply = filteredListings.length > 0
-            ? SAFE_LISTING_REPLY
+            ? safeListingReply(filteredListings[0]?.country || intent.country || "NL")
             : "I couldn't build a search from that request. Try naming a make, model, budget, mileage or country.";
         } else {
           listingReply = "I couldn't understand that listing request. Try including a make, model, year, price, or mileage.";
@@ -4289,7 +4299,7 @@ function ChatMessage({ message, country, openCar, shortlist, compareList, toggle
               <>
                 <div className="mb-3 font-semibold text-white">Live market links</div>
                 <p className="text-xs text-white/60 mb-4">
-                  Open real AutoScout24 results based on your recommendation.
+                  {getLiveMarketSubtitle(marketplaceForCountry(message.listings[0]?.country || "NL"))}
                 </p>
                 <div className="space-y-3">
                   {message.listings.slice(0, 2).map((listing) => (

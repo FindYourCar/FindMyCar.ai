@@ -3,6 +3,11 @@
 import React from "react";
 import type { RawCarIntent } from "@/lib/autoscout/types";
 import type { Recommendation } from "@/lib/recommendation";
+import {
+  getLiveMarketIntro,
+  MODEL_IMAGE_PLACEHOLDER,
+  marketplaceBrand,
+} from "@/lib/marketplaces";
 
 // Renders one "Live market links" result. Takes a loose intent, calls the
 // server route (the only place URLs are built/validated), and shows proper
@@ -10,9 +15,23 @@ import type { Recommendation } from "@/lib/recommendation";
 
 type Phase = "loading" | "success" | "no_match" | "needs_clarification" | "error";
 
+/**
+ * Image candidates in priority order, always ending on the neutral placeholder.
+ * Older cached payloads may predate `imageFallbacks`, so tolerate it being absent.
+ */
+function imageChain(data: Recommendation): string[] {
+  const chain = [data.imageUrl, ...(data.imageFallbacks ?? []), MODEL_IMAGE_PLACEHOLDER]
+    .filter((src): src is string => Boolean(src));
+  return chain.filter((src, i) => chain.indexOf(src) === i);
+}
+
 export default function LiveMarketCard({ intent, onPick }: { intent: RawCarIntent; onPick?: (text: string) => void }) {
   const [phase, setPhase] = React.useState<Phase>("loading");
   const [data, setData] = React.useState<Recommendation | null>(null);
+  // Walks the resolver's fallback chain; the last entry is always the neutral
+  // placeholder, so a missing asset can never surface the wrong car.
+  const [imgStep, setImgStep] = React.useState(0);
+  const chain = React.useMemo(() => (data ? imageChain(data) : [MODEL_IMAGE_PLACEHOLDER]), [data]);
 
   // Stable key so we only refetch when the intent actually changes.
   const intentKey = JSON.stringify(intent);
@@ -21,6 +40,7 @@ export default function LiveMarketCard({ intent, onPick }: { intent: RawCarInten
     let alive = true;
     setPhase("loading");
     setData(null);
+    setImgStep(0);
     (async () => {
       try {
         const res = await fetch("/api/market-search", {
@@ -54,6 +74,7 @@ export default function LiveMarketCard({ intent, onPick }: { intent: RawCarInten
         .lmc-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:7px}
         .lmc-title{font-size:13.5px;font-weight:600;color:#fff}
         .lmc-pill{border-radius:999px;background:rgba(255,255,255,.1);padding:2px 9px;font-size:10.5px;color:rgba(255,255,255,.72);white-space:nowrap}
+        .lmc-intro{font-size:11.5px;line-height:1.5;color:rgba(255,255,255,.66);margin:0 0 9px}
         .lmc-specs{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
         .lmc-spec{font-size:10.5px;color:rgba(255,255,255,.72);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:2px 7px}
         .lmc-hints{font-size:10.5px;color:rgba(255,255,255,.6);margin-bottom:9px;line-height:1.45}
@@ -90,18 +111,24 @@ export default function LiveMarketCard({ intent, onPick }: { intent: RawCarInten
           <div className="lmc-imgwrap">
             <img
               className="lmc-img"
-              src={data.imageUrl}
+              src={chain[Math.min(imgStep, chain.length - 1)]}
               alt={data.imageAlt}
               loading="lazy"
+              onError={() => setImgStep((s) => Math.min(s + 1, chain.length - 1))}
             />
           </div>
           <div className="lmc-body">
             <div className="lmc-row">
               <span className="lmc-title">{data.title}</span>
-              <span className="lmc-pill">{data.sourceIntent.countryLabel}</span>
+              <span className="lmc-pill">
+                {marketplaceBrand(data.marketplace)} · {data.country}
+              </span>
             </div>
 
+            <p className="lmc-intro">{getLiveMarketIntro(data.marketplace, data.country)}</p>
+
             <div className="lmc-specs">
+              {data.generation && <span className="lmc-spec">Gen {data.generation}</span>}
               {data.mileageTo != null && <span className="lmc-spec">≤ {data.mileageTo.toLocaleString()} km</span>}
               {data.priceTo != null && <span className="lmc-spec">≤ €{data.priceTo.toLocaleString()}</span>}
               {data.fuelType && <span className="lmc-spec">{data.fuelType.replace(/_/g, " ")}</span>}
@@ -122,15 +149,14 @@ export default function LiveMarketCard({ intent, onPick }: { intent: RawCarInten
             {data.degraded && data.degradeReason && (
               <div className="lmc-flag warn">↓ {data.degradeReason}</div>
             )}
-            {data.marketplace === "otomoto" && (
-              <div className="lmc-flag warn">↳ {data.explanation || "Poland uses otomoto.pl, the local marketplace."}</div>
-            )}
-            {data.marketplace !== "otomoto" && data.explanation && !data.degraded && (
+            {/* One honest note, marketplace-agnostic. Poland no longer gets a
+                special "filtering isn't available" caveat — it is filtered. */}
+            {data.explanation && !data.degraded && (
               <div className="lmc-flag warn">↳ {data.explanation}</div>
             )}
 
             <a className="lmc-cta" href={data.searchUrl} target="_blank" rel="noopener noreferrer">
-              {data.marketplace === "otomoto" ? "View listings on otomoto.pl" : "View live listings on AutoScout24"}
+              View live listings on {marketplaceBrand(data.marketplace)}
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
             </a>
           </div>
