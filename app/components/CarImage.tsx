@@ -56,11 +56,6 @@ export default function CarImage({
   const [erroredIdentity, setErroredIdentity] = React.useState<string | null>(null);
   const failed = erroredIdentity === identity;
 
-  // TEMP DEBUG (remove after prod confirmation)
-  React.useEffect(() => {
-    console.log("[CarImages] CarImage props", { make, model, year });
-  }, [make, model, year]);
-
   return (
     <img
       key={identity}

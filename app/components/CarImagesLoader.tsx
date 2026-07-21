@@ -21,8 +21,6 @@ export default function CarImagesLoader() {
       try {
         const res = await fetch("/api/carimages-key", { cache: "no-store" });
         const { key } = (await res.json()) as { key?: string };
-        // TEMP DEBUG (remove after prod confirmation)
-        console.log("[CarImages] loader: key present =", Boolean(key));
         if (cancelled || !key || document.getElementById(LOADER_ID)) return;
 
         const s = document.createElement("script");
@@ -30,9 +28,7 @@ export default function CarImagesLoader() {
         s.src = LOADER_SRC;
         s.async = true;
         s.setAttribute("data-api-key", key);
-        // TEMP DEBUG (remove after prod confirmation)
-        s.onload = () => console.log("[CarImages] loader script loaded");
-        s.onerror = () => console.warn("[CarImages] loader script FAILED to load");
+        s.onerror = () => console.warn("[CarImages] loader script failed to load");
         document.body.appendChild(s);
       } catch (err) {
         console.warn("[CarImages] loader: could not fetch key", err);

@@ -5,6 +5,7 @@ import type { RawCarIntent } from "@/lib/autoscout/types";
 import type { Recommendation } from "@/lib/recommendation";
 import { getLiveMarketIntro, marketplaceBrand } from "@/lib/marketplaces";
 import CarImage from "./CarImage";
+import Car3DButton from "./Car3DButton";
 
 // Renders one "Live market links" result. Takes a loose intent, calls the
 // server route (the only place URLs are built/validated), and shows proper
@@ -33,10 +34,6 @@ export default function LiveMarketCard({ intent, onPick }: { intent: RawCarInten
         });
         const json: Recommendation = await res.json();
         if (!alive) return;
-        // TEMP DEBUG (remove after prod confirmation)
-        console.log("[CarImages] LiveMarketCard →", {
-          make: json.make, model: json.model, year: json.yearFrom, imageUrl: json.imageUrl,
-        });
         setData(json);
         setPhase(
           json.status === "success" ? "success"
@@ -57,6 +54,7 @@ export default function LiveMarketCard({ intent, onPick }: { intent: RawCarInten
         .lmc{overflow:hidden;border-radius:14px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);max-width:420px}
         .lmc-imgwrap{position:relative;aspect-ratio:16/7;max-height:150px;width:100%;overflow:hidden;background:linear-gradient(180deg,#161310,#0c0a08)}
         .lmc-img{height:100%;width:100%;object-fit:cover;object-position:center 42%;display:block}
+        .lmc-3d{position:absolute;right:8px;bottom:8px;z-index:2}
         .lmc-body{padding:11px 13px}
         .lmc-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:7px}
         .lmc-title{font-size:13.5px;font-weight:600;color:#fff}
@@ -106,6 +104,14 @@ export default function LiveMarketCard({ intent, onPick }: { intent: RawCarInten
               alt={data.imageAlt}
               width={420}
               height={184}
+            />
+            {/* Optional interactive 3D — the offer photo above stays the default. */}
+            <Car3DButton
+              className="lmc-3d"
+              make={data.make}
+              model={data.model}
+              year={data.yearFrom}
+              title={data.title}
             />
           </div>
           <div className="lmc-body">
