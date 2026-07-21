@@ -14,10 +14,9 @@ import {
   buildAutoScout24MakeOnly,
   detectGeneration,
   marketplaceForCountry,
-  MODEL_IMAGE_PLACEHOLDER,
   resolveMarketplaceProvider,
-  resolveModelImage,
 } from "@/lib/marketplaces";
+import { FALLBACK_IMAGE, FALLBACK_SVG, getCarImage } from "@/lib/carImages";
 import type { MarketplaceSearchInput } from "@/lib/marketplaces";
 
 export const runtime = "nodejs";
@@ -120,7 +119,7 @@ export async function POST(req: Request) {
     transmission: intent.transmission ?? undefined,
   };
 
-  const image = resolveModelImage(intent.make, intent.model, generation);
+  const image = getCarImage({ make: intent.make, model: intent.model, title });
 
   // ── Poland → Otomoto (a first-class market, not a fallback) ──────────────
   // AutoScout has ~zero PL inventory, so Poland is served by its real local
@@ -154,8 +153,8 @@ export async function POST(req: Request) {
       state: "any",
       damageState: "any",
       location: null,
-      imageUrl: image.url,
-      imageFallbacks: image.fallbacks,
+      imageUrl: image.src,
+      imageFallback: image.fallback,
       imageAlt: image.alt,
       searchUrl: built.url,
       degraded: built.degraded,
@@ -226,8 +225,8 @@ export async function POST(req: Request) {
     state: "any",
     damageState: "any",
     location: null,
-    imageUrl: image.url,
-    imageFallbacks: image.fallbacks,
+    imageUrl: image.src,
+    imageFallback: image.fallback,
     imageAlt: image.alt,
     searchUrl: finalUrl,
     degraded,
@@ -247,7 +246,7 @@ function baseRecommendation(
   overrides?: Partial<Recommendation> & { status?: Recommendation["status"] }
 ): Recommendation {
   const title = [intent.make, intent.model].filter(Boolean).join(" ").trim();
-  const image = resolveModelImage(intent.make, intent.model);
+  const image = getCarImage({ make: intent.make, model: intent.model, title });
   return {
     status: "error",
     title,
@@ -268,8 +267,8 @@ function baseRecommendation(
     state: "any",
     damageState: "any",
     location: null,
-    imageUrl: image.url,
-    imageFallbacks: image.fallbacks,
+    imageUrl: image.src,
+    imageFallback: image.fallback,
     imageAlt: image.alt,
     searchUrl: "",
     degraded: false,
@@ -309,8 +308,8 @@ function errorResult(note: string): Recommendation {
     state: null,
     damageState: null,
     location: null,
-    imageUrl: MODEL_IMAGE_PLACEHOLDER,
-    imageFallbacks: [],
+    imageUrl: FALLBACK_IMAGE,
+    imageFallback: FALLBACK_SVG,
     imageAlt: "Car marketplace search",
     searchUrl: "",
     degraded: false,

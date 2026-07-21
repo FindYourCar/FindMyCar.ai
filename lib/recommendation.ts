@@ -2,7 +2,7 @@
 // This is the single source of truth for the UI card — all fields must align.
 
 import type { CarSearchIntent, CountryCode, MarketSearchStatus } from "./autoscout/types";
-import { resolveModelImage } from "./marketplaces/modelImage";
+import { getCarImage } from "./carImages";
 
 export type Marketplace = "autoscout24" | "otomoto";
 
@@ -38,8 +38,8 @@ export interface Recommendation {
   
   // Output
   imageUrl: string;
-  /** Tried in order by the card if imageUrl fails; always ends on the neutral placeholder. */
-  imageFallbacks: string[];
+  /** <img onError> target — always a committed asset, so nothing ever breaks. */
+  imageFallback: string;
   imageAlt: string;
   searchUrl: string; // The final external marketplace URL
   
@@ -54,20 +54,16 @@ export interface Recommendation {
 }
 
 /**
- * Image resolution now lives in lib/marketplaces/modelImage.ts, which only ever
- * names curated, self-hosted assets and otherwise returns a neutral placeholder.
- *
- * The map this replaced held unverified stock photos — "volkswagen:golf" pointed
- * at an Unsplash image that is actually a Ford Mustang. These thin wrappers are
- * kept so existing callers keep working; prefer resolveModelImage() directly
- * when you also want the fallback chain.
+ * Image resolution lives in lib/carImages — a curated, watermark-free catalog of
+ * locally hosted photos. These thin wrappers keep existing callers working;
+ * prefer getCarImage() directly when you also want the alt text and fallback.
  */
 export function imageUrlForRecommendation(reco: Recommendation): string {
-  return resolveModelImage(reco.make, reco.model, reco.generation).url;
+  return getCarImage({ make: reco.make, model: reco.model, title: reco.title }).src;
 }
 
 export function imageUrlForMakeModel(make: string | null, model: string | null): string {
-  return resolveModelImage(make, model).url;
+  return getCarImage({ make, model }).src;
 }
 
 /**

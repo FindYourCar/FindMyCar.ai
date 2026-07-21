@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import type { CarSearchFilters } from "@/lib/searchFilters";
+import { getCarImage } from "@/lib/carImages";
 
+// Listings carry no image of their own — the picture is resolved from the
+// curated local catalog at response time, so there is exactly one place that
+// decides what a car looks like.
 type Listing = {
   id: string;
   title: string;
@@ -9,7 +13,6 @@ type Listing = {
   fuel: string;
   transmission: string;
   country: "NL" | "BE" | "DE" | "PL";
-  imageUrl: string;
   listingUrl: string;
   source: string;
 };
@@ -80,8 +83,6 @@ const MOCK_LISTINGS: Listing[] = [
     fuel: "petrol",
     transmission: "automatic",
     country: "NL",
-    imageUrl:
-      "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=1200&q=80",
     listingUrl: buildAutoScoutUrl({
       country: "NL",
       make: "BMW",
@@ -97,8 +98,6 @@ const MOCK_LISTINGS: Listing[] = [
     fuel: "petrol",
     transmission: "automatic",
     country: "NL",
-    imageUrl:
-      "https://images.unsplash.com/photo-1544636331-e26879cd4d9b?auto=format&fit=crop&w=1200&q=80",
     listingUrl: buildAutoScoutUrl({
       country: "NL",
       make: "Audi",
@@ -114,8 +113,6 @@ const MOCK_LISTINGS: Listing[] = [
     fuel: "petrol",
     transmission: "automatic",
     country: "NL",
-    imageUrl:
-      "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80",
     listingUrl: buildAutoScoutUrl({
       country: "NL",
       make: "Mercedes-Benz",
@@ -131,8 +128,6 @@ const MOCK_LISTINGS: Listing[] = [
     fuel: "hybrid",
     transmission: "automatic",
     country: "NL",
-    imageUrl:
-      "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?auto=format&fit=crop&w=1200&q=80",
     listingUrl: buildAutoScoutUrl({
       country: "NL",
       make: "Volkswagen",
@@ -141,6 +136,14 @@ const MOCK_LISTINGS: Listing[] = [
     source: "AutoScout24",
   },
 ];
+
+/** Attach the curated image for each listing, derived from its title. */
+function withImages(listings: Listing[]) {
+  return listings.map((listing) => {
+    const image = getCarImage({ title: listing.title });
+    return { ...listing, imageUrl: image.src, imageFallback: image.fallback, imageAlt: image.alt };
+  });
+}
 
 function filterListings(filters: CarSearchFilters) {
   return MOCK_LISTINGS.filter((listing) => {
@@ -181,7 +184,7 @@ export async function GET() {
   return NextResponse.json({
     success: true,
     message: "Listings route is working",
-    listings: MOCK_LISTINGS,
+    listings: withImages(MOCK_LISTINGS),
     count: MOCK_LISTINGS.length,
   });
 }
@@ -195,7 +198,7 @@ export async function POST(req: Request) {
       success: true,
       filters,
       count: results.length,
-      listings: results,
+      listings: withImages(results),
     });
   } catch (error) {
     return NextResponse.json(

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
+import CarImagesLoader from "./components/CarImagesLoader";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -45,6 +46,13 @@ export default function RootLayout({
             })(window, document, "clarity", "script", "wo0kkp6wvr");
           `}
         </Script>
+
+        {/* CarImages API loader — resolves studio car renders for any <img>
+            tagged with data-ci-make / data-ci-model / data-ci-year (see the
+            CarImage component). Injected from a client component that reads the
+            publishable key at RUNTIME, so it doesn't depend on build-time env
+            inlining (which is what broke it on Vercel). */}
+        <CarImagesLoader />
 
         <noscript>
           <iframe

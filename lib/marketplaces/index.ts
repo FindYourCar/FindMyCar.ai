@@ -10,8 +10,6 @@ import { otomotoProvider } from "./otomoto";
 export * from "./types";
 export { autoScout24Provider, buildAutoScout24MakeOnly } from "./autoscout24";
 export { otomotoProvider } from "./otomoto";
-export { resolveModelImage, MODEL_IMAGE_PLACEHOLDER } from "./modelImage";
-export type { ResolvedModelImage } from "./modelImage";
 export { detectGeneration } from "./generation";
 
 /** Country → provider. Poland is a first-class market, never a fallback. */

@@ -3,11 +3,8 @@
 import React from "react";
 import type { RawCarIntent } from "@/lib/autoscout/types";
 import type { Recommendation } from "@/lib/recommendation";
-import {
-  getLiveMarketIntro,
-  MODEL_IMAGE_PLACEHOLDER,
-  marketplaceBrand,
-} from "@/lib/marketplaces";
+import { getLiveMarketIntro, marketplaceBrand } from "@/lib/marketplaces";
+import CarImage from "./CarImage";
 
 // Renders one "Live market links" result. Takes a loose intent, calls the
 // server route (the only place URLs are built/validated), and shows proper
@@ -15,23 +12,10 @@ import {
 
 type Phase = "loading" | "success" | "no_match" | "needs_clarification" | "error";
 
-/**
- * Image candidates in priority order, always ending on the neutral placeholder.
- * Older cached payloads may predate `imageFallbacks`, so tolerate it being absent.
- */
-function imageChain(data: Recommendation): string[] {
-  const chain = [data.imageUrl, ...(data.imageFallbacks ?? []), MODEL_IMAGE_PLACEHOLDER]
-    .filter((src): src is string => Boolean(src));
-  return chain.filter((src, i) => chain.indexOf(src) === i);
-}
 
 export default function LiveMarketCard({ intent, onPick }: { intent: RawCarIntent; onPick?: (text: string) => void }) {
   const [phase, setPhase] = React.useState<Phase>("loading");
   const [data, setData] = React.useState<Recommendation | null>(null);
-  // Walks the resolver's fallback chain; the last entry is always the neutral
-  // placeholder, so a missing asset can never surface the wrong car.
-  const [imgStep, setImgStep] = React.useState(0);
-  const chain = React.useMemo(() => (data ? imageChain(data) : [MODEL_IMAGE_PLACEHOLDER]), [data]);
 
   // Stable key so we only refetch when the intent actually changes.
   const intentKey = JSON.stringify(intent);
@@ -40,7 +24,6 @@ export default function LiveMarketCard({ intent, onPick }: { intent: RawCarInten
     let alive = true;
     setPhase("loading");
     setData(null);
-    setImgStep(0);
     (async () => {
       try {
         const res = await fetch("/api/market-search", {
@@ -50,6 +33,10 @@ export default function LiveMarketCard({ intent, onPick }: { intent: RawCarInten
         });
         const json: Recommendation = await res.json();
         if (!alive) return;
+        // TEMP DEBUG (remove after prod confirmation)
+        console.log("[CarImages] LiveMarketCard →", {
+          make: json.make, model: json.model, year: json.yearFrom, imageUrl: json.imageUrl,
+        });
         setData(json);
         setPhase(
           json.status === "success" ? "success"
@@ -109,12 +96,16 @@ export default function LiveMarketCard({ intent, onPick }: { intent: RawCarInten
       {phase === "success" && data && (
         <>
           <div className="lmc-imgwrap">
-            <img
+            <CarImage
               className="lmc-img"
-              src={chain[Math.min(imgStep, chain.length - 1)]}
+              make={data.make}
+              model={data.model}
+              year={data.yearFrom}
+              title={data.title}
+              fallbackSrc={data.imageUrl}
               alt={data.imageAlt}
-              loading="lazy"
-              onError={() => setImgStep((s) => Math.min(s + 1, chain.length - 1))}
+              width={420}
+              height={184}
             />
           </div>
           <div className="lmc-body">
