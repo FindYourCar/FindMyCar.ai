@@ -65,18 +65,27 @@ export default function CarModel3D({ make, model, year, className }: CarModel3DP
       // viewport-based lazy loading ("auto") would never trigger.
       mv.setAttribute("loading", "eager");
       mv.setAttribute("reveal", "auto");
-      // Interaction + premium studio look.
+      // Interaction.
       mv.setAttribute("camera-controls", "");
       mv.setAttribute("auto-rotate", "");
       mv.setAttribute("auto-rotate-delay", "0");
-      mv.setAttribute("rotation-per-second", "22deg");
+      mv.setAttribute("rotation-per-second", "16deg"); // slower, more elegant
       mv.setAttribute("interaction-prompt", "none");
-      mv.setAttribute("shadow-intensity", "1");
-      mv.setAttribute("shadow-softness", "1");
-      mv.setAttribute("environment-image", "neutral");
-      mv.setAttribute("exposure", "1.05");
-      mv.setAttribute("tone-mapping", "commerce");
       mv.setAttribute("touch-action", "pan-y");
+      // Heroic opening framing: a 3/4 front angle, slightly above the car, and
+      // pulled in to ~90% of the auto-fit so the model dominates the stage.
+      mv.setAttribute("camera-orbit", "-26deg 75deg 90%");
+      mv.setAttribute("field-of-view", "32deg");
+      mv.setAttribute("min-field-of-view", "22deg");
+      mv.setAttribute("max-field-of-view", "45deg");
+      // Dark cinematic studio: dimmer exposure for a richer, moodier read, with a
+      // strong, soft contact shadow for depth. tone-mapping="commerce" keeps the
+      // paintwork punchy against the dark background.
+      mv.setAttribute("environment-image", "neutral");
+      mv.setAttribute("exposure", "0.92");
+      mv.setAttribute("shadow-intensity", "1.8");
+      mv.setAttribute("shadow-softness", "0.9");
+      mv.setAttribute("tone-mapping", "commerce");
       mv.className = "c3d-viewer";
       mv.addEventListener("progress", onProgress);
       mv.addEventListener("load", onLoad);
@@ -110,10 +119,11 @@ export default function CarModel3D({ make, model, year, className }: CarModel3DP
   return (
     <div className={`c3d ${className ?? ""}`}>
       <style>{`
-        .c3d{position:relative;width:100%;height:100%;min-height:260px}
+        .c3d{position:relative;width:100%;height:100%;min-height:360px}
         .c3d-stage{position:absolute;inset:0}
-        .c3d-stage model-viewer{width:100%;height:100%;background:transparent;--poster-color:transparent;outline:none;opacity:0;transition:opacity .7s ease}
-        .c3d-stage[data-state="ready"] model-viewer{opacity:1}
+        .c3d-stage model-viewer{width:100%;height:100%;background:transparent;--poster-color:transparent;outline:none;
+          opacity:0;transform:scale(.96);transform-origin:50% 60%;transition:opacity .85s ease,transform 1.05s cubic-bezier(.22,1,.36,1)}
+        .c3d-stage[data-state="ready"] model-viewer{opacity:1;transform:scale(1)}
         .c3d-stage model-viewer::part(default-progress-bar){display:none}
         .c3d-stage model-viewer::part(default-ar-button){display:none}
         .c3d-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;text-align:center;padding:26px;pointer-events:none}
@@ -125,7 +135,7 @@ export default function CarModel3D({ make, model, year, className }: CarModel3DP
         .c3d-ficon{width:46px;height:46px;color:rgba(251,191,36,.75)}
         .c3d-ftitle{font-size:14px;font-weight:600;color:#f5f1ea}
         .c3d-fsub{font-size:12px;line-height:1.55;color:rgba(255,255,255,.55);max-width:260px}
-        @media (prefers-reduced-motion:reduce){.c3d-spin{animation:none}.c3d-stage model-viewer{transition:none}}
+        @media (prefers-reduced-motion:reduce){.c3d-spin{animation:none}.c3d-stage model-viewer{transition:none;transform:none}}
       `}</style>
 
       <div ref={hostRef} className="c3d-stage" data-state={state} />
