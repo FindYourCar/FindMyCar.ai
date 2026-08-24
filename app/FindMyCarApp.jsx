@@ -2214,6 +2214,68 @@ function CarIllustration({ gradient, body, className = "" }) {
    MAIN APP
    ============================================================ */
 
+// ─── Guided AI advisor (deterministic, demo-proof) ──────────────────────────
+// Adaptive question flow + curated BYD catalog scoring. Runs fully client-side
+// so a live demo never depends on the network and never fabricates a listing.
+const ADVISOR_START = "__fmc_start_advisor__";
+const ADVISOR_Q = [
+  { id: "budget", q: "Почнемо з головного — який у вас бюджет?", opts: [
+    { v: 25000, l: "до $25 000" }, { v: 35000, l: "$25–35 000" }, { v: 50000, l: "$35–50 000" }, { v: 99999, l: "$50 000+" }] },
+  { id: "usage", q: "Як плануєте здебільшого їздити?", opts: [
+    { v: "city", l: "Переважно місто" }, { v: "mixed", l: "Місто + іноді далі" }, { v: "long", l: "Часто далекі поїздки" }] },
+  { id: "seats", q: "Скільки місць вам потрібно?", opts: [
+    { v: 5, l: "Вистачить 4–5" }, { v: 5, l: "Родина (5)" }, { v: 7, l: "Велика родина (7)" }] },
+  { id: "charge", q: "Чи є можливість заряджати авто вдома?", opts: [
+    { v: "yes", l: "Так" }, { v: "plan", l: "Планую" }, { v: "no", l: "Ні" }] },
+  { id: "exp", q: "Який у вас досвід водіння?", opts: [
+    { v: "new", l: "Небагато, новачок" }, { v: "confident", l: "Впевнений" }, { v: "pro", l: "Досвідчений" }] },
+  { id: "character", q: "Який характер авто вам ближчий?", opts: [
+    { v: "calm", l: "Спокійне й комфортне" }, { v: "balanced", l: "Збалансоване" }, { v: "sporty", l: "Швидке й драйвове" }] },
+  { id: "color", q: "І останнє — колір?", opts: [
+    { v: "any", l: "Будь-який" }, { v: "light", l: "Світлий" }, { v: "dark", l: "Темний" }, { v: "bright", l: "Яскравий" }] },
+];
+// Approximate public specs — verify for the Ukrainian market before quoting.
+const BYD_CARS = [
+  { id: "dolphin", name: "BYD Dolphin", body: "Хетчбек · компакт", price: 25000, seats: 5, range: 427, power: 204, tier: "calm", size: "small" },
+  { id: "atto3", name: "BYD Atto 3", body: "Компактний кросовер", price: 30000, seats: 5, range: 420, power: 204, tier: "balanced", size: "compact" },
+  { id: "songplus", name: "BYD Song Plus", body: "Кросовер", price: 35000, seats: 5, range: 505, power: 218, tier: "balanced", size: "mid" },
+  { id: "seal", name: "BYD Seal", body: "Спорт-седан", price: 40000, seats: 5, range: 570, power: 530, tier: "sporty", size: "mid" },
+  { id: "han", name: "BYD Han", body: "Преміум-седан", price: 45000, seats: 5, range: 521, power: 517, tier: "sporty", size: "large" },
+  { id: "tang", name: "BYD Tang", body: "Великий кросовер · 7 місць", price: 50000, seats: 7, range: 400, power: 517, tier: "balanced", size: "large" },
+];
+const ADV_TIERS = ["calm", "balanced", "sporty"];
+function scoreBydCar(c, a) {
+  let s = 0;
+  if (c.price <= a.budget) s += 30; else if (c.price <= a.budget * 1.12) s += 6; else s -= 60;
+  const need = a.seats || 5;
+  if (c.seats >= need) s += 20; else s -= 60;
+  if (need >= 7 && c.seats >= 7) s += 25;
+  if (a.usage === "city") { if (c.size === "small" || c.size === "compact") s += 16; s += Math.min(c.range / 40, 8); }
+  else if (a.usage === "mixed") s += Math.min(c.range / 28, 14);
+  else if (a.usage === "long") s += Math.min(c.range / 16, 30);
+  if (a.charge === "no") s += Math.min(c.range / 40, 12);
+  if (a.exp === "new") s += c.tier === "sporty" ? -12 : 8;
+  else if (a.exp === "pro" && c.tier === "sporty") s += 10;
+  if (c.tier === a.character) s += 26;
+  else s += 8 - Math.abs(ADV_TIERS.indexOf(c.tier) - ADV_TIERS.indexOf(a.character)) * 8;
+  return s;
+}
+function pickBydRecos(a) {
+  return [...BYD_CARS].map((c) => ({ c, s: scoreBydCar(c, a) })).sort((x, y) => y.s - x.s).map((o) => o.c);
+}
+function bydReasons(c, a) {
+  const r = [];
+  if (c.price <= a.budget) r.push("Вписується у ваш бюджет — від приблизно $" + c.price.toLocaleString("en-US") + ".");
+  if ((a.seats || 5) >= 7 && c.seats >= 7) r.push("7 місць — вистачить для великої родини.");
+  else r.push("До " + c.seats + " місць — комфортно для вашої родини.");
+  if (a.usage === "long") r.push("Запас ходу " + c.range + " км — впевнено для далеких поїздок.");
+  else if (a.usage === "city" && (c.size === "small" || c.size === "compact")) r.push("Компактний і маневрений — ідеально для міста.");
+  else r.push("Запас ходу " + c.range + " км — зручно і в місті, і за містом.");
+  if (c.tier === a.character && a.character_l) r.push("Характер, який ви хотіли: «" + a.character_l.toLowerCase() + "».");
+  if (a.charge === "no") r.push("Немає зарядки вдома — великий запас ходу означає рідші заряджання, решту покривають публічні станції.");
+  return r.slice(0, 4);
+}
+
 export default function App() {
   // DEBUG: confirm this App component is rendering
   React.useEffect(() => {
@@ -2552,8 +2614,52 @@ useEffect(() => {
     });
   };
 
+  // ─── Guided advisor flow (deterministic; no LLM, never breaks live) ────────
+  const guidedRef = React.useRef({ active: false, step: 0, answers: {} });
+  const askAdvisorQuestion = (i) => {
+    setIsTyping(true);
+    setTimeout(() => {
+      setIsTyping(false);
+      const q = ADVISOR_Q[i];
+      setMessages((m) => [...m, { role: "assistant", kind: "text", content: q.q, chips: q.opts.map((o) => o.l) }]);
+    }, 480);
+  };
+  const startAdvisor = () => {
+    guidedRef.current = { active: true, step: 0, answers: {} };
+    setIsTyping(true);
+    setTimeout(() => {
+      setIsTyping(false);
+      setMessages((m) => [...m, { role: "assistant", kind: "text",
+        content: "Залюбки допоможу підібрати авто 🚗 Поставлю кілька коротких питань і покажу найкращий варіант саме під вас." }]);
+      askAdvisorQuestion(0);
+    }, 420);
+  };
+  const advanceAdvisor = (label) => {
+    const g = guidedRef.current;
+    const q = ADVISOR_Q[g.step];
+    const opt = q.opts.find((o) => o.l === label) || q.opts[0];
+    g.answers[q.id] = opt.v;
+    g.answers[q.id + "_l"] = opt.l;
+    setMessages((m) => [...m, { role: "user", kind: "text", content: label }]);
+    g.step += 1;
+    if (g.step < ADVISOR_Q.length) { askAdvisorQuestion(g.step); return; }
+    g.active = false;
+    setIsTyping(true);
+    setTimeout(() => {
+      setIsTyping(false);
+      const recos = pickBydRecos(g.answers);
+      setMessages((m) => [...m,
+        { role: "assistant", kind: "text", content: "Дякую! На основі ваших відповідей ось найкращий варіант для вас 👇" },
+        { role: "assistant", kind: "recommendation", best: recos[0], alts: recos.slice(1, 3), reasons: bydReasons(recos[0], g.answers) },
+      ]);
+    }, 650);
+  };
+
   const sendMessage = async (text) => {
     if (!text.trim()) return;
+    // Guided advisor intercepts before the normal chat/LLM path.
+    if (text === ADVISOR_START) { startAdvisor(); return; }
+    if (guidedRef.current.active) { advanceAdvisor(text); return; }
     const userMsg = { role: "user", kind: "text", content: text };
     const updatedMsgs = [...messages, userMsg];
     setMessages(updatedMsgs);
@@ -4008,6 +4114,12 @@ try {
           {messages.length <= 1 && (
             <div className="mt-5 fade-up" style={{ animationDelay: ".4s" }}>
               <div className="text-[10px] uppercase tracking-[0.2em] text-muted mb-3 text-center">{t.chat.tryThese}</div>
+              <div className="flex justify-center mb-3">
+                <button onClick={() => sendMessage(ADVISOR_START)}
+                  className="btn-primary px-4 py-2 rounded-full text-xs font-semibold flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" /> Підібрати авто з AI
+                </button>
+              </div>
               <div className="flex flex-wrap justify-center gap-2">
                 {t.chat.starters.map(s => (
                   <button key={s} onClick={() => sendMessage(s)} className="pill px-3 py-1.5 rounded-full text-xs">
@@ -4319,6 +4431,61 @@ function ChatMessage({ message, country, openCar, shortlist, compareList, toggle
               </>
             )}
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // guided advisor — recommendation card
+  if (message.kind === "recommendation") {
+    const b = message.best;
+    return (
+      <div className="flex items-end gap-2 chat-enter-assistant">
+        <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg, #fbbf24, #92400e)" }}>
+          <Sparkles className="w-3.5 h-3.5 text-stone-950" />
+        </div>
+        <div className="flex-1 min-w-0 max-w-[92%]">
+          <div className="rounded-2xl overflow-hidden" style={{ background: "rgba(245,241,234,0.02)", border: "1px solid var(--border)" }}>
+            <div className="px-4 pt-4 pb-3 relative" style={{ background: "linear-gradient(180deg, rgba(245,179,1,0.14), rgba(0,0,0,0))" }}>
+              <span className="absolute top-3 right-3 text-[9px] font-bold px-2 py-1 rounded-full" style={{ background: "#f5b301", color: "#1a1205", letterSpacing: ".5px" }}>НАЙКРАЩИЙ ВИБІР</span>
+              <div className="text-lg font-bold text-white">{b.name}</div>
+              <div className="text-[11px] text-muted">{b.body}</div>
+            </div>
+            <div className="grid grid-cols-3" style={{ borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
+              {[[b.range + " км", "запас ходу"], [b.power + " к.с.", "потужність"], [b.seats, "місць"]].map(([v, l], i) => (
+                <div key={i} className="px-2 py-3 text-center" style={{ borderLeft: i ? "1px solid var(--border)" : "none" }}>
+                  <div className="text-sm font-bold text-white">{v}</div>
+                  <div className="text-[9px] text-muted uppercase tracking-wide">{l}</div>
+                </div>
+              ))}
+            </div>
+            <div className="px-4 py-3">
+              <div className="text-[10px] font-bold amber-text uppercase tracking-wide mb-2">Чому саме це авто для вас</div>
+              <ul className="space-y-1.5">
+                {message.reasons.map((r, i) => (
+                  <li key={i} className="text-[12.5px] text-white/75 pl-4 relative leading-snug">
+                    <span className="absolute left-0" style={{ color: "#22c55e" }}>✓</span>{r}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="px-4 pb-4 flex gap-2">
+              <button onClick={() => onChip("Хочу залишити заявку — нехай зі мною звʼяжеться дилер")}
+                className="flex-1 btn-primary rounded-xl py-2.5 text-[12.5px] font-semibold">Хочу, щоб дилер звʼязався</button>
+              <button onClick={() => onChip(ADVISOR_START)}
+                className="px-3 rounded-xl text-[12.5px]" style={{ background: "rgba(245,241,234,0.05)", border: "1px solid var(--border)", color: "#f5f1ea" }}>Заново</button>
+            </div>
+          </div>
+          {message.alts && message.alts.length > 0 && (
+            <div className="mt-2 space-y-1.5">
+              <div className="text-[9px] uppercase tracking-wide text-muted">Також підійдуть</div>
+              {message.alts.map((c, i) => (
+                <div key={i} className="rounded-xl px-3 py-2 text-[12px] text-white/70" style={{ background: "rgba(245,241,234,0.02)", border: "1px solid var(--border)" }}>
+                  <span className="text-white font-semibold">{c.name}</span> · {c.body} · {c.range} км
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );
