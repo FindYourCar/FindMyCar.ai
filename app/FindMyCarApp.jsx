@@ -922,11 +922,19 @@ function generateLocalChatResponse(text, history) {
   const pick = (a) => a[Math.floor(Math.random() * a.length)];
   const R = LOCAL_CHAT_RESPONSES;
 
+  // A conversation is already in progress if the advisor has said more than the
+  // one-time welcome. When that's true and we only reached this local fallback
+  // because the LLM was briefly unreachable, DON'T reset the flow (e.g. re-ask
+  // budget) — that reads as "it forgot". Ask them to repeat the last message.
+  const inProgress = Array.isArray(history)
+    && history.filter(m => m && m.role === "assistant").length > 1;
+
   // Ukrainian / Cyrillic input — always answer in Ukrainian, never English.
   // (Only reached if the LLM is unreachable; keep it warm and non-repetitive.)
   if (/[Ѐ-ӿ]/.test(text || "")) {
     if (/^(привіт|прив|вітаю|доброго|добрий|хай|йо|здоров)/i.test(t)) return "Вітаю! 👋 Розкажіть, яке авто шукаєте — і я допоможу підібрати.";
     if (/(дяк|спасибі|дякую)/i.test(t)) return "Радий допомогти! 🙂 Що ще підказати щодо вибору авто?";
+    if (inProgress) return "Секунду — з'єднання трохи перевантажене. Повторіть, будь ласка, останнє повідомлення, і я продовжу підбір 🙏";
     if (/(електро|электро|заряд|\bev\b)/i.test(t)) return "Гарний вибір — електро. Який бюджет і як плануєте їздити: переважно місто чи бувають далекі поїздки?";
     if (/(сім|родин|діт|дет|7 місц|семь)/i.test(t)) return "Для родини важливі простір і безпека. Скільки місць потрібно — вистачить 5 чи потрібні 7?";
     if (/(бюджет|\$|€|тис|\d{4,})/i.test(t)) return "Зрозумів щодо бюджету. Як здебільшого їздитимете — місто, змішано чи часто далекі поїздки?";
@@ -964,35 +972,36 @@ function generateLocalChatResponse(text, history) {
 // UI can show a spec-card "анкета" instead of a wall of text — while the LLM
 // stays fully adaptive. Falls back to a local text-only reply if the API fails.
 async function hybridChatSend(messages) {
-  try {
-    const res = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: messages
-        .filter(m => m && typeof m.content === "string" && m.content.trim())
-        .map(m => ({ role: m.role, content: m.content })) }),
-    });
-    if (!res.ok) throw new Error(res.status);
-    const data = await res.json();
-    const text = typeof data === "string" ? data
-      : data?.reply || data?.message?.content || (typeof data?.message === "string" ? data.message : null)
-      || data?.content || data?.choices?.[0]?.message?.content;
-    if (!text) throw new Error("Unknown shape");
-    return {
-      text,
-      cars: Array.isArray(data?.cars) ? data.cars : [],
-      chips: Array.isArray(data?.chips) ? data.chips : [],
-    };
-  } catch {
-    return new Promise(resolve => {
-      const last = messages[messages.length - 1];
-      setTimeout(() => resolve({
-        text: generateLocalChatResponse(last?.content, messages),
-        cars: [],
-        chips: [],
-      }), 500 + Math.random() * 700);
-    });
+  const payload = JSON.stringify({ messages: messages
+    .filter(m => m && typeof m.content === "string" && m.content.trim())
+    .map(m => ({ role: m.role, content: m.content })) });
+  // Try the API up to twice (a transient rate-limit on the free tier can 500
+  // once) before dropping to the local reply, so the chat rarely loses context.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+      });
+      if (!res.ok) throw new Error(res.status);
+      const data = await res.json();
+      const text = typeof data === "string" ? data
+        : data?.reply || data?.message?.content || (typeof data?.message === "string" ? data.message : null)
+        || data?.content || data?.choices?.[0]?.message?.content;
+      if (!text) throw new Error("Unknown shape");
+      return {
+        text,
+        cars: Array.isArray(data?.cars) ? data.cars : [],
+        chips: Array.isArray(data?.chips) ? data.chips : [],
+      };
+    } catch {
+      if (attempt === 0) { await new Promise(r => setTimeout(r, 700)); continue; }
+    }
   }
+  const last = messages[messages.length - 1];
+  await new Promise(r => setTimeout(r, 300 + Math.random() * 400));
+  return { text: generateLocalChatResponse(last?.content, messages), cars: [], chips: [] };
 }
 
 const LANGUAGES = {
@@ -2548,10 +2557,18 @@ useEffect(() => {
     }
   }, []);
   // Chat sessions: each is { id, title, messages, createdAt, updatedAt }
+  const WELCOME_CHIPS = {
+    UK: ["Шукаю нове авто", "Цікавлюсь електромобілями", "Порадьте бюджетний варіант"],
+    EN: ["I'm looking for a car", "I'm curious about EVs", "Suggest a budget option"],
+    NL: ["Ik zoek een auto", "Ik ben benieuwd naar EV's", "Stel een budgetoptie voor"],
+    DE: ["Ich suche ein Auto", "Mich interessieren E-Autos", "Schlag eine günstige Option vor"],
+    PL: ["Szukam samochodu", "Interesują mnie auta elektryczne", "Zaproponuj opcję budżetową"],
+  };
   const makeWelcome = (lang) => ({
     role: "assistant",
     kind: "text",
     content: TRANSLATIONS[lang].chat.welcome,
+    chips: WELCOME_CHIPS[lang] || WELCOME_CHIPS.EN,
   });
 
   const [chatSessions, setChatSessions] = useState([]); // bookmarked old chats
@@ -2858,6 +2875,10 @@ useEffect(() => {
           setMessages(m => [...m, {
             role: "assistant", kind: "advisorCars", cars: advisorCars,
             chips: advisorChips.length > 0 ? advisorChips : undefined,
+            // Hidden text summary (not rendered) so the next LLM turn remembers
+            // which models it already recommended and can build on them.
+            content: "Порекомендовані моделі: " + advisorCars.map(c =>
+              `${c.name}${c.type ? " (" + c.type + ")" : ""}`).join("; "),
           }]);
         }, revealMs);
       }

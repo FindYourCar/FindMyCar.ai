@@ -1,15 +1,19 @@
 // Groq occasionally decommissions model IDs (e.g. llama-3.3-70b-versatile was
-// removed, which silently broke the whole advisor). We try a list of models in
-// order and remember the first that works, so a single deprecation never takes
-// the chat down again. Strong models first, a long-lived fast model last.
+// removed, which silently broke the whole advisor) and, on the free tier, rate-
+// limits the big models. We try a list of models in order — remembering the
+// first that works — and on a rate-limit / server error we retry briefly, then
+// fall through to the next (lighter) model, so a live demo rarely drops to the
+// dumb local fallback. Order: quality first, progressively faster/cheaper.
 const GROQ_MODELS = [
   "llama-3.3-70b-versatile",
   "openai/gpt-oss-120b",
+  "openai/gpt-oss-20b",
   "moonshotai/kimi-k2-instruct",
   "qwen/qwen3-32b",
   "llama-3.1-8b-instant",
 ];
 let cachedGroqModel = null;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function groqComplete({ messages, temperature = 0.7, response_format }) {
   const ordered = cachedGroqModel
@@ -19,24 +23,38 @@ async function groqComplete({ messages, temperature = 0.7, response_format }) {
   for (const model of ordered) {
     const payload = { model, temperature, messages };
     if (response_format) payload.response_format = response_format;
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-      },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-    if (res.ok) {
-      cachedGroqModel = model;
-      return { ok: true, data };
+    // Up to 2 attempts per model: a transient 429/5xx gets one quick retry
+    // before we give up on this model and move to the next one.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      let res, data;
+      try {
+        res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+          },
+          body: JSON.stringify(payload),
+        });
+        data = await res.json();
+      } catch (e) {
+        lastError = { error: { message: String(e?.message || e) } };
+        await sleep(300);
+        continue; // network blip → retry once, then next model
+      }
+      if (res.ok) {
+        cachedGroqModel = model;
+        return { ok: true, data };
+      }
+      lastError = data;
+      const msg = data?.error?.message || "";
+      // Rate limit or server error: retry this model once, then next model.
+      if (res.status === 429 || res.status >= 500) { await sleep(450); continue; }
+      // Model unavailable → skip straight to the next model.
+      if (/model|decommission|does not exist|not found|access/i.test(msg)) break;
+      // Any other 4xx (bad request, auth): no point trying more models.
+      return { ok: false, error: lastError };
     }
-    lastError = data;
-    const msg = data?.error?.message || "";
-    // Only fall through to the next model when this one is unavailable;
-    // for other errors (auth, rate limit) stop and report.
-    if (!/model|decommission|does not exist|not found|access/i.test(msg)) break;
   }
   return { ok: false, error: lastError };
 }
