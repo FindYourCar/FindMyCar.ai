@@ -980,6 +980,7 @@ async function hybridChatSend(messages) {
 }
 
 const LANGUAGES = {
+  UK: { code: "UK", name: "Українська", flag: "🇺🇦" },
   EN: { code: "EN", name: "English", flag: "🇬🇧" },
   NL: { code: "NL", name: "Nederlands", flag: "🇳🇱" },
   DE: { code: "DE", name: "Deutsch", flag: "🇩🇪" },
@@ -1041,6 +1042,62 @@ const TRANSLATIONS = {
       quickLinks: "Quick Links", contact: "Contact", legal: "Legal",
       copy: "© 2026 FindMyCar · Automotive Intelligence Platform",
       countries: "Available in 4 countries",
+    },
+  },
+  UK: {
+    nav: { discover: "Огляд", how: "Як це працює", calculator: "Калькулятор витрат", faq: "Питання", contact: "Контакти", signup: "Реєстрація", history: "Історія чату" },
+    hero: {
+      badge: "AI-радник · Україна та Європа",
+      title1: "Поспілкуйтеся з AI-радником.",
+      title2: "Знайдіть потрібне авто за лічені хвилини.",
+      sub: "Спілкуйтеся з радником природно — як із другом, що знається на авто. Ми допоможемо підібрати правильну модель, а потім покажемо пропозиції.",
+      market: "Ринок:",
+    },
+    chat: {
+      advisor: "FindMyCar Радник",
+      online: "Онлайн",
+      speaks: "Мови: UK · EN · NL · DE · PL",
+      newChat: "Новий чат",
+      placeholder: "Напишіть раднику…",
+      remember: "Радник памʼятає розмову 10 днів · Доступно кількома мовами",
+      tryThese: "Або спробуйте одне з цього",
+      starters: [
+        "Потрібне сімейне авто до $25 000",
+        "Підбери надійне електроавто для міста",
+        "Чесно, не знаю з чого почати",
+        "Що можна взяти за $15 000?",
+      ],
+      welcome: "Вітаю 👋 Я ваш радник FindMyCar. Я не продавець і не закидаю вас автами одразу. Краще почнімо зі звичайної розмови — розкажіть трохи про себе, що вам потрібно і чому шукаєте авто. Навіть якщо зовсім не знаєте, з чого почати — це нормально. 🙂",
+    },
+    steps: {
+      eyebrow: "Як це працює", title1: "Три", title2: "прості", title3: "кроки.",
+      s1t: "Поспілкуйтеся з радником", s1d: "Розкажіть AI своїми словами, що вам потрібно. Він поставить уточнювальні питання, як справжній консультант.",
+      s2t: "Отримайте розумні поради", s2d: "Близько 5 моделей авто, підібраних саме для вас, із чіткими поясненнями, чому кожна підходить.",
+      s3t: "А потім — пропозиції", s3d: "Оберіть модель, і ми покажемо реальні пропозиції від дилерів і приватних продавців поруч.",
+    },
+    trust: {
+      t1t: "Чесно й неупереджено", t1d: "Ми не беремо відкатів.",
+      t2t: "Проста мова", t2d: "Без автомобільного жаргону.",
+      t3t: "Європа + Україна", t3d: "UA, NL, BE, DE, PL.",
+      t4t: "Спершу модель", t4d: "Оберіть авто, потім дивіться пропозиції.",
+    },
+    faq: {
+      eyebrow: "Допомога", title1: "Часті", title2: "запитання.",
+      items: [
+        { q: "Чим це відрізняється від інших авто-сайтів?", a: "Інші сайти зроблені для тих, хто вже знає, яке авто хоче. Ми спершу радимо моделі на основі ваших реальних потреб — і показуємо пропозиції лише після того, як ви обрали модель." },
+        { q: "FindMyCar безкоштовний?", a: "Так, повністю безкоштовний. Ми нічого не беремо з користувачів і не отримуємо комісій із продажів." },
+        { q: "Звідки беруться оголошення?", a: "У цьому прототипі оголошення — це приклади. У готовому продукті вони надходитимуть від партнерів-дилерів і приватних продавців." },
+        { q: "Чи потрібен акаунт?", a: "Ні — можна вільно шукати й переглядати. Після кількох пошуків ми запропонуємо створити акаунт, щоб зберігати добірку й історію на різних пристроях." },
+        { q: "Які країни підтримуються?", a: "Україна, Нідерланди, Бельгія, Німеччина та Польща. Далі додаватимемо інші." },
+        { q: "Наскільки точні поради?", a: "Наш AI розбирає ваш опис і зіставляє його з моделями за типом кузова, паливом, ціною й типовими сценаріями використання. Це орієнтир, а не істина — завжди робіть тест-драйв перед покупкою." },
+      ],
+    },
+    floating: "AI-пошук авто",
+    footer: {
+      tagline: "Найдружніший спосіб знайти наступне авто. Створено для Європи й України — чесно, за допомогою AI і завжди на вашому боці.",
+      quickLinks: "Швидкі посилання", contact: "Контакти", legal: "Правова інформація",
+      copy: "© 2026 FindMyCar · Платформа автомобільного інтелекту",
+      countries: "Доступно в кількох країнах",
     },
   },
   NL: {
@@ -2284,6 +2341,16 @@ function bydReasons(c, a) {
   if (a.charge === "no") r.push("Немає зарядки вдома — великий запас ходу означає рідші заряджання, решту покривають публічні станції.");
   return r.slice(0, 4);
 }
+// No button needed: if a free-text message shows the user wants help choosing a
+// car, we launch the guided question flow automatically — as if a button was
+// pressed. Pure greetings / thanks are excluded so small talk stays natural.
+function looksLikeCarIntent(text) {
+  const t = (text || "").toLowerCase().trim();
+  if (!t) return false;
+  if (/^(привіт|прив|вітаю|доброго|добрий|хай|йо|здоров|hi|hey|hello|yo|hoi|hallo|thanks|thx|дяк|спасибі|дякую|ок|ok|👍|🙂|😊)[\s!.,)…]*$/i.test(t)) return false;
+  if (/[$€]\s?\d|\d[\s.,]?\d{3}|взяти за|можна взяти/i.test(t)) return true;
+  return /(авто|машин|автомоб|электро|електро|кросовер|кроссовер|позашлях|внедорож|седан|хетчб|універсал|мінівен|минивэн|бюджет|порад|підбер|подбер|вибрат|выбрат|купит|купува|шука|ищу|потрібн|нужн|їзд|езд|сім|семь|родин|семей|заряд|car|vehicle|suv|sedan|hatch|electric|\bev\b|budget|recommend|suggest|looking for|help me (find|choose|pick)|which car|подобрать|auto|wagen|voertuig|zoek)/i.test(t);
+}
 
 export default function App() {
   // DEBUG: confirm this App component is rendering
@@ -2634,7 +2701,7 @@ useEffect(() => {
     }, 480);
   };
   const startAdvisor = () => {
-    guidedRef.current = { active: true, step: 0, answers: {} };
+    guidedRef.current = { active: true, step: 0, answers: {}, done: false };
     setIsTyping(true);
     setTimeout(() => {
       setIsTyping(false);
@@ -2653,6 +2720,7 @@ useEffect(() => {
     g.step += 1;
     if (g.step < ADVISOR_Q.length) { askAdvisorQuestion(g.step); return; }
     g.active = false;
+    g.done = true;
     setIsTyping(true);
     setTimeout(() => {
       setIsTyping(false);
@@ -2669,6 +2737,13 @@ useEffect(() => {
     // Guided advisor intercepts before the normal chat/LLM path.
     if (text === ADVISOR_START) { startAdvisor(); return; }
     if (guidedRef.current.active) { advanceAdvisor(text); return; }
+    // No button: a free-text message that shows car-search intent auto-launches
+    // the guided flow. We echo the user's message first, then start asking.
+    if (!guidedRef.current.done && looksLikeCarIntent(text)) {
+      setMessages((m) => [...m, { role: "user", kind: "text", content: text }]);
+      startAdvisor();
+      return;
+    }
     const userMsg = { role: "user", kind: "text", content: text };
     const updatedMsgs = [...messages, userMsg];
     setMessages(updatedMsgs);
@@ -4123,12 +4198,6 @@ try {
           {messages.length <= 1 && (
             <div className="mt-5 fade-up" style={{ animationDelay: ".4s" }}>
               <div className="text-[10px] uppercase tracking-[0.2em] text-muted mb-3 text-center">{t.chat.tryThese}</div>
-              <div className="flex justify-center mb-3">
-                <button onClick={() => sendMessage(ADVISOR_START)}
-                  className="btn-primary px-4 py-2 rounded-full text-xs font-semibold flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5" /> Підібрати авто з AI
-                </button>
-              </div>
               <div className="flex flex-wrap justify-center gap-2">
                 {t.chat.starters.map(s => (
                   <button key={s} onClick={() => sendMessage(s)} className="pill px-3 py-1.5 rounded-full text-xs">
