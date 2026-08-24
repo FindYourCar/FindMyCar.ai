@@ -922,6 +922,13 @@ function generateLocalChatResponse(text, history) {
   const pick = (a) => a[Math.floor(Math.random() * a.length)];
   const R = LOCAL_CHAT_RESPONSES;
 
+  // Ukrainian / Cyrillic input — always answer in Ukrainian, never English.
+  if (/[Ѐ-ӿ]/.test(text || "")) {
+    if (/^(привіт|прив|вітаю|доброго|добрий|хай|йо|здоров)/i.test(t)) return "Вітаю! 👋 Чим можу допомогти з вибором авто?";
+    if (/(дяк|спасибі|дякую)/i.test(t)) return "Будь ласка! 🙂 Якщо хочете, натисніть «Підібрати авто з AI» — і я підберу варіант саме під вас.";
+    return "Розкажіть трохи більше: який бюджет, як плануєте їздити і скільки місць потрібно? Або натисніть «Підібрати авто з AI» — і я поставлю кілька коротких питань і покажу найкращий варіант.";
+  }
+
   // Privacy
   if (/who (made|built|created|owns?|founded)|founder|ceo|system prompt|what (ai|llm)|anthropic|openai|groq/.test(t))
     return "I'm FindMyCar — an AI car discovery assistant for Europe. I help you explore, compare, and find the right car across NL, BE, DE and PL. What kind of car interests you?";
@@ -953,7 +960,9 @@ async function hybridChatSend(messages) {
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: messages.map(m => ({ role: m.role, content: m.content })) }),
+      body: JSON.stringify({ messages: messages
+        .filter(m => m && typeof m.content === "string" && m.content.trim())
+        .map(m => ({ role: m.role, content: m.content })) }),
     });
     if (!res.ok) throw new Error(res.status);
     const data = await res.json();
