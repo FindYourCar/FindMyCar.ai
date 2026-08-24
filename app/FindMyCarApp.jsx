@@ -959,6 +959,10 @@ function generateLocalChatResponse(text, history) {
   return pick(R.fallback);
 }
 
+// Returns the structured advisor payload { text, cars, chips }. The API replies
+// with a short message plus optional car cards and tappable answer chips, so the
+// UI can show a spec-card "анкета" instead of a wall of text — while the LLM
+// stays fully adaptive. Falls back to a local text-only reply if the API fails.
 async function hybridChatSend(messages) {
   try {
     const res = await fetch("/api/chat", {
@@ -974,11 +978,19 @@ async function hybridChatSend(messages) {
       : data?.reply || data?.message?.content || (typeof data?.message === "string" ? data.message : null)
       || data?.content || data?.choices?.[0]?.message?.content;
     if (!text) throw new Error("Unknown shape");
-    return text;
+    return {
+      text,
+      cars: Array.isArray(data?.cars) ? data.cars : [],
+      chips: Array.isArray(data?.chips) ? data.chips : [],
+    };
   } catch {
     return new Promise(resolve => {
       const last = messages[messages.length - 1];
-      setTimeout(() => resolve(generateLocalChatResponse(last?.content, messages)), 500 + Math.random() * 700);
+      setTimeout(() => resolve({
+        text: generateLocalChatResponse(last?.content, messages),
+        cars: [],
+        chips: [],
+      }), 500 + Math.random() * 700);
     });
   }
 }
@@ -2760,10 +2772,13 @@ useEffect(() => {
 
     try {
       // Context-aware extraction and the chat reply run in parallel.
-      const [primaryIntent, replyText] = await Promise.all([
+      const [primaryIntent, chat] = await Promise.all([
         extractSearchIntent(text, recentContext),
         hybridChatSend(updatedMsgs),
       ]);
+      const replyText = chat?.text || "";
+      const advisorCars = Array.isArray(chat?.cars) ? chat.cars : [];
+      const advisorChips = Array.isArray(chat?.chips) ? chat.chips : [];
 
       // Primary gate = the LLM's wantsListings when present; else the classifier.
       const llmWants = primaryIntent && typeof primaryIntent.wantsListings === "boolean"
@@ -2823,14 +2838,27 @@ useEffect(() => {
 
       // Reveal the text progressively (animate:true), then stage the listings card
       // to appear once the text has finished streaming — text first, cards after.
+      // Chips ride on the text bubble only when there are no cards; when we show
+      // cards, the chips render under the cards so the flow reads: message → cards → quick answers.
+      const bubbleChips = (!isListingRequest && advisorCars.length === 0 && advisorChips.length > 0) ? advisorChips : undefined;
       setMessages(m => [...m, {
         role: "assistant", kind: "text", content: textContent, animate: true,
-        lang: language, mode: "advisor",
+        lang: language, mode: "advisor", chips: bubbleChips,
       }]);
       if (isListingRequest) {
         const revealMs = estimateRevealMs(textContent);
         setTimeout(() => {
           setMessages(m => [...m, { role: "assistant", kind: "listings", listings: filteredListings }]);
+        }, revealMs);
+      } else if (advisorCars.length > 0) {
+        // Adaptive advisor recommended models → show them as visual spec cards,
+        // with the follow-up quick answers as tappable chips beneath them.
+        const revealMs = estimateRevealMs(textContent);
+        setTimeout(() => {
+          setMessages(m => [...m, {
+            role: "assistant", kind: "advisorCars", cars: advisorCars,
+            chips: advisorChips.length > 0 ? advisorChips : undefined,
+          }]);
         }, revealMs);
       }
 
@@ -4505,6 +4533,71 @@ function ChatMessage({ message, country, openCar, shortlist, compareList, toggle
   }
 
   // guided advisor — recommendation card
+  if (message.kind === "advisorCars") {
+    const cars = Array.isArray(message.cars) ? message.cars : [];
+    return (
+      <div className="flex items-end gap-2 chat-enter-assistant">
+        <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg, #fbbf24, #92400e)" }}>
+          <Sparkles className="w-3.5 h-3.5 text-stone-950" />
+        </div>
+        <div className="flex-1 min-w-0 max-w-[92%] space-y-2">
+          {cars.map((c, ci) => (
+            <div key={ci} className="rounded-2xl overflow-hidden chat-enter-assistant" style={{ background: "rgba(245,241,234,0.02)", border: "1px solid var(--border)", animationDelay: `${ci * 0.08}s` }}>
+              <div className="px-4 pt-3 pb-2.5 relative" style={{ background: "linear-gradient(180deg, rgba(245,179,1,0.12), rgba(0,0,0,0))" }}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-[15px] font-bold text-white leading-tight">{c.name}</div>
+                    {c.type && <div className="text-[11px] text-muted mt-0.5">{c.type}</div>}
+                  </div>
+                  {c.price && <span className="shrink-0 text-[11px] font-bold px-2 py-1 rounded-full" style={{ background: "#f5b301", color: "#1a1205" }}>{c.price}</span>}
+                </div>
+                {Array.isArray(c.badges) && c.badges.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {c.badges.map((b, bi) => (
+                      <span key={bi} className="text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded" style={{ background: "rgba(245,241,234,0.06)", color: "#f5f1ea", border: "1px solid var(--border)" }}>{b}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {Array.isArray(c.specs) && c.specs.length > 0 && (
+                <div className="grid" style={{ gridTemplateColumns: `repeat(${Math.min(c.specs.length, 4)}, minmax(0,1fr))`, borderTop: "1px solid var(--border)", borderBottom: c.why?.length ? "1px solid var(--border)" : "none" }}>
+                  {c.specs.slice(0, 4).map((s, si) => (
+                    <div key={si} className="px-2 py-2.5 text-center" style={{ borderLeft: si ? "1px solid var(--border)" : "none" }}>
+                      <div className="text-[13px] font-bold text-white leading-tight">{s.value}</div>
+                      <div className="text-[8.5px] text-muted uppercase tracking-wide mt-0.5">{s.label}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {Array.isArray(c.why) && c.why.length > 0 && (
+                <div className="px-4 py-2.5">
+                  <ul className="space-y-1">
+                    {c.why.map((r, ri) => (
+                      <li key={ri} className="text-[12px] text-white/75 pl-4 relative leading-snug">
+                        <span className="absolute left-0" style={{ color: "#22c55e" }}>✓</span>{r}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          ))}
+          {message.chips && message.chips.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 pt-0.5">
+              {message.chips.map((c, idx) => (
+                <button key={idx} onClick={() => onChip(c)}
+                  className="pill px-2.5 py-1 rounded-full text-[11px] chat-enter-assistant"
+                  style={{ animationDelay: `${0.15 + idx * 0.06}s` }}>
+                  {c}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (message.kind === "recommendation") {
     const b = message.best;
     return (

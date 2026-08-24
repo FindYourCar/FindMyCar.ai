@@ -11,19 +11,21 @@ const GROQ_MODELS = [
 ];
 let cachedGroqModel = null;
 
-async function groqComplete({ messages, temperature = 0.7 }) {
+async function groqComplete({ messages, temperature = 0.7, response_format }) {
   const ordered = cachedGroqModel
     ? [cachedGroqModel, ...GROQ_MODELS.filter((m) => m !== cachedGroqModel)]
     : GROQ_MODELS;
   let lastError = null;
   for (const model of ordered) {
+    const payload = { model, temperature, messages };
+    if (response_format) payload.response_format = response_format;
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
       },
-      body: JSON.stringify({ model, temperature, messages }),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     if (res.ok) {
@@ -263,10 +265,34 @@ FINAL STYLE RULE
 Your replies should feel like a sharp, relaxed human assistant in a premium car-finding service.
 Natural, brief when appropriate, helpful always.
 Never sound like a scripted onboarding bot.
+
+OUTPUT CONTRACT — READ CAREFULLY, THIS OVERRIDES ANY "plain text" INSTRUCTION ABOVE
+You MUST reply with a single valid JSON object and NOTHING else. No prose outside the JSON, no markdown.
+Shape:
+{
+  "reply": string,        // SHORT conversational message in the USER'S LANGUAGE. 1–3 sentences. This is the ONLY prose the user reads, so keep it tight and human — NO long walls of text, NO bullet lists inside it, NO specs dumped here (specs go in "cars"). End it with your next question when you are gathering info.
+  "cars": Car[],          // 0–3 recommended MODELS to show as visual cards. Empty [] when you are just chatting or still asking questions and not yet recommending.
+  "chips": string[]       // 2–5 SHORT tappable suggested answers to your question / next-step buttons, in the user's language (e.g. "Так, є зарядка вдома", "Немає зарядки", "Показати пропозиції"). Empty [] only if no sensible quick replies exist.
+}
+Car = {
+  "name": string,             // e.g. "BYD Dolphin"
+  "type": string,             // body + fuel, e.g. "Компактний електричний хетчбек"
+  "price": string,            // APPROX model price, always with ≈, e.g. "≈ 20 000 €". Never a specific car for sale.
+  "specs": {"label": string, "value": string}[],  // 3–4 key specs, e.g. {"label":"Запас ходу","value":"425 км"}, seats, power, 0–100, charging.
+  "badges": string[],         // 0–3 short tags, e.g. ["Місто","EV"]
+  "why": string[]             // 1–3 SHORT reasons this model fits THIS user, tied to what they told you.
+}
+HARD RULES for the contract:
+- Keep "reply" short. The cards carry the detail — never repeat specs as text.
+- ADAPT: after showing cars, keep the conversation going — ask the next useful question in "reply" and offer "chips". Do not stop.
+- Only put MODELS in "cars" (general knowledge). Never invent a specific car for sale, its year/mileage/exact price/seller. "price" is an approximate model range only.
+- If the user just greets or asks a general question, "cars" is [] — answer in "reply" and offer helpful "chips".
+- Everything (reply, chips, badges, why, specs labels) in the user's language.
 `;
 
     const result = await groqComplete({
       temperature: 0.7,
+      response_format: { type: "json_object" },
       messages: [
         { role: "system", content: systemPrompt },
         ...messages,
@@ -283,22 +309,49 @@ Never sound like a scripted onboarding bot.
       );
     }
 
-    let reply =
-      result.data?.choices?.[0]?.message?.content || "Sorry, I could not generate a reply.";
+    const raw =
+      result.data?.choices?.[0]?.message?.content || "";
 
-    // The UI renders plain text, but some models emit markdown despite the prompt.
-    // Strip the common markers so bold/headings/code don't show as literal symbols.
-    reply = reply
-      .replace(/```[\s\S]*?```/g, (b) => b.replace(/```[a-z]*\n?/gi, "").replace(/```/g, ""))
+    // Strip markdown just in case a model wraps prose despite JSON mode.
+    const stripMd = (s) => (s || "")
       .replace(/`([^`]+)`/g, "$1")
       .replace(/\*\*([^*]+)\*\*/g, "$1")
       .replace(/__([^_]+)__/g, "$1")
-      .replace(/^\s{0,3}#{1,6}\s+/gm, "")
-      .replace(/^\s*[-*]\s+/gm, "- ")
       .trim();
 
+    // Parse the structured advisor payload; be forgiving if the model wrapped it.
+    let parsed = null;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      const m = raw.match(/\{[\s\S]*\}/);
+      if (m) { try { parsed = JSON.parse(m[0]); } catch { parsed = null; } }
+    }
+
+    let reply, cars, chips;
+    if (parsed && typeof parsed === "object") {
+      reply = stripMd(typeof parsed.reply === "string" ? parsed.reply : "");
+      cars = Array.isArray(parsed.cars) ? parsed.cars.slice(0, 3).map((c) => ({
+        name: String(c?.name || "").slice(0, 60),
+        type: String(c?.type || "").slice(0, 80),
+        price: String(c?.price || "").slice(0, 40),
+        specs: Array.isArray(c?.specs)
+          ? c.specs.slice(0, 5).map((s) => ({ label: String(s?.label || "").slice(0, 30), value: String(s?.value || "").slice(0, 30) })).filter((s) => s.label && s.value)
+          : [],
+        badges: Array.isArray(c?.badges) ? c.badges.slice(0, 3).map((b) => String(b).slice(0, 24)) : [],
+        why: Array.isArray(c?.why) ? c.why.slice(0, 3).map((w) => String(w).slice(0, 160)) : [],
+      })).filter((c) => c.name) : [];
+      chips = Array.isArray(parsed.chips) ? parsed.chips.slice(0, 5).map((c) => String(c).slice(0, 48)).filter(Boolean) : [];
+    } else {
+      // Not JSON — treat the whole thing as a plain reply.
+      reply = stripMd(raw) || "Sorry, I could not generate a reply.";
+      cars = [];
+      chips = [];
+    }
+    if (!reply) reply = cars.length ? "Ось кілька варіантів, які добре підходять 👇" : "…";
+
     return new Response(
-      JSON.stringify({ reply }),
+      JSON.stringify({ reply, cars, chips }),
       {
         status: 200,
         headers: { "Content-Type": "application/json" },
