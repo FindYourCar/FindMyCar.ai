@@ -283,8 +283,19 @@ Never sound like a scripted onboarding bot.
       );
     }
 
-    const reply =
+    let reply =
       result.data?.choices?.[0]?.message?.content || "Sorry, I could not generate a reply.";
+
+    // The UI renders plain text, but some models emit markdown despite the prompt.
+    // Strip the common markers so bold/headings/code don't show as literal symbols.
+    reply = reply
+      .replace(/```[\s\S]*?```/g, (b) => b.replace(/```[a-z]*\n?/gi, "").replace(/```/g, ""))
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/\*\*([^*]+)\*\*/g, "$1")
+      .replace(/__([^_]+)__/g, "$1")
+      .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+      .replace(/^\s*[-*]\s+/gm, "- ")
+      .trim();
 
     return new Response(
       JSON.stringify({ reply }),
