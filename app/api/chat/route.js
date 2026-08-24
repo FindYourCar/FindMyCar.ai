@@ -1,3 +1,44 @@
+// Groq occasionally decommissions model IDs (e.g. llama-3.3-70b-versatile was
+// removed, which silently broke the whole advisor). We try a list of models in
+// order and remember the first that works, so a single deprecation never takes
+// the chat down again. Strong models first, a long-lived fast model last.
+const GROQ_MODELS = [
+  "llama-3.3-70b-versatile",
+  "openai/gpt-oss-120b",
+  "moonshotai/kimi-k2-instruct",
+  "qwen/qwen3-32b",
+  "llama-3.1-8b-instant",
+];
+let cachedGroqModel = null;
+
+async function groqComplete({ messages, temperature = 0.7 }) {
+  const ordered = cachedGroqModel
+    ? [cachedGroqModel, ...GROQ_MODELS.filter((m) => m !== cachedGroqModel)]
+    : GROQ_MODELS;
+  let lastError = null;
+  for (const model of ordered) {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({ model, temperature, messages }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      cachedGroqModel = model;
+      return { ok: true, data };
+    }
+    lastError = data;
+    const msg = data?.error?.message || "";
+    // Only fall through to the next model when this one is unavailable;
+    // for other errors (auth, rate limit) stop and report.
+    if (!/model|decommission|does not exist|not found|access/i.test(msg)) break;
+  }
+  return { ok: false, error: lastError };
+}
+
 export async function POST(req) {
   try {
     const body = await req.json();
@@ -100,6 +141,36 @@ AUDIENCE ADAPTATION
 - Be adaptive.
 - Do not assume all users are beginners.
 
+ADAPTIVE ADVISOR MODE (VERY IMPORTANT — THIS IS YOUR CORE JOB)
+Behave like a real, sharp car consultant having a natural conversation — NOT a fixed questionnaire.
+- ANSWER ANY QUESTION the user asks — comparisons, charging, range, price ballpark for a market,
+  reliability, insurance, tax, financing basics, EV vs petrol, "is X good for me", etc. Never dodge
+  a question by asking your own instead. Answer first, then, if useful, ask the next thing.
+- ASK THE RIGHT QUESTIONS, ADAPTIVELY. To recommend well you usually want to know: budget, where and
+  how they drive (city / mixed / long trips), how many seats / family size, home charging, driving
+  experience, preferred character (calm & comfortable vs fast & sporty), and any must-haves (colour,
+  towing, boot). But ask them ONE AT A TIME, in whatever order fits the conversation, and SKIP anything
+  the user already told you or that is clearly irrelevant. Never fire a list of questions at once, and
+  never re-ask something already answered.
+- READ THE MOOD. If the user pushes back ("I changed my mind", "I don't like it", "show me something
+  else"), adapt immediately: acknowledge, ask what they'd prefer instead, and re-recommend. Do not
+  loop the same reply.
+- When you have enough to decide, RECOMMEND A SPECIFIC MODEL (ideally from the BYD catalog below when
+  it fits) and explain WHY it fits THIS person in 2–4 concrete reasons tied to their answers. Offer
+  1–2 alternatives. Then invite them to see live offers.
+
+BYD CURATED CATALOG (general model knowledge you may recommend from — these are models, never
+specific cars for sale; figures are approximate and to be verified for the local market)
+- BYD Dolphin — compact hatchback, EV, ~5 seats, ~427 km range, ~204 hp. Calm, easy, city-friendly, entry price. Great first EV / city car on a tighter budget.
+- BYD Atto 3 — compact crossover, EV, ~5 seats, ~420 km, ~204 hp. Balanced all-rounder for small families.
+- BYD Song Plus — crossover, EV, ~5 seats, ~505 km, ~218 hp. More range and space for mixed driving.
+- BYD Seal — sport sedan, EV, ~5 seats, ~570 km, up to ~530 hp. Fast, sharp, long range — for keen drivers who cover distance.
+- BYD Han — premium sedan, EV, ~5 seats, ~521 km, ~517 hp. Comfort + performance + presence.
+- BYD Tang — large 7-seat SUV, EV, ~400 km, ~517 hp. For big families needing 7 seats.
+Rules of thumb: tight budget + city + first EV → Dolphin. Family all-rounder → Atto 3 / Song Plus.
+Wants fast/sporty + long trips → Seal (or Han for comfort+power). Needs 7 seats → Tang.
+You are not limited to BYD — if the user clearly wants another brand, advise honestly on that too.
+
 BEST-DEAL AND RECOMMENDATION REQUESTS
 When the user asks for the "best deal", "cheapest", "best value", "best listing", "top offers", "worth it", "which car should I buy", or "best car/SUV/family/reliable car" etc., behave like an expert car buyer, not a link forwarder.
 - For a SPECIFIC model: reason briefly about what a genuinely good-value example looks like — a fair price range for the market, sensible mileage for the age, which trims/engines/years to prefer or avoid, and the main red flags to check. Frame it as guidance.
@@ -194,27 +265,17 @@ Natural, brief when appropriate, helpful always.
 Never sound like a scripted onboarding bot.
 `;
 
-    const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        temperature: 0.7,
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages,
-        ],
-      }),
+    const result = await groqComplete({
+      temperature: 0.7,
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...messages,
+      ],
     });
 
-    const data = await groqRes.json();
-
-    if (!groqRes.ok) {
+    if (!result.ok) {
       return new Response(
-        JSON.stringify({ error: data }),
+        JSON.stringify({ error: result.error }),
         {
           status: 500,
           headers: { "Content-Type": "application/json" },
@@ -223,7 +284,7 @@ Never sound like a scripted onboarding bot.
     }
 
     const reply =
-      data?.choices?.[0]?.message?.content || "Sorry, I could not generate a reply.";
+      result.data?.choices?.[0]?.message?.content || "Sorry, I could not generate a reply.";
 
     return new Response(
       JSON.stringify({ reply }),

@@ -1,3 +1,40 @@
+// Keep in sync with app/api/chat/route.js — Groq retires model IDs, so we try a
+// list and remember the first that works instead of hardcoding one dead model.
+const GROQ_MODELS = [
+  "llama-3.3-70b-versatile",
+  "openai/gpt-oss-120b",
+  "moonshotai/kimi-k2-instruct",
+  "qwen/qwen3-32b",
+  "llama-3.1-8b-instant",
+];
+let cachedGroqModel = null;
+
+async function groqComplete(payload) {
+  const ordered = cachedGroqModel
+    ? [cachedGroqModel, ...GROQ_MODELS.filter((m) => m !== cachedGroqModel)]
+    : GROQ_MODELS;
+  let lastStatus = 0;
+  for (const model of ordered) {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({ ...payload, model }),
+    });
+    if (res.ok) {
+      cachedGroqModel = model;
+      return res.json();
+    }
+    lastStatus = res.status;
+    const data = await res.json().catch(() => ({}));
+    const msg = data?.error?.message || "";
+    if (!/model|decommission|does not exist|not found|access/i.test(msg)) break;
+  }
+  throw new Error(`Groq ${lastStatus}`);
+}
+
 export async function POST(req) {
   try {
     const { query, context } = await req.json();
@@ -16,17 +53,10 @@ export async function POST(req) {
           }))
       : [];
 
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        temperature: 0,
-        max_tokens: 300,
-        messages: [
+    const data = await groqComplete({
+      temperature: 0,
+      max_tokens: 300,
+      messages: [
           {
             role: "system",
             content: `You classify a car shopper's LATEST message and extract search intent. Output ONLY valid JSON — no prose, no markdown fences, nothing else.
@@ -63,15 +93,11 @@ EXTRACTION rules:
 - budget_max / mileage_max / year_min: plain numbers only, never strings. A 4-digit year is a year, never a budget.
 - confidence: 0.0 = vague/no make, 0.5 = make known, 0.8 = make + model, 1.0 = fully specific.`,
           },
-          ...contextMsgs,
-          { role: "user", content: `Classify and extract intent from this latest message: "${query}"` },
-        ],
-      }),
+        ...contextMsgs,
+        { role: "user", content: `Classify and extract intent from this latest message: "${query}"` },
+      ],
     });
 
-    if (!res.ok) throw new Error(`Groq ${res.status}`);
-
-    const data = await res.json();
     const content = data?.choices?.[0]?.message?.content || "";
     // Extract the JSON object even if the model wrapped it in prose
     const match = content.match(/\{[\s\S]*\}/);

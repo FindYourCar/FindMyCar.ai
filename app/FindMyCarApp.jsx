@@ -923,10 +923,14 @@ function generateLocalChatResponse(text, history) {
   const R = LOCAL_CHAT_RESPONSES;
 
   // Ukrainian / Cyrillic input — always answer in Ukrainian, never English.
+  // (Only reached if the LLM is unreachable; keep it warm and non-repetitive.)
   if (/[Ѐ-ӿ]/.test(text || "")) {
-    if (/^(привіт|прив|вітаю|доброго|добрий|хай|йо|здоров)/i.test(t)) return "Вітаю! 👋 Чим можу допомогти з вибором авто?";
-    if (/(дяк|спасибі|дякую)/i.test(t)) return "Будь ласка! 🙂 Якщо хочете, натисніть «Підібрати авто з AI» — і я підберу варіант саме під вас.";
-    return "Розкажіть трохи більше: який бюджет, як плануєте їздити і скільки місць потрібно? Або натисніть «Підібрати авто з AI» — і я поставлю кілька коротких питань і покажу найкращий варіант.";
+    if (/^(привіт|прив|вітаю|доброго|добрий|хай|йо|здоров)/i.test(t)) return "Вітаю! 👋 Розкажіть, яке авто шукаєте — і я допоможу підібрати.";
+    if (/(дяк|спасибі|дякую)/i.test(t)) return "Радий допомогти! 🙂 Що ще підказати щодо вибору авто?";
+    if (/(електро|электро|заряд|\bev\b)/i.test(t)) return "Гарний вибір — електро. Який бюджет і як плануєте їздити: переважно місто чи бувають далекі поїздки?";
+    if (/(сім|родин|діт|дет|7 місц|семь)/i.test(t)) return "Для родини важливі простір і безпека. Скільки місць потрібно — вистачить 5 чи потрібні 7?";
+    if (/(бюджет|\$|€|тис|\d{4,})/i.test(t)) return "Зрозумів щодо бюджету. Як здебільшого їздитимете — місто, змішано чи часто далекі поїздки?";
+    return "Розкажіть трохи більше — який бюджет, як плануєте їздити і скільки місць потрібно? Тоді підберу найкращий варіант саме під вас.";
   }
 
   // Privacy
@@ -2341,16 +2345,6 @@ function bydReasons(c, a) {
   if (a.charge === "no") r.push("Немає зарядки вдома — великий запас ходу означає рідші заряджання, решту покривають публічні станції.");
   return r.slice(0, 4);
 }
-// No button needed: if a free-text message shows the user wants help choosing a
-// car, we launch the guided question flow automatically — as if a button was
-// pressed. Pure greetings / thanks are excluded so small talk stays natural.
-function looksLikeCarIntent(text) {
-  const t = (text || "").toLowerCase().trim();
-  if (!t) return false;
-  if (/^(привіт|прив|вітаю|доброго|добрий|хай|йо|здоров|hi|hey|hello|yo|hoi|hallo|thanks|thx|дяк|спасибі|дякую|ок|ok|👍|🙂|😊)[\s!.,)…]*$/i.test(t)) return false;
-  if (/[$€]\s?\d|\d[\s.,]?\d{3}|взяти за|можна взяти/i.test(t)) return true;
-  return /(авто|машин|автомоб|электро|електро|кросовер|кроссовер|позашлях|внедорож|седан|хетчб|універсал|мінівен|минивэн|бюджет|порад|підбер|подбер|вибрат|выбрат|купит|купува|шука|ищу|потрібн|нужн|їзд|езд|сім|семь|родин|семей|заряд|car|vehicle|suv|sedan|hatch|electric|\bev\b|budget|recommend|suggest|looking for|help me (find|choose|pick)|which car|подобрать|auto|wagen|voertuig|zoek)/i.test(t);
-}
 
 export default function App() {
   // DEBUG: confirm this App component is rendering
@@ -2734,16 +2728,12 @@ useEffect(() => {
 
   const sendMessage = async (text) => {
     if (!text.trim()) return;
-    // Guided advisor intercepts before the normal chat/LLM path.
+    // The adaptive LLM advisor drives the whole conversation — it asks the right
+    // questions itself and answers anything. The old fixed client-side question
+    // rail is kept only as an explicit opt-in (ADVISOR_START) / offline fallback,
+    // never forced on free-text, so the chat feels adaptive rather than scripted.
     if (text === ADVISOR_START) { startAdvisor(); return; }
     if (guidedRef.current.active) { advanceAdvisor(text); return; }
-    // No button: a free-text message that shows car-search intent auto-launches
-    // the guided flow. We echo the user's message first, then start asking.
-    if (!guidedRef.current.done && looksLikeCarIntent(text)) {
-      setMessages((m) => [...m, { role: "user", kind: "text", content: text }]);
-      startAdvisor();
-      return;
-    }
     const userMsg = { role: "user", kind: "text", content: text };
     const updatedMsgs = [...messages, userMsg];
     setMessages(updatedMsgs);
