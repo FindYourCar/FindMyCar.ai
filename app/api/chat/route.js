@@ -1,20 +1,13 @@
-// Groq occasionally decommissions model IDs (e.g. llama-3.3-70b-versatile was
-// removed, which silently broke the whole advisor) and, on the free tier, rate-
-// limits the big models. We try a list of models in order — remembering the
-// first that works — and on a rate-limit / server error we retry briefly, then
-// fall through to the next (lighter) model, so a live demo rarely drops to the
-// dumb local fallback. Order: quality first, progressively faster/cheaper.
-// Fast, high-throughput models FIRST: on the free tier the big models rate-limit
-// (429) and time out under real back-to-back usage, which dropped the chat to the
-// local fallback. gpt-oss-20b is quick and capable enough for this structured
-// task, with 8b-instant (very high limits) as the ultra-reliable backup; the
-// heavier models remain only as later fallbacks.
+// Only models this Groq account actually has access to. Fast, high-throughput
+// models FIRST: on the free tier the big models rate-limit (429) and time out
+// under back-to-back usage. gpt-oss-20b is quick and capable enough for this
+// structured task, with 8b-instant (very high limits) as the reliable backup and
+// gpt-oss-120b as a last resort. (qwen/kimi were removed — this account 403s on
+// them, which produced confusing "model not found" errors under load.)
 const GROQ_MODELS = [
   "openai/gpt-oss-20b",
   "llama-3.1-8b-instant",
   "openai/gpt-oss-120b",
-  "moonshotai/kimi-k2-instruct",
-  "qwen/qwen3-32b",
 ];
 let cachedGroqModel = null;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -31,9 +24,10 @@ async function groqComplete({ messages, temperature = 0.7, response_format }) {
   for (const model of ordered) {
     const payload = { model, temperature, messages };
     if (response_format) payload.response_format = response_format;
-    // Up to 2 attempts per model: a transient 429/5xx gets one quick retry
-    // before we give up on this model and move to the next one.
-    for (let attempt = 0; attempt < 2; attempt++) {
+    // A free-tier rate-limit (429) clears within a second or two, so retry the
+    // SAME model with growing backoff before giving up on it — falling straight
+    // through the whole list just burns every model's quota at once.
+    for (let attempt = 0; attempt < 3; attempt++) {
       let res, data;
       try {
         res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -47,8 +41,8 @@ async function groqComplete({ messages, temperature = 0.7, response_format }) {
         data = await res.json();
       } catch (e) {
         lastError = { error: { message: String(e?.message || e) } };
-        await sleep(300);
-        continue; // network blip → retry once, then next model
+        await sleep(400 * (attempt + 1));
+        continue; // network blip → retry this model
       }
       if (res.ok) {
         cachedGroqModel = model;
@@ -56,8 +50,8 @@ async function groqComplete({ messages, temperature = 0.7, response_format }) {
       }
       lastError = data;
       const msg = data?.error?.message || "";
-      // Rate limit or server error: retry this model once, then next model.
-      if (res.status === 429 || res.status >= 500) { await sleep(450); continue; }
+      // Rate limit or server error: wait (longer each time) and retry this model.
+      if (res.status === 429 || res.status >= 500) { await sleep(700 * (attempt + 1)); continue; }
       // Model unavailable → skip straight to the next model.
       if (/model|decommission|does not exist|not found|access/i.test(msg)) break;
       // Any other 4xx (bad request, auth): no point trying more models.

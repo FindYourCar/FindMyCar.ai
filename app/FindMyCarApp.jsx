@@ -2791,9 +2791,14 @@ useEffect(() => {
     let filteredListings = [];
 
     try {
-      // Context-aware extraction and the chat reply run in parallel.
+      // Halve the Groq load: the extractor (a second LLM call) only matters when
+      // the user might want to SEE listings. For ordinary advisory turns we skip
+      // it and rely on the client heuristic, which keeps free-tier rate headroom
+      // for the chat call and avoids 429s that drop us to the local fallback.
+      const maybeWantsListings = heuristic.wantsListings
+        || isAffirmativeReply(text) || prevWasListings || MAKE_REGEX.test(text);
       const [primaryIntent, chat] = await Promise.all([
-        extractSearchIntent(text, recentContext),
+        maybeWantsListings ? extractSearchIntent(text, recentContext) : Promise.resolve(null),
         hybridChatSend(updatedMsgs),
       ]);
       const replyText = chat?.text || "";

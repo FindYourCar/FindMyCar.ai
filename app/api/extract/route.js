@@ -4,8 +4,6 @@
 const GROQ_MODELS = [
   "llama-3.1-8b-instant",
   "openai/gpt-oss-20b",
-  "moonshotai/kimi-k2-instruct",
-  "qwen/qwen3-32b",
 ];
 let cachedGroqModel = null;
 
