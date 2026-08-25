@@ -6,7 +6,7 @@ import {
   Car, Zap, Fuel, Gauge, Users, DoorOpen, MapPin, Star, PlusCircle,
   ChevronDown, Globe, Filter, Info, Shield, MessageCircle,
   TrendingUp, Lightbulb, ThumbsUp, Mail, Send, Settings, LogIn, UserPlus,
-  Clock, History, Bookmark, Phone, MessageSquare, Plus, Trash2, FileText
+  Clock, History, Bookmark, Phone, MessageSquare, Plus, Trash2, FileText, Menu
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { CALC_DATA, calculateOwnership } from "@/lib/ownership";
@@ -3795,15 +3795,18 @@ useEffect(() => {
 
 function Nav({ setView, shortlist, compareList, setShowShortlist, setShowCompare, hasAccount, user, setShowAccountModal, setAuthModalMode, handleLogout, language, setShowLanguagePicker, chatSessions, setShowHistory, smoothScrollTo, smoothNavigate, t }) {
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  // Close the mobile menu after any action, so links/buttons dismiss it.
+  const closeMobile = () => setShowMobileMenu(false);
   // Smooth-scroll handlers for in-page anchors. The Cost Calculator is a
   // separate view, so it uses smoothNavigate. Everything else lives on the
   // home page as a section and gets scrolled to via smoothScrollTo.
-  const goDiscover = () => smoothScrollTo ? smoothScrollTo("home-top",      "home") : setView("home");
-  const goHow      = () => smoothScrollTo ? smoothScrollTo("home-how",      "home") : setView("about");
-  const goMarkets  = () => smoothScrollTo ? smoothScrollTo("home-markets",  "home") : setView("home");
-  const goShowroom = () => smoothScrollTo ? smoothScrollTo("home-showroom", "home") : setView("home");
-  const goWhy      = () => smoothScrollTo ? smoothScrollTo("home-why",      "home") : setView("home");
-  const goContact  = () => setView("contact");
+  const goDiscover = () => { closeMobile(); smoothScrollTo ? smoothScrollTo("home-top",      "home") : setView("home"); };
+  const goHow      = () => { closeMobile(); smoothScrollTo ? smoothScrollTo("home-how",      "home") : setView("about"); };
+  const goMarkets  = () => { closeMobile(); smoothScrollTo ? smoothScrollTo("home-markets",  "home") : setView("home"); };
+  const goShowroom = () => { closeMobile(); smoothScrollTo ? smoothScrollTo("home-showroom", "home") : setView("home"); };
+  const goWhy      = () => { closeMobile(); smoothScrollTo ? smoothScrollTo("home-why",      "home") : setView("home"); };
+  const goContact  = () => { closeMobile(); setView("contact"); };
 
   return (
     <nav className="sticky top-0 z-40 backdrop-blur-xl" style={{ background: "rgba(10,9,8,0.7)", borderBottom: "1px solid var(--border)" }}>
@@ -3857,7 +3860,7 @@ function Nav({ setView, shortlist, compareList, setShowShortlist, setShowCompare
           </button>
 
           {!user ? (
-            <div className="flex items-center gap-2">
+            <div className="hidden md:flex items-center gap-2">
               <button onClick={() => { setAuthModalMode("signup"); setShowAccountModal(true); }}
                 className="px-5 py-2 rounded-full text-sm btn-primary">
                 {t.nav.signup}
@@ -3896,8 +3899,46 @@ function Nav({ setView, shortlist, compareList, setShowShortlist, setShowCompare
               )}
             </div>
           )}
+
+          {/* Hamburger — mobile only */}
+          <button onClick={() => setShowMobileMenu((o) => !o)} aria-label="Menu"
+            className="md:hidden flex items-center justify-center w-10 h-10 rounded-full btn-ghost">
+            {showMobileMenu ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
         </div>
       </div>
+
+      {/* Mobile menu — nav links + language + auth */}
+      {showMobileMenu && (
+        <div className="md:hidden border-t px-6 py-4 space-y-1" style={{ borderColor: "var(--border)", background: "rgba(10,9,8,0.97)" }}>
+          {[[t.nav.discover, goDiscover], [t.nav.how, goHow], [t.nav.markets, goMarkets], [t.nav.showroom, goShowroom], [t.nav.why, goWhy], [t.nav.contact, goContact]].map(([label, fn]) => (
+            <button key={label} onClick={fn}
+              className="w-full text-left px-3 py-3 rounded-xl text-[15px] font-medium text-muted hover:text-[#f5f1ea] transition"
+              style={{ minHeight: 44 }}>
+              {label}
+            </button>
+          ))}
+          <div className="pt-2 mt-1 flex items-center gap-2" style={{ borderTop: "1px solid var(--border)" }}>
+            <button onClick={() => { closeMobile(); setShowLanguagePicker(true); }}
+              className="flex items-center gap-1.5 px-3 py-2.5 rounded-full text-sm btn-ghost" style={{ minHeight: 44 }}>
+              <Globe className="w-4 h-4" /> <span className="font-medium">{language}</span>
+              <ChevronDown className="w-3 h-3" />
+            </button>
+            {!user && (
+              <div className="flex items-center gap-2 ml-auto">
+                <button onClick={() => { closeMobile(); setAuthModalMode("login"); setShowAccountModal(true); }}
+                  className="text-sm text-muted hover:text-[#f5f1ea] transition px-2" style={{ minHeight: 44 }}>
+                  {t.nav.login}
+                </button>
+                <button onClick={() => { closeMobile(); setAuthModalMode("signup"); setShowAccountModal(true); }}
+                  className="px-4 py-2.5 rounded-full text-sm btn-primary" style={{ minHeight: 44 }}>
+                  {t.nav.signup}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </nav>
   );
 }
@@ -4234,8 +4275,8 @@ try {
                   <div className="font-display text-base font-semibold leading-tight">{t.chat.advisor}</div>
                   <div className="text-[11px] text-muted flex items-center gap-1.5">
                     <span className="text-emerald-400">●</span> {t.chat.online}
-                    <span className="mx-1">·</span>
-                    <Globe className="w-2.5 h-2.5" /> {t.chat.speaks}
+                    <span className="mx-1 hidden sm:inline">·</span>
+                    <span className="hidden sm:inline-flex items-center gap-1.5"><Globe className="w-2.5 h-2.5" /> {t.chat.speaks}</span>
                   </div>
                 </div>
               </div>
@@ -4656,11 +4697,13 @@ function ChatMessage({ message, country, openCar, shortlist, compareList, toggle
                 )}
               </div>
               {Array.isArray(c.specs) && c.specs.length > 0 && (
-                <div className="grid" style={{ gridTemplateColumns: `repeat(${Math.min(c.specs.length, 4)}, minmax(0,1fr))`, borderTop: "1px solid var(--border)", borderBottom: c.why?.length ? "1px solid var(--border)" : "none" }}>
+                // Each spec is its own box in an auto-fitting grid: wraps cleanly
+                // on narrow phones and never truncates the label.
+                <div className="grid gap-1.5 px-3 py-2.5" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(70px, 1fr))", borderTop: "1px solid var(--border)", borderBottom: c.why?.length ? "1px solid var(--border)" : "none" }}>
                   {c.specs.slice(0, 4).map((s, si) => (
-                    <div key={si} className="px-2 py-2.5 text-center" style={{ borderLeft: si ? "1px solid var(--border)" : "none" }}>
-                      <div className="text-[13px] font-bold text-white leading-tight">{s.value}</div>
-                      <div className="text-[8.5px] text-muted uppercase tracking-wide mt-0.5">{s.label}</div>
+                    <div key={si} className="text-center rounded-lg py-2 px-1" style={{ background: "rgba(245,241,234,0.03)" }}>
+                      <div className="text-[13px] font-bold text-white leading-tight break-words">{s.value}</div>
+                      <div className="text-[8.5px] text-muted uppercase tracking-wide mt-0.5 leading-tight break-words">{s.label}</div>
                     </div>
                   ))}
                 </div>

@@ -124,8 +124,9 @@ export default function CinematicIntro({ onDone, lang = "EN" }) {
         .fmc-gate-logo{display:flex;align-items:center;gap:10px}
         .fmc-gate-logo-w{font-family:'Fraunces',Georgia,serif;font-weight:600;font-size:20px;letter-spacing:-0.02em;color:#f9fafb}
         .fmc-gate-logo-w em{font-style:italic;color:#fbbf24}
-        .fmc-gate-mkts{font-family:ui-monospace,'JetBrains Mono',monospace;font-size:11px;letter-spacing:.18em;color:#8a8178;display:flex;align-items:center;gap:10px}
+        .fmc-gate-mkts{font-family:ui-monospace,'JetBrains Mono',monospace;font-size:11px;letter-spacing:.18em;color:#8a8178;display:flex;align-items:center;gap:10px;white-space:nowrap}
         .fmc-gate-mkts b{color:#cdc6bc;font-weight:500}
+        @media(max-width:560px){.fmc-gate-mkts{letter-spacing:.1em;gap:6px}.fmc-gate-mkts .mkts-tail{display:none}}
         .fmc-gate-content{position:relative;z-index:3;max-width:780px;padding:0 clamp(22px,4.5vw,56px) clamp(30px,5.5vh,64px);display:flex;flex-direction:column;gap:20px}
         .fmc-gate-badge{display:inline-flex;align-items:center;gap:9px;width:fit-content;background:rgba(10,9,8,0.55);border:1px solid rgba(251,191,36,0.22);border-radius:999px;padding:7px 16px;font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:#cdc6bc;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);animation:fmcGateUp .9s cubic-bezier(.16,1,.3,1) .45s both}
         .fmc-gate-pulse{display:inline-block;width:7px;height:7px;border-radius:50%;background:#34d399;box-shadow:0 0 10px rgba(52,211,153,0.6);animation:fmcPulse 2s ease-in-out infinite}
@@ -203,7 +204,7 @@ export default function CinematicIntro({ onDone, lang = "EN" }) {
           </svg>
           <span className="fmc-gate-logo-w">Find<em>My</em>Car</span>
         </div>
-        <div className="fmc-gate-mkts"><b>PL</b>·<b>UA</b><span>—</span><span>{tr("2 живі ринки", "2 live markets")}</span></div>
+        <div className="fmc-gate-mkts"><b>PL</b>·<b>UA</b><span className="mkts-tail">—</span><span className="mkts-tail">{tr("2 живі ринки", "2 live markets")}</span></div>
       </div>
 
       <div className="fmc-gate-content">
