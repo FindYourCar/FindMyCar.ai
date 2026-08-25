@@ -3224,6 +3224,8 @@ useEffect(() => {
           filter: blur(120px);
           pointer-events: none;
         }
+        /* Big blurred orbs are GPU-expensive; drop them on phones to stop jank. */
+        @media (max-width: 767px) { .glow-orb { display: none !important; } }
 
         /* Animations */
         @keyframes fadeUp { from { opacity: 0; transform: translateY(16px);} to { opacity: 1; transform: none; } }
@@ -3810,7 +3812,7 @@ function Nav({ setView, shortlist, compareList, setShowShortlist, setShowCompare
   const goContact  = () => { closeMobile(); setView("contact"); };
 
   return (
-    <nav className="sticky top-0 z-40 backdrop-blur-xl" style={{ background: "rgba(10,9,8,0.7)", borderBottom: "1px solid var(--border)" }}>
+    <nav className="sticky top-0 z-40 md:backdrop-blur-xl" style={{ background: "rgba(10,9,8,0.92)", borderBottom: "1px solid var(--border)" }}>
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
         <button onClick={goDiscover} className="flex items-center group">
           <Logo size={40} />
@@ -4032,7 +4034,9 @@ function Home({ messages, sendMessage, isTyping, startFreshChat, country, setCou
   // Crossfade rotation: every 10s, swap active/standby layers
   // Switch to the next video only when the current one ends.
   React.useEffect(() => {
-    if (!videoEnabled || videoError) return;
+    // Skip the video machinery entirely on phones — autoplaying, crossfading
+    // background video is the biggest source of mobile lag/battery drain.
+    if (!videoEnabled || videoError || isMobile) return;
     const activeRef = activeLayer === "A" ? vidRefA : vidRefB;
     const standbyRef = activeLayer === "A" ? vidRefB : vidRefA;
 
@@ -4047,7 +4051,7 @@ try {
     try {
       activeRef.current?.play?.().catch(() => {});
     } catch {}
-  }, [activeLayer, activeVidIdx, videoEnabled, videoError]);
+  }, [activeLayer, activeVidIdx, videoEnabled, videoError, isMobile]);
 
   // Video error handler — log the exact path that failed
   const handleVideoError = React.useCallback((e) => {
@@ -4108,7 +4112,7 @@ try {
         {/* ── Rotating video background — dual-layer crossfade ──
              ALL styles are INLINE so this works regardless of whether
              the <style> block's CSS classes are loaded by Next.js. */}
-        {videoEnabled && !videoError && (
+        {videoEnabled && !videoError && !isMobile && (
           <div
             data-debug="hero-video-container"
             style={{
@@ -4196,7 +4200,8 @@ try {
           <div className="glow-orb" style={{ width: 900, height: 500, top: 50, left: "50%", transform: "translateX(-50%)", background: "radial-gradient(ellipse, rgba(251,191,36,0.18), transparent 70%)", filter: "blur(80px)" }} />
         </div>
 
-        {/* ── Video toggle — FULLY inline styled, no CSS class dependency ── */}
+        {/* ── Video toggle — hidden on mobile (no background video there) ── */}
+        {!isMobile && (
         <button
           data-debug="hero-video-toggle"
           onClick={() => {
@@ -4248,6 +4253,7 @@ try {
             </>
           )}
         </button>
+        )}
 
         <div className={`relative mx-auto px-6 pt-12 pb-16 transition-all duration-700 ${hasChatStarted ? "max-w-7xl" : "max-w-5xl"}`}
           style={{ transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)", zIndex: 3 }}>
@@ -4378,8 +4384,10 @@ try {
                     onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } }}
                     placeholder={t.chat.placeholder}
                     rows={1}
-                    className="flex-1 bg-transparent outline-none resize-none py-1.5 text-sm"
-                    style={{ color: "#f5f1ea", maxHeight: 100 }}
+                    className="flex-1 bg-transparent outline-none resize-none py-1.5"
+                    // 16px font prevents iOS from auto-zooming (narrowing) the
+                    // screen when the field is focused.
+                    style={{ color: "#f5f1ea", maxHeight: 100, fontSize: 16 }}
                   />
                 </div>
                 <button onClick={onSend} disabled={!input.trim()}

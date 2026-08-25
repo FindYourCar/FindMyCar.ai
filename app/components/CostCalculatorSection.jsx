@@ -114,7 +114,7 @@ export default function CostCalculatorSection({ lang = "EN" }) {
         .calc-input-wrap{display:flex;align-items:center;background:rgba(10,9,8,.7);border:1px solid var(--border);border-radius:11px;overflow:hidden;transition:border-color .2s}
         .calc-input-wrap:focus-within{border-color:rgba(251,191,36,.45)}
         .calc-affix{padding:0 13px;color:var(--muted);font-size:14px;font-weight:600;flex-shrink:0;font-family:'Fraunces',Georgia,serif}
-        .calc-input-wrap input{flex:1;min-width:0;background:transparent;border:none;outline:none;color:var(--text);font-size:15px;font-family:inherit;padding:12px 13px 12px 0}
+        .calc-input-wrap input{flex:1;min-width:0;background:transparent;border:none;outline:none;color:var(--text);font-size:16px;font-family:inherit;padding:12px 13px 12px 0}
         .calc-input-wrap .calc-affix.suffix{padding:0 13px 0 6px}
 
         .calc-actions{display:flex;gap:12px;margin-top:24px;flex-wrap:wrap}
