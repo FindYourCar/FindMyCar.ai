@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   Search, Sparkles, Heart, GitCompare, ArrowRight, ArrowLeft, ArrowDown, Check, X,
   Car, Zap, Fuel, Gauge, Users, DoorOpen, MapPin, Star, PlusCircle,
@@ -4285,7 +4286,11 @@ try {
           </div>
 
           {/* CHAT MODULE — grows wider and taller after first message; on phones
-              it becomes a full-screen, native-feeling conversation. */}
+              it becomes a full-screen conversation. In that mode it is portaled
+              to <body> so the fixed overlay escapes the hero's stacking context
+              (z-indexed ancestors) and actually covers the nav. */}
+          {(() => {
+          const chatPanel = (
           <div className={chatFullscreen
               ? "fixed inset-0 z-[60] flex flex-col"
               : `card-static rounded-3xl overflow-hidden fade-up transition-all duration-700 ${hasChatStarted ? "mt-6" : "mt-8"}`}
@@ -4387,6 +4392,9 @@ try {
               </div>
             </div>
           </div>
+          );
+          return chatFullscreen ? createPortal(chatPanel, document.body) : chatPanel;
+          })()}
 
           {/* Quick starters */}
           {messages.length <= 1 && (
