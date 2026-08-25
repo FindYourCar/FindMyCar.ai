@@ -92,6 +92,7 @@ export default function CostCalculatorSection({ lang = "EN" }) {
     <section id="home-calculator" className="scroll-mt-24" style={{ borderTop: "1px solid var(--border)" }}>
       <style>{`
         .calc-wrap{max-width:1100px;margin:0 auto;padding:96px 24px}
+        @media(max-width:760px){.calc-wrap{padding:56px 16px}.calc-card{padding:20px 16px}.calc-head{margin-bottom:28px}}
         .calc-head{margin-bottom:40px}
         .calc-eyebrow{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:8px;margin-bottom:12px}
         .calc-eyebrow i{width:6px;height:6px;border-radius:50%;background:var(--amber);box-shadow:0 0 10px rgba(251,191,36,.7)}
