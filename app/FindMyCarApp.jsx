@@ -4717,43 +4717,43 @@ function ChatMessage({ message, country, openCar, shortlist, compareList, toggle
         <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg, #fbbf24, #92400e)" }}>
           <Sparkles className="w-3.5 h-3.5 text-stone-950" />
         </div>
-        <div className="flex-1 min-w-0 max-w-[92%] space-y-2">
+        <div className="flex-1 min-w-0 max-w-[95%] space-y-2.5">
           {cars.map((c, ci) => (
-            <div key={ci} className="rounded-2xl overflow-hidden chat-enter-assistant" style={{ background: "rgba(245,241,234,0.02)", border: "1px solid var(--border)", animationDelay: `${ci * 0.08}s` }}>
-              <div className="px-4 pt-3 pb-2.5 relative" style={{ background: "linear-gradient(180deg, rgba(245,179,1,0.12), rgba(0,0,0,0))" }}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="text-[15px] font-bold text-white leading-tight">{c.name}</div>
-                    {c.type && <div className="text-[11px] text-muted mt-0.5">{c.type}</div>}
-                  </div>
-                  {c.price && <span className="shrink-0 text-[11px] font-bold px-2 py-1 rounded-full" style={{ background: "#f5b301", color: "#1a1205" }}>{c.price}</span>}
+            <div key={ci} className="rounded-2xl overflow-hidden chat-enter-assistant" style={{ background: "linear-gradient(180deg, rgba(245,241,234,0.045), rgba(245,241,234,0.015))", border: "1px solid var(--border)", boxShadow: "0 8px 26px rgba(0,0,0,0.35)", animationDelay: `${ci * 0.08}s` }}>
+              {/* Header */}
+              <div className="px-4 pt-3.5 pb-3 relative" style={{ background: "linear-gradient(180deg, rgba(245,179,1,0.14), rgba(0,0,0,0))" }}>
+                <div className="absolute top-0 left-0 right-0 h-px" style={{ background: "linear-gradient(90deg, transparent, rgba(245,179,1,0.5), transparent)" }} />
+                <div className="flex items-start justify-between gap-3">
+                  <div className="font-display text-[17px] font-bold text-white leading-tight min-w-0">{c.name}</div>
+                  {c.price && <span className="shrink-0 text-[12px] font-bold px-2.5 py-1 rounded-full" style={{ background: "#f5b301", color: "#1a1205", whiteSpace: "nowrap" }}>{c.price}</span>}
                 </div>
+                {c.type && <div className="text-[11.5px] text-muted mt-1">{c.type}</div>}
                 {Array.isArray(c.badges) && c.badges.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-2">
+                  <div className="flex flex-wrap gap-1.5 mt-2.5">
                     {c.badges.map((b, bi) => (
-                      <span key={bi} className="text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded" style={{ background: "rgba(245,241,234,0.06)", color: "#f5f1ea", border: "1px solid var(--border)" }}>{b}</span>
+                      <span key={bi} className="text-[9.5px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full" style={{ background: "rgba(245,179,1,0.12)", color: "#f5b301", border: "1px solid rgba(245,179,1,0.25)" }}>{b}</span>
                     ))}
                   </div>
                 )}
               </div>
+              {/* Spec tiles — each a bordered stat box; wraps cleanly, never truncates */}
               {Array.isArray(c.specs) && c.specs.length > 0 && (
-                // Each spec is its own box in an auto-fitting grid: wraps cleanly
-                // on narrow phones and never truncates the label.
-                <div className="grid gap-1.5 px-3 py-2.5" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(70px, 1fr))", borderTop: "1px solid var(--border)", borderBottom: c.why?.length ? "1px solid var(--border)" : "none" }}>
+                <div className="grid gap-2 px-4 pb-3.5 pt-1" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(74px, 1fr))" }}>
                   {c.specs.slice(0, 4).map((s, si) => (
-                    <div key={si} className="text-center rounded-lg py-2 px-1" style={{ background: "rgba(245,241,234,0.03)" }}>
-                      <div className="text-[13px] font-bold text-white leading-tight break-words">{s.value}</div>
-                      <div className="text-[8.5px] text-muted uppercase tracking-wide mt-0.5 leading-tight break-words">{s.label}</div>
+                    <div key={si} className="text-center rounded-xl py-2.5 px-1.5" style={{ background: "rgba(245,241,234,0.04)", border: "1px solid var(--border)" }}>
+                      <div className="text-[14px] font-bold text-white leading-tight break-words" style={{ fontVariantNumeric: "tabular-nums" }}>{s.value}</div>
+                      <div className="text-[8.5px] text-muted uppercase tracking-wider mt-1 leading-tight break-words">{s.label}</div>
                     </div>
                   ))}
                 </div>
               )}
+              {/* Why it fits */}
               {Array.isArray(c.why) && c.why.length > 0 && (
-                <div className="px-4 py-2.5">
-                  <ul className="space-y-1">
+                <div className="px-4 pb-4 pt-1">
+                  <ul className="space-y-1.5">
                     {c.why.map((r, ri) => (
-                      <li key={ri} className="text-[12px] text-white/75 pl-4 relative leading-snug">
-                        <span className="absolute left-0" style={{ color: "#22c55e" }}>✓</span>{r}
+                      <li key={ri} className="text-[12.5px] text-white/80 pl-5 relative leading-snug">
+                        <span className="absolute left-0 top-0" style={{ color: "#22c55e" }}>✓</span>{r}
                       </li>
                     ))}
                   </ul>
