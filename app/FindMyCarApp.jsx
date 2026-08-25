@@ -1014,7 +1014,7 @@ const LANGUAGES = {
 
 const TRANSLATIONS = {
   EN: {
-    nav: { discover: "Discover", how: "How it works", calculator: "Cost Calculator", faq: "FAQ", contact: "Contact", signup: "Sign up", history: "Chat history" },
+    nav: { discover: "Discover", how: "How it works", home: "Home", markets: "Markets", showroom: "Showroom", why: "Why us", journey: "Journey", calculator: "Cost Calculator", faq: "FAQ", contact: "Contact", signup: "Sign up", login: "Log in", history: "Chat history" },
     hero: {
       badge: "AI advisor · Live in NL · BE · DE · PL",
       title1: "Talk to an AI advisor.",
@@ -1070,7 +1070,7 @@ const TRANSLATIONS = {
     },
   },
   UK: {
-    nav: { discover: "Огляд", how: "Як це працює", calculator: "Калькулятор витрат", faq: "Питання", contact: "Контакти", signup: "Реєстрація", history: "Історія чату" },
+    nav: { discover: "Огляд", how: "Як це працює", home: "Головна", markets: "Ринки", showroom: "Шоурум", why: "Чому ми", journey: "Подорож", calculator: "Калькулятор витрат", faq: "Питання", contact: "Контакти", signup: "Реєстрація", login: "Увійти", history: "Історія чату" },
     hero: {
       badge: "AI-радник · Україна та Європа",
       title1: "Поспілкуйтеся з AI-радником.",
@@ -1126,7 +1126,7 @@ const TRANSLATIONS = {
     },
   },
   NL: {
-    nav: { discover: "Ontdek", how: "Hoe het werkt", calculator: "Kostenberekening", faq: "FAQ", contact: "Contact", signup: "Aanmelden", history: "Chatgeschiedenis" },
+    nav: { discover: "Ontdek", how: "Hoe het werkt", home: "Home", markets: "Markten", showroom: "Showroom", why: "Waarom wij", journey: "Traject", calculator: "Kostenberekening", faq: "FAQ", contact: "Contact", signup: "Aanmelden", login: "Inloggen", history: "Chatgeschiedenis" },
     hero: {
       badge: "AI-adviseur · Live in NL · BE · DE · PL",
       title1: "Praat met een AI-adviseur.",
@@ -1182,7 +1182,7 @@ const TRANSLATIONS = {
     },
   },
   DE: {
-    nav: { discover: "Entdecken", how: "So funktioniert's", calculator: "Kostenrechner", faq: "FAQ", contact: "Kontakt", signup: "Anmelden", history: "Chatverlauf" },
+    nav: { discover: "Entdecken", how: "So funktioniert's", home: "Start", markets: "Märkte", showroom: "Showroom", why: "Warum wir", journey: "Ablauf", calculator: "Kostenrechner", faq: "FAQ", contact: "Kontakt", signup: "Anmelden", login: "Einloggen", history: "Chatverlauf" },
     hero: {
       badge: "KI-Berater · Live in NL · BE · DE · PL",
       title1: "Sprich mit einem KI-Berater.",
@@ -1238,7 +1238,7 @@ const TRANSLATIONS = {
     },
   },
   PL: {
-    nav: { discover: "Odkryj", how: "Jak to działa", calculator: "Kalkulator kosztów", faq: "FAQ", contact: "Kontakt", signup: "Zarejestruj się", history: "Historia czatów" },
+    nav: { discover: "Odkryj", how: "Jak to działa", home: "Główna", markets: "Rynki", showroom: "Showroom", why: "Dlaczego my", journey: "Ścieżka", calculator: "Kalkulator kosztów", faq: "FAQ", contact: "Kontakt", signup: "Zarejestruj się", login: "Zaloguj się", history: "Historia czatów" },
     hero: {
       badge: "Doradca AI · Działa w NL · BE · DE · PL",
       title1: "Porozmawiaj z doradcą AI.",
@@ -3741,9 +3741,9 @@ function Nav({ setView, shortlist, compareList, setShowShortlist, setShowCompare
         <div className="hidden md:flex items-center gap-1">
           <NavBtn onClick={goDiscover}>{t.nav.discover}</NavBtn>
           <NavBtn onClick={goHow}>{t.nav.how}</NavBtn>
-          <NavBtn onClick={goMarkets}>Markets</NavBtn>
-          <NavBtn onClick={goShowroom}>Showroom</NavBtn>
-          <NavBtn onClick={goWhy}>Why us</NavBtn>
+          <NavBtn onClick={goMarkets}>{t.nav.markets}</NavBtn>
+          <NavBtn onClick={goShowroom}>{t.nav.showroom}</NavBtn>
+          <NavBtn onClick={goWhy}>{t.nav.why}</NavBtn>
           <NavBtn onClick={goContact}>{t.nav.contact}</NavBtn>
         </div>
 
@@ -3790,7 +3790,7 @@ function Nav({ setView, shortlist, compareList, setShowShortlist, setShowCompare
               </button>
               <button onClick={() => { setAuthModalMode("login"); setShowAccountModal(true); }}
                 className="text-sm text-muted hover:text-[#f5f1ea] transition">
-                Log in
+                {t.nav.login}
               </button>
             </div>
           ) : (
@@ -4317,11 +4317,11 @@ try {
         }, []);
 
         const SPINE_ITEMS = [
-          { code: "home", label: "Home", flag: "✦", target: "home-top" },
-          { code: "markets", label: "Markets", flag: "◳", target: "home-markets" },
-          { code: "journey", label: "Journey", flag: "◈", target: "home-how" },
-          { code: "showroom", label: "Showroom", flag: "◇", target: "home-showroom" },
-          { code: "why", label: "Why us", flag: "◆", target: "home-why" },
+          { code: "home", label: t.nav.home, flag: "✦", target: "home-top" },
+          { code: "markets", label: t.nav.markets, flag: "◳", target: "home-markets" },
+          { code: "journey", label: t.nav.journey, flag: "◈", target: "home-how" },
+          { code: "showroom", label: t.nav.showroom, flag: "◇", target: "home-showroom" },
+          { code: "why", label: t.nav.why, flag: "◆", target: "home-why" },
         ];
 
         return (
