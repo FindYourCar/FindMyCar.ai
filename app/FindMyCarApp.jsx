@@ -789,13 +789,23 @@ function buildAutoScout24Url(make, model, country, options = {}) {
   return `https://www.${domain}${base}?${params.toString()}`;
 }
 const COUNTRIES = {
-  NL: { code: "NL", name: "Netherlands", flag: "🇳🇱", currency: "EUR" },
-  BE: { code: "BE", name: "Belgium", flag: "🇧🇪", currency: "EUR" },
-  DE: { code: "DE", name: "Germany", flag: "🇩🇪", currency: "EUR" },
+  // Hidden markets kept for architecture/extensibility — excluded from the UI
+  // via VISIBLE_MARKETS below. Never render these directly; iterate VISIBLE_MARKETS.
+  NL: { code: "NL", name: "Netherlands", flag: "🇳🇱", currency: "EUR", hidden: true },
+  BE: { code: "BE", name: "Belgium", flag: "🇧🇪", currency: "EUR", hidden: true },
+  DE: { code: "DE", name: "Germany", flag: "🇩🇪", currency: "EUR", hidden: true },
   PL: { code: "PL", name: "Poland", flag: "🇵🇱", currency: "PLN" },
+  UA: { code: "UA", name: "Ukraine", flag: "🇺🇦", currency: "UAH" },
 };
 // Ukrainian display names for the country pills (codes/logic stay unchanged).
-const COUNTRY_NAMES_UK = { NL: "Нідерланди", BE: "Бельгія", DE: "Німеччина", PL: "Польща" };
+const COUNTRY_NAMES_UK = { NL: "Нідерланди", BE: "Бельгія", DE: "Німеччина", PL: "Польща", UA: "Україна" };
+
+// ── SINGLE SOURCE OF TRUTH for user-facing markets ──────────────────────────
+// The only markets rendered anywhere in the UI (selector, cards, copy). Add or
+// reorder markets here; hidden-market data stays in COUNTRIES for extensibility.
+const VISIBLE_MARKETS = ["PL", "UA"];
+const DEFAULT_MARKET = "PL";
+const isVisibleMarket = (code) => VISIBLE_MARKETS.includes(code);
 
 /* ============================================================
    MARKET CHAPTERS — immersive per-country sections
@@ -880,23 +890,23 @@ const MARKET_ORDER = ["NL", "BE", "DE", "PL"];
 
 const LOCAL_CHAT_RESPONSES = {
   greeting: [
-    "Hey! 👋 I'm your FindMyCar advisor. I help people across the Netherlands, Belgium, Germany and Poland find cars that actually fit their life. What's on your mind?",
+    "Hey! 👋 I'm your FindMyCar advisor. I help people across Poland and Ukraine find cars that actually fit their life. What's on your mind?",
   ],
   unsure: [
     "No worries — that's the most common starting point. Let's figure it out together. What does your typical driving week look like? Short city trips, highway commuting, family runs?",
     "Totally fine! Most people feel the same. Let's start simple: are you replacing an old car, getting your first one, or just exploring?",
   ],
   budget_low: [
-    "Under €15k still gets you solid options. In NL, the Dacia Sandero or Toyota Yaris Hybrid. In Poland, that budget goes much further — you could get a well-equipped Škoda Octavia. Which market interests you?",
+    "Under €15k still gets you solid options — a well-equipped Škoda Octavia, a Toyota Yaris Hybrid, or a Dacia Sandero all fit, and value goes a long way in Poland. What matters most to you?",
   ],
   budget_mid: [
-    "€15–25k is the sweet spot. A VW Golf or Peugeot 2008 in NL, Kia Sportage hybrid in DE, or nearly-new BMW 3 Series in PL. What matters most — comfort, efficiency, or space?",
+    "€15–25k is the sweet spot — a VW Golf, a Kia Sportage hybrid, or a nearly-new BMW 3 Series are all in range. What matters most — comfort, efficiency, or space?",
   ],
   budget_high: [
-    "With €25k+, you're in premium territory. Germany has the deepest selection — Audi A4, BMW 3 Series, Volvo XC60. NL has great EVs at this range. What's your priority?",
+    "With €25k+, you're in premium territory — Audi A4, BMW 3 Series, Volvo XC60 are all in reach. What's your priority: comfort, efficiency, or driving feel?",
   ],
   ev: [
-    "For EVs, the Netherlands leads — highest charging density and zero road tax on electrics. Renault Zoe (~€14.5k), VW ID.3 for families (~€32k), or Tesla Model 3 for range (~€39k). Poland's charging network is still growing.",
+    "For EVs, look at the Renault Zoe (~€14.5k), VW ID.3 for families (~€32k), or Tesla Model 3 for range (~€39k). EV interest and charging keep growing across the region. Range or price — what matters more?",
   ],
   family: [
     "For families, boot space and safety matter most. Škoda Octavia Combi has one of the biggest boots. Kia Sportage offers 7-year warranty. Need 7 seats? Seat Tarraco or Citroën Berlingo. How many kids?",
@@ -907,14 +917,12 @@ const LOCAL_CHAT_RESPONSES = {
   highway: [
     "For highway comfort, the VW Passat Variant is a natural cruiser. BMW 3 Series if you enjoy driving. Škoda Octavia 2.0 TDI for diesel efficiency on long runs. How far do you typically drive?",
   ],
-  nl: ["The Dutch market is fascinating — highest EV adoption in mainland Europe, brutal diesel road tax (€800+/year for mid-size). Hybrid or electric makes financial sense here. Toyota Yaris Hybrid and VW Golf are best sellers for good reason. What's your situation?"],
-  de: ["Germany is Europe's deepest car market. TÜV inspections mean better histories. Premium brands are priced more competitively here. Stuttgart and Munich are the sweet spots for premium. What segment interests you?"],
-  be: ["Belgium is the cross-border champion. Your position between FR, DE and NL means you can compare across borders. Brussels and Antwerp have the most diverse networks. What are you looking for?"],
-  pl: ["Poland is the value play. No road tax, lower maintenance, and strong German imports. Warsaw and Poznań have the best selection. Looking at new or used?"],
+  ua: ["Ukraine's market is fast-moving and import-led — AUTO.RIA is the place to look, and EV interest is rising. Are you after new or used, and what's your rough budget?"],
+  pl: ["Poland is the value play — no road tax, lower maintenance, and strong imported supply. Warsaw and Poznań have the best selection. Looking at new or used?"],
   reliability: ["Toyota and Honda lead reliability — Yaris and Jazz hybrids are almost unkillable. Kia/Hyundai offer 7-year warranties. What's your tolerance for maintenance?"],
   compare: ["Good comparison. The real question isn't specs — it's which fits your daily life. I can break it down by running costs, reliability, and usability. Want me to do that?"],
   fallback: [
-    "Great question. Across our four markets (NL, BE, DE, PL), the answer varies by local conditions. Can you tell me more about your situation?",
+    "Great question. Across our markets (Poland and Ukraine), the answer varies by local conditions. Can you tell me more about your situation?",
     "I can help with that. Which country are you in (or considering), and what's your rough budget?",
   ],
 };
@@ -945,15 +953,13 @@ function generateLocalChatResponse(text, history) {
 
   // Privacy
   if (/who (made|built|created|owns?|founded)|founder|ceo|system prompt|what (ai|llm)|anthropic|openai|groq/.test(t))
-    return "I'm FindMyCar — an AI car discovery assistant for Europe. I help you explore, compare, and find the right car across NL, BE, DE and PL. What kind of car interests you?";
+    return "I'm FindMyCar — an AI car discovery assistant. I help you explore, compare, and find the right car across Poland and Ukraine. What kind of car interests you?";
 
   if (/^(hi|hey|hello|hallo|yo|sup)[\s!.]*$/i.test(t)) return pick(R.greeting);
   if (/no (idea|clue)|don'?t know|not sure|help me|where.{0,10}start|first (car|time)/.test(t)) return pick(R.unsure);
 
-  if (/netherland|dutch|amsterdam|rotterdam|nl\b|holland/.test(t)) return pick(R.nl);
-  if (/germany|german|berlin|munich|frankfurt|autobahn|de\b/.test(t)) return pick(R.de);
-  if (/belgium|belgian|brussels|antwerp|be\b/.test(t)) return pick(R.be);
-  if (/poland|polish|warsaw|poznan|pl\b|zloty/.test(t)) return pick(R.pl);
+  if (/ukrain|kyiv|kiev|lviv|odesa|odessa|dnipro|auto.?ria|ua\b|hryvnia/.test(t)) return pick(R.ua);
+  if (/poland|polish|warsaw|poznan|krakow|pl\b|zloty|zlotych/.test(t)) return pick(R.pl);
 
   if (/electric|ev\b|charging|battery/.test(t)) return pick(R.ev);
   if (/famil|kids|child|boot space|7.?seat/.test(t)) return pick(R.family);
@@ -973,10 +979,17 @@ function generateLocalChatResponse(text, history) {
 // with a short message plus optional car cards and tappable answer chips, so the
 // UI can show a spec-card "анкета" instead of a wall of text — while the LLM
 // stays fully adaptive. Falls back to a local text-only reply if the API fails.
-async function hybridChatSend(messages) {
-  const payload = JSON.stringify({ messages: messages
-    .filter(m => m && typeof m.content === "string" && m.content.trim())
-    .map(m => ({ role: m.role, content: m.content })) });
+async function hybridChatSend(messages, opts = {}) {
+  const payload = JSON.stringify({
+    messages: messages
+      .filter(m => m && typeof m.content === "string" && m.content.trim())
+      .map(m => ({ role: m.role, content: m.content })),
+    // Language state so the advisor replies in the active UI language and
+    // confirms a switch at most once (never repeats "I can speak X").
+    activeLanguage: opts.activeLanguage || "EN",
+    languageJustSwitched: !!opts.languageJustSwitched,
+    activeMarket: opts.activeMarket || null,
+  });
   // Try the API up to three times (a transient free-tier rate-limit can 500 a
   // couple of times) with growing backoff before dropping to the local reply,
   // so the chat rarely loses context.
@@ -1015,11 +1028,30 @@ const LANGUAGES = {
   PL: { code: "PL", name: "Polski", flag: "🇵🇱" },
 };
 
+// Confidence-guarded UI-language switch: returns a supported language code only
+// when the message is a CLEAR signal (distinctive script/chars, an explicit
+// "in <language>" request, or ≥3 words that resolve to a language) AND it differs
+// from the current one. Short/ambiguous messages (a name, a brand, "ok") → null,
+// so the interface never flips on an accidental word.
+function detectUiLanguageSwitch(text, current) {
+  const raw = (text || "").trim();
+  if (!raw) return null;
+  const low = raw.toLowerCase();
+  const words = raw.split(/\s+/).filter(Boolean).length;
+  const distinctive =
+    /[іїєґ]/i.test(raw) || /[Ѐ-ӿ]/.test(raw) || /[ąćęłńóśźż]/i.test(raw) || /[äöüß]/i.test(raw) ||
+    /\b(in english|po polsku|auf deutsch|in het nederlands|englisch|deutsch|nederlands|polski|polsku|ukrainian|українською|українськ|po ukrain)\b/.test(low);
+  if (!distinctive && words < 3) return null; // too short / ambiguous
+  const d = detectLanguage(raw, null);
+  if (!d || !LANGUAGES[d]) return null;       // only supported UI languages
+  return d !== current ? d : null;
+}
+
 const TRANSLATIONS = {
   EN: {
     nav: { discover: "Discover", how: "How it works", home: "Home", markets: "Markets", showroom: "Showroom", why: "Why us", journey: "Journey", calculator: "Cost Calculator", faq: "FAQ", contact: "Contact", signup: "Sign up", login: "Log in", history: "Chat history" },
     hero: {
-      badge: "AI advisor · Live in NL · BE · DE · PL",
+      badge: "AI advisor · Live in PL · UA",
       title1: "Talk to an AI advisor.",
       title2: "Find the right car in minutes.",
       sub: "Chat naturally with our advisor — like talking to a friend who happens to know cars. We'll guide you to the right model, then show you offers.",
@@ -1028,10 +1060,10 @@ const TRANSLATIONS = {
     chat: {
       advisor: "FindMyCar Advisor",
       online: "Online",
-      speaks: "Speaks EN · NL · DE · PL",
+      speaks: "Speaks EN · UK · PL · DE · NL",
       newChat: "New chat",
       placeholder: "Message your advisor…",
-      remember: "Your advisor remembers the conversation for 10 days · Available in 4 languages",
+      remember: "Your advisor remembers the conversation for 10 days · Available in 5 languages",
       tryThese: "Or try one of these",
       starters: [
         "I need a family car for under €20,000",
@@ -1050,7 +1082,7 @@ const TRANSLATIONS = {
     trust: {
       t1t: "Honest & unbiased", t1d: "We don't take kickbacks.",
       t2t: "Plain language", t2d: "No car jargon needed.",
-      t3t: "4 countries", t3d: "NL, BE, DE, PL.",
+      t3t: "2 markets", t3d: "PL, UA.",
       t4t: "Model-first", t4d: "Pick the car, then see offers.",
     },
     faq: {
@@ -1058,9 +1090,9 @@ const TRANSLATIONS = {
       items: [
         { q: "How is this different from other car websites?", a: "Other sites are built for people who already know what car they want. We recommend models first based on what you actually need — then show you offers only after you've picked a model." },
         { q: "Is FindMyCar free to use?", a: "Yes, completely free. We don't charge users anything, and we don't take commissions on sales." },
-        { q: "Where do your listings come from?", a: "In this prototype, listings are sample data. In the live product, they'll come from partner dealer feeds and private listings across NL, BE, DE and PL." },
+        { q: "Where do your listings come from?", a: "In this prototype, listings are sample data. In the live product, they'll come from partner dealer feeds and private listings across Poland and Ukraine." },
         { q: "Do I need an account?", a: "No — you can browse and search freely. After a few searches we'll suggest creating one so you can save your shortlist and search history across devices." },
-        { q: "Which countries do you support?", a: "Netherlands, Belgium, Germany and Poland at launch. France and others will follow." },
+        { q: "Which countries do you support?", a: "Poland and Ukraine at launch. More markets will follow." },
         { q: "How accurate are your recommendations?", a: "Our AI parses your description and matches it to car models based on body type, fuel, price, and common use cases. It's guidance, not gospel — always test-drive before you buy." },
       ],
     },
@@ -1069,13 +1101,13 @@ const TRANSLATIONS = {
       tagline: "The friendliest way to find your next car. Built for Europe — honest, AI-guided, and always on your side.",
       quickLinks: "Quick Links", contact: "Contact", legal: "Legal",
       copy: "© 2026 FindMyCar · Automotive Intelligence Platform",
-      countries: "Available in 4 countries",
+      countries: "Available in 2 markets",
     },
   },
   UK: {
     nav: { discover: "Огляд", how: "Як це працює", home: "Головна", markets: "Ринки", showroom: "Шоурум", why: "Чому ми", journey: "Подорож", calculator: "Калькулятор витрат", faq: "Питання", contact: "Контакти", signup: "Реєстрація", login: "Увійти", history: "Історія чату" },
     hero: {
-      badge: "AI-радник · Україна та Європа",
+      badge: "AI-радник · Працює в PL · UA",
       title1: "Поспілкуйтеся з AI-радником.",
       title2: "Знайдіть потрібне авто за лічені хвилини.",
       sub: "Спілкуйтеся з радником природно — як із другом, що знається на авто. Ми допоможемо підібрати правильну модель, а потім покажемо пропозиції.",
@@ -1106,7 +1138,7 @@ const TRANSLATIONS = {
     trust: {
       t1t: "Чесно й неупереджено", t1d: "Ми не беремо відкатів.",
       t2t: "Проста мова", t2d: "Без автомобільного жаргону.",
-      t3t: "Європа + Україна", t3d: "UA, NL, BE, DE, PL.",
+      t3t: "2 ринки", t3d: "PL, UA.",
       t4t: "Спершу модель", t4d: "Оберіть авто, потім дивіться пропозиції.",
     },
     faq: {
@@ -1125,13 +1157,13 @@ const TRANSLATIONS = {
       tagline: "Найдружніший спосіб знайти наступне авто. Створено для Європи й України — чесно, за допомогою AI і завжди на вашому боці.",
       quickLinks: "Швидкі посилання", contact: "Контакти", legal: "Правова інформація",
       copy: "© 2026 FindMyCar · Платформа автомобільного інтелекту",
-      countries: "Доступно в кількох країнах",
+      countries: "Доступно на 2 ринках",
     },
   },
   NL: {
     nav: { discover: "Ontdek", how: "Hoe het werkt", home: "Home", markets: "Markten", showroom: "Showroom", why: "Waarom wij", journey: "Traject", calculator: "Kostenberekening", faq: "FAQ", contact: "Contact", signup: "Aanmelden", login: "Inloggen", history: "Chatgeschiedenis" },
     hero: {
-      badge: "AI-adviseur · Live in NL · BE · DE · PL",
+      badge: "AI-adviseur · Actief in PL · UA",
       title1: "Praat met een AI-adviseur.",
       title2: "Vind de juiste auto in minuten.",
       sub: "Chat natuurlijk met onze adviseur — alsof je met een vriend praat die toevallig veel van auto's weet. Wij leiden je naar het juiste model en tonen daarna pas aanbiedingen.",
@@ -1140,10 +1172,10 @@ const TRANSLATIONS = {
     chat: {
       advisor: "FindMyCar Adviseur",
       online: "Online",
-      speaks: "Spreekt EN · NL · DE · PL",
+      speaks: "Spreekt EN · UK · PL · DE · NL",
       newChat: "Nieuwe chat",
       placeholder: "Stuur een bericht aan je adviseur…",
-      remember: "Je adviseur onthoudt het gesprek 10 dagen · Beschikbaar in 4 talen",
+      remember: "Je adviseur onthoudt het gesprek 10 dagen · Beschikbaar in 5 talen",
       tryThese: "Of probeer er een",
       starters: [
         "Ik zoek een gezinsauto onder de €20.000",
@@ -1162,7 +1194,7 @@ const TRANSLATIONS = {
     trust: {
       t1t: "Eerlijk & onpartijdig", t1d: "Wij nemen geen commissies.",
       t2t: "Begrijpelijke taal", t2d: "Geen autojargon nodig.",
-      t3t: "4 landen", t3d: "NL, BE, DE, PL.",
+      t3t: "2 markten", t3d: "PL, UA.",
       t4t: "Model eerst", t4d: "Kies de auto, zie dan aanbiedingen.",
     },
     faq: {
@@ -1170,7 +1202,7 @@ const TRANSLATIONS = {
       items: [
         { q: "Hoe verschilt dit van andere autosites?", a: "Andere sites zijn voor mensen die al weten welke auto ze willen. Wij raden eerst modellen aan op basis van wat je nodig hebt — en tonen pas daarna aanbiedingen." },
         { q: "Is FindMyCar gratis?", a: "Ja, helemaal gratis. We rekenen niets aan gebruikers en nemen geen commissie." },
-        { q: "Waar komen jullie aanbiedingen vandaan?", a: "In dit prototype zijn aanbiedingen voorbeelddata. In het live product komen ze van dealerpartners en particuliere advertenties in NL, BE, DE en PL." },
+        { q: "Waar komen jullie aanbiedingen vandaan?", a: "In dit prototype zijn aanbiedingen voorbeelddata. In het live product komen ze van dealerpartners en particuliere advertenties in Polen en Oekraïne." },
         { q: "Heb ik een account nodig?", a: "Nee — je kunt vrij browsen en zoeken. Na enkele zoekopdrachten stellen we voor er een aan te maken." },
         { q: "Welke landen ondersteunen jullie?", a: "Nederland, België, Duitsland en Polen bij de lancering. Frankrijk en anderen volgen." },
         { q: "Hoe nauwkeurig zijn jullie aanbevelingen?", a: "Onze AI analyseert je beschrijving en koppelt deze aan automodellen. Het is begeleiding, geen evangelie — proefrijden blijft belangrijk." },
@@ -1181,13 +1213,13 @@ const TRANSLATIONS = {
       tagline: "De vriendelijkste manier om je volgende auto te vinden. Gebouwd voor Europa — eerlijk, AI-gestuurd, altijd aan jouw kant.",
       quickLinks: "Snelkoppelingen", contact: "Contact", legal: "Juridisch",
       copy: "© 2026 FindMyCar · Automotive Intelligence Platform",
-      countries: "Beschikbaar in 4 landen",
+      countries: "Beschikbaar in 2 markten",
     },
   },
   DE: {
     nav: { discover: "Entdecken", how: "So funktioniert's", home: "Start", markets: "Märkte", showroom: "Showroom", why: "Warum wir", journey: "Ablauf", calculator: "Kostenrechner", faq: "FAQ", contact: "Kontakt", signup: "Anmelden", login: "Einloggen", history: "Chatverlauf" },
     hero: {
-      badge: "KI-Berater · Live in NL · BE · DE · PL",
+      badge: "KI-Berater · Aktiv in PL · UA",
       title1: "Sprich mit einem KI-Berater.",
       title2: "Finde das richtige Auto in Minuten.",
       sub: "Chatte natürlich mit unserem Berater — wie mit einem Freund, der zufällig viel über Autos weiß. Wir führen dich zum richtigen Modell und zeigen dann Angebote.",
@@ -1196,10 +1228,10 @@ const TRANSLATIONS = {
     chat: {
       advisor: "FindMyCar Berater",
       online: "Online",
-      speaks: "Spricht EN · NL · DE · PL",
+      speaks: "Spricht EN · UK · PL · DE · NL",
       newChat: "Neuer Chat",
       placeholder: "Nachricht an deinen Berater…",
-      remember: "Dein Berater erinnert sich 10 Tage an das Gespräch · Verfügbar in 4 Sprachen",
+      remember: "Dein Berater erinnert sich 10 Tage an das Gespräch · Verfügbar in 5 Sprachen",
       tryThese: "Oder probiere eines davon",
       starters: [
         "Ich brauche ein Familienauto unter 20.000 €",
@@ -1218,7 +1250,7 @@ const TRANSLATIONS = {
     trust: {
       t1t: "Ehrlich & unparteiisch", t1d: "Wir nehmen keine Provisionen.",
       t2t: "Klare Sprache", t2d: "Kein Auto-Fachjargon nötig.",
-      t3t: "4 Länder", t3d: "NL, BE, DE, PL.",
+      t3t: "2 Märkte", t3d: "PL, UA.",
       t4t: "Modell zuerst", t4d: "Wähle das Auto, dann die Angebote.",
     },
     faq: {
@@ -1226,7 +1258,7 @@ const TRANSLATIONS = {
       items: [
         { q: "Wie unterscheidet sich das von anderen Auto-Websites?", a: "Andere Seiten sind für Leute, die schon wissen, was sie wollen. Wir empfehlen zuerst Modelle auf Grundlage deiner Bedürfnisse." },
         { q: "Ist FindMyCar kostenlos?", a: "Ja, komplett kostenlos. Wir berechnen Nutzern nichts und nehmen keine Provisionen." },
-        { q: "Woher kommen eure Angebote?", a: "Im Prototyp sind die Angebote Beispieldaten. Im Live-Produkt von Händler-Partnern und Privatanzeigen in NL, BE, DE und PL." },
+        { q: "Woher kommen eure Angebote?", a: "Im Prototyp sind die Angebote Beispieldaten. Im Live-Produkt von Händler-Partnern und Privatanzeigen in Polen und der Ukraine." },
         { q: "Brauche ich ein Konto?", a: "Nein — du kannst frei stöbern. Nach einigen Suchen schlagen wir vor, eines zu erstellen." },
         { q: "Welche Länder unterstützt ihr?", a: "Niederlande, Belgien, Deutschland und Polen zum Start. Frankreich und andere folgen." },
         { q: "Wie genau sind eure Empfehlungen?", a: "Unsere KI analysiert deine Beschreibung. Es ist Orientierung, kein Evangelium — Probefahrten bleiben wichtig." },
@@ -1237,13 +1269,13 @@ const TRANSLATIONS = {
       tagline: "Der freundlichste Weg, dein nächstes Auto zu finden. Gebaut für Europa — ehrlich, KI-geführt, immer auf deiner Seite.",
       quickLinks: "Schnellzugriff", contact: "Kontakt", legal: "Rechtliches",
       copy: "© 2026 FindMyCar · Automotive Intelligence Platform",
-      countries: "In 4 Ländern verfügbar",
+      countries: "In 2 Märkten verfügbar",
     },
   },
   PL: {
     nav: { discover: "Odkryj", how: "Jak to działa", home: "Główna", markets: "Rynki", showroom: "Showroom", why: "Dlaczego my", journey: "Ścieżka", calculator: "Kalkulator kosztów", faq: "FAQ", contact: "Kontakt", signup: "Zarejestruj się", login: "Zaloguj się", history: "Historia czatów" },
     hero: {
-      badge: "Doradca AI · Działa w NL · BE · DE · PL",
+      badge: "Doradca AI · Działa w PL · UA",
       title1: "Porozmawiaj z doradcą AI.",
       title2: "Znajdź odpowiedni samochód w kilka minut.",
       sub: "Rozmawiaj naturalnie z naszym doradcą — jak z przyjacielem, który zna się na samochodach. Pokierujemy Cię do właściwego modelu, a potem pokażemy oferty.",
@@ -1252,10 +1284,10 @@ const TRANSLATIONS = {
     chat: {
       advisor: "Doradca FindMyCar",
       online: "Online",
-      speaks: "Mówi EN · NL · DE · PL",
+      speaks: "Mówi EN · UK · PL · DE · NL",
       newChat: "Nowy czat",
       placeholder: "Napisz do doradcy…",
-      remember: "Twój doradca pamięta rozmowę przez 10 dni · Dostępny w 4 językach",
+      remember: "Twój doradca pamięta rozmowę przez 10 dni · Dostępny w 5 językach",
       tryThese: "Lub wypróbuj jedno z tych",
       starters: [
         "Potrzebuję rodzinnego auta poniżej 20 000 €",
@@ -1274,7 +1306,7 @@ const TRANSLATIONS = {
     trust: {
       t1t: "Uczciwie i bezstronnie", t1d: "Nie bierzemy prowizji.",
       t2t: "Prosty język", t2d: "Bez żargonu motoryzacyjnego.",
-      t3t: "4 kraje", t3d: "NL, BE, DE, PL.",
+      t3t: "2 rynki", t3d: "PL, UA.",
       t4t: "Najpierw model", t4d: "Wybierz auto, potem oferty.",
     },
     faq: {
@@ -1282,7 +1314,7 @@ const TRANSLATIONS = {
       items: [
         { q: "Czym to się różni od innych stron z samochodami?", a: "Inne strony są dla osób, które już wiedzą, czego chcą. My najpierw polecamy modele na podstawie Twoich potrzeb." },
         { q: "Czy FindMyCar jest darmowe?", a: "Tak, całkowicie darmowe. Nic nie pobieramy od użytkowników i nie bierzemy prowizji." },
-        { q: "Skąd pochodzą oferty?", a: "W prototypie to dane przykładowe. W produkcie końcowym pochodzą od partnerów dealerskich i ofert prywatnych w NL, BE, DE i PL." },
+        { q: "Skąd pochodzą oferty?", a: "W prototypie to dane przykładowe. W produkcie końcowym pochodzą od partnerów dealerskich i ofert prywatnych w Polsce i Ukrainie." },
         { q: "Czy potrzebuję konta?", a: "Nie — możesz swobodnie przeglądać. Po kilku wyszukiwaniach zaproponujemy utworzenie konta." },
         { q: "Jakie kraje obsługujecie?", a: "Holandia, Belgia, Niemcy i Polska na start. Francja i inne wkrótce." },
         { q: "Jak dokładne są rekomendacje?", a: "AI analizuje Twój opis. To wskazówki, nie wyrocznia — jazda próbna pozostaje ważna." },
@@ -1293,7 +1325,7 @@ const TRANSLATIONS = {
       tagline: "Najprzyjaźniejszy sposób na znalezienie kolejnego auta. Stworzony dla Europy — uczciwie, z pomocą AI, zawsze po Twojej stronie.",
       quickLinks: "Szybkie linki", contact: "Kontakt", legal: "Prawne",
       copy: "© 2026 FindMyCar · Automotive Intelligence Platform",
-      countries: "Dostępne w 4 krajach",
+      countries: "Dostępne na 2 rynkach",
     },
   },
 };
@@ -1622,7 +1654,7 @@ const EXAMPLE_PROMPTS = {
     "How much does an EV really cost to run?",
   ],
   "Market Research": [
-    "What can I get for €10,000 in the Netherlands?",
+    "What can I get for €10,000 in Poland?",
     "Show me the breakdown by fuel type",
     "Which cars hold their value best?",
   ],
@@ -1683,8 +1715,9 @@ function recommendCars(query, filters = {}) {
 }
 
 function formatPrice(amount, country) {
-  const c = COUNTRIES[country] || COUNTRIES.NL;
+  const c = COUNTRIES[country] || COUNTRIES[DEFAULT_MARKET];
   if (c.currency === "PLN") return `${Math.round(amount * 4.35).toLocaleString("pl-PL")} zł`;
+  if (c.currency === "UAH") return `${Math.round(amount * 45).toLocaleString("uk-UA")} ₴`;
   return `€${amount.toLocaleString("en-EU")}`;
 }
 
@@ -1705,6 +1738,12 @@ function formatPrice(amount, country) {
 function detectLanguage(text, fallback = "EN") {
   const t = (text || "").toLowerCase();
   if (!t.trim()) return fallback;
+
+  // Distinctive Ukrainian letters + any Cyrillic → Ukrainian (the only Cyrillic
+  // market), checked before the Latin scripts.
+  if (/[іїєґ]/.test(t)) return "UK";
+  if (/[Ѐ-ӿ]/.test(text || "")) return "UK";
+  if (/(in |po |na )?(ukrainian|ukrainisch|українськ|ukrain)/i.test(t)) return "UK";
 
   // Distinctive Polish characters
   if (/[ąćęłńóśźż]/.test(t)) return "PL";
@@ -2385,8 +2424,11 @@ export default function App() {
   const [listingMaxPrice, setListingMaxPrice] = useState(null);
   const [listingQuery, setListingQuery] = useState("");
   const [view, setView] = useState("home");
-  const [country, setCountry] = useState("NL");
+  const [country, setCountry] = useState(DEFAULT_MARKET);
   const [language, setLanguage] = useState("EN");
+  // True once we've confirmed a language switch to the user, so the advisor never
+  // repeats "I can speak X". Persists for the session.
+  const [languageConfirmed, setLanguageConfirmed] = useState(false);
   const [authUser, setAuthUser] = useState(null);
   const [authModalMode, setAuthModalMode] = useState("signup");
   const [toast, setToast] = useState({ type: "", message: "", visible: false });
@@ -2650,7 +2692,11 @@ useEffect(() => {
       const minYear      = r.year_min     || r.minYear  || null;
       const maxBudget    = r.budget_max   || r.maxPrice || null;
       const maxMileage   = r.mileage_max  || r.maxMileage || null;
-      const resolvedCountry = r.country   || r.detectedCountry || country;
+      // Clamp to a visible market (Poland/Ukraine). Even if the extractor parsed
+      // a hidden country from free text, we never build a hidden-market search —
+      // Poland is the default. VISIBLE_MARKETS is the single source of truth.
+      const requestedCountry = r.country || r.detectedCountry || country;
+      const resolvedCountry = isVisibleMarket(requestedCountry) ? requestedCountry : DEFAULT_MARKET;
       const level        = r.level        || null;
       const fallbackReason = r.fallbackReason || null;
 
@@ -2773,6 +2819,18 @@ useEffect(() => {
     const turn = chatTurn + 1;
     setChatTurn(turn);
 
+    // Automatic language detection: on a clear signal in a supported language
+    // different from the current one, switch the whole UI (and the selector,
+    // which reads `language`) and continue in that language. Short/ambiguous
+    // messages return null and never flip the interface.
+    const switched = detectUiLanguageSwitch(text, language);
+    const activeLanguage = switched || language;
+    const languageJustSwitched = Boolean(switched);
+    if (switched) {
+      setLanguage(switched);
+      setLanguageConfirmed(false); // allow exactly one confirmation of the new language
+    }
+
     // Intent gating: prefer the LLM's structured judgment — it classifies intent
     // AND resolves references like "yes please" / "give me listings" using the
     // conversation. The deterministic classifier + heuristics stay as a fallback
@@ -2799,8 +2857,15 @@ useEffect(() => {
         || isAffirmativeReply(text) || prevWasListings || MAKE_REGEX.test(text);
       const [primaryIntent, chat] = await Promise.all([
         maybeWantsListings ? extractSearchIntent(text, recentContext) : Promise.resolve(null),
-        hybridChatSend(updatedMsgs),
+        hybridChatSend(updatedMsgs, {
+          activeLanguage,
+          // Confirm a switch at most once per new language, then never again.
+          languageJustSwitched: languageJustSwitched && !languageConfirmed,
+          activeMarket: country,
+        }),
       ]);
+      // We've now delivered (at most) one confirmation of the new language.
+      if (languageJustSwitched) setLanguageConfirmed(true);
       const replyText = chat?.text || "";
       const advisorCars = Array.isArray(chat?.cars) ? chat.cars : [];
       const advisorChips = Array.isArray(chat?.chips) ? chat.chips : [];
@@ -2842,7 +2907,7 @@ useEffect(() => {
         if (hasParsedIntent) {
           filteredListings = getVisibleListings({ ...intent, level, fallbackReason, rawText: text, rawMake: intentRaw.make, rawModel: intentRaw.model });
           listingReply = filteredListings.length > 0
-            ? safeListingReply(filteredListings[0]?.country || intent.country || "NL")
+            ? safeListingReply(filteredListings[0]?.country || intent.country || DEFAULT_MARKET)
             : "I couldn't build a search from that request. Try naming a make, model, budget, mileage or country.";
         } else {
           listingReply = "I couldn't understand that listing request. Try including a make, model, year, price, or mileage.";
@@ -2868,7 +2933,7 @@ useEffect(() => {
       const bubbleChips = (!isListingRequest && advisorCars.length === 0 && advisorChips.length > 0) ? advisorChips : undefined;
       setMessages(m => [...m, {
         role: "assistant", kind: "text", content: textContent, animate: true,
-        lang: language, mode: "advisor", chips: bubbleChips,
+        lang: activeLanguage, mode: "advisor", chips: bubbleChips,
       }]);
       if (isListingRequest) {
         const revealMs = estimateRevealMs(textContent);
@@ -2900,7 +2965,7 @@ useEffect(() => {
       setMessages(m => [...m, {
         role: "assistant", kind: "text",
         content: "Something went wrong. Please try again in a moment.",
-        lang: language, mode: "advisor",
+        lang: activeLanguage, mode: "advisor",
       }]);
     } finally {
       setIsTyping(false);
@@ -4134,7 +4199,7 @@ try {
           {/* Country pills + language — also collapse when chat is active */}
           <div className={`flex items-center justify-center gap-2 flex-wrap fade-up transition-all duration-500 overflow-hidden ${hasChatStarted ? "max-h-0 opacity-0 mt-0" : "max-h-[200px] opacity-100 mt-6"}`} style={{ animationDelay: ".25s" }}>
             <span className="text-[10px] uppercase tracking-[0.2em] text-muted mr-1">{t.hero.market}</span>
-            {Object.values(COUNTRIES).map(c => (
+            {VISIBLE_MARKETS.map((mc) => COUNTRIES[mc]).map(c => (
               <button key={c.code} onClick={() => setCountry(c.code)}
                 className={`pill px-3 py-1.5 rounded-full text-xs flex items-center gap-1.5 ${country === c.code ? "pill-active" : ""}`}>
                 <span>{c.flag}</span> {language === "UK" ? COUNTRY_NAMES_UK[c.code] : c.name}
@@ -4538,7 +4603,7 @@ function ChatMessage({ message, country, openCar, shortlist, compareList, toggle
               <>
                 <div className="mb-3 font-semibold text-white">Live market links</div>
                 <p className="text-xs text-white/60 mb-4">
-                  {getLiveMarketSubtitle(marketplaceForCountry(message.listings[0]?.country || "NL"))}
+                  {getLiveMarketSubtitle(marketplaceForCountry(message.listings[0]?.country || DEFAULT_MARKET))}
                 </p>
                 <div className="space-y-3">
                   {message.listings.slice(0, 2).map((listing) => (
@@ -4758,7 +4823,9 @@ function ChatCarCard({ rec, country, openCar, isShortlisted, toggleShortlist, is
 
 function ModelPage({ car, country, shortlist, compareList, toggleShortlist, toggleCompare, setView }) {
   const [showOffers, setShowOffers] = useState(false);
-  const offers = SAMPLE_OFFERS[car.id] || [];
+  // Only ever surface offers from visible markets (Poland, Ukraine) — never a
+  // hidden market, even if the sample data still carries legacy NL/BE/DE rows.
+  const offers = (SAMPLE_OFFERS[car.id] || []).filter(o => isVisibleMarket(o.country));
   const offersInCountry = offers.filter(o => o.country === country);
   const otherOffers = offers.filter(o => o.country !== country);
   const isShort = shortlist.includes(car.id);
@@ -5486,7 +5553,7 @@ function CountryPicker({ country, setCountry, onClose }) {
       <div className="card-static rounded-3xl max-w-sm w-full p-6 fade-up" onClick={e => e.stopPropagation()}>
         <h2 className="font-display text-2xl font-semibold mb-4">Choose your <span className="italic font-light">country</span></h2>
         <div className="space-y-2">
-          {Object.values(COUNTRIES).map(c => (
+          {VISIBLE_MARKETS.map((mc) => COUNTRIES[mc]).map(c => (
             <button key={c.code} onClick={() => setCountry(c.code)}
               className="w-full flex items-center gap-3 p-3 rounded-xl btn-ghost"
               style={country === c.code ? { background: "rgba(251,191,36,0.1)", borderColor: "rgba(251,191,36,0.4)" } : {}}>
@@ -5646,7 +5713,7 @@ function About() {
         {[
           { icon: Sparkles, title: "AI-guided", text: "Describe your life. We'll translate it into cars that actually make sense for you." },
           { icon: Shield, title: "Unbiased", text: "We don't take commissions on sales. Recommendations are based on fit, not profit." },
-          { icon: Globe, title: "European", text: "Built for NL, BE, DE and PL — with local currencies, distances, and regulations in mind." },
+          { icon: Globe, title: "Regional", text: "Built for Poland and Ukraine — with local currencies, distances, and regulations in mind." },
         ].map((f, i) => (
           <div key={i} className="card rounded-3xl p-7 stagger" style={{ "--stagger-index": 3 + i }}>
             <f.icon className="w-9 h-9 amber-text mb-4" />
@@ -5668,9 +5735,9 @@ function FAQ() {
   const items = [
     { q: "How is this different from AutoScout24 or mobile.de?", a: "Those sites are built for people who already know what car they want. We recommend models first based on what you actually need — then show you offers only after you've picked a model." },
     { q: "Is FindMyCar free to use?", a: "Yes, completely free. We don't charge users anything, and we don't take commissions on sales." },
-    { q: "Where do your listings come from?", a: "In this prototype, listings are sample data. In the live product, they'll come from partner dealer feeds and private listings across NL, BE, DE and PL." },
+    { q: "Where do your listings come from?", a: "In this prototype, listings are sample data. In the live product, they'll come from partner dealer feeds and private listings across Poland and Ukraine." },
     { q: "Do I need an account?", a: "No — you can browse and search freely. After a few searches we'll suggest creating one so you can save your shortlist and search history across devices." },
-    { q: "Which countries do you support?", a: "Netherlands, Belgium, Germany and Poland at launch. France and others will follow." },
+    { q: "Which countries do you support?", a: "Poland and Ukraine at launch. More markets will follow." },
     { q: "How accurate are your recommendations?", a: "Our AI parses your description and matches it to car models based on body type, fuel, price, and common use cases. It's guidance, not gospel — always test-drive before you buy." },
   ];
   return (
@@ -5929,7 +5996,7 @@ function Footer({ setView, smoothScrollTo, smoothNavigate, t }) {
               <Logo size={48} />
             </div>
             <p className="text-sm text-muted leading-relaxed">
-              AI-powered car advisor for NL, BE, DE, and PL. Find the right car in minutes.
+              AI-powered car advisor for Poland and Ukraine. Find the right car in minutes.
             </p>
           </div>
 

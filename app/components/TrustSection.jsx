@@ -41,7 +41,7 @@ export default function TrustSection({ lang = "EN" }) {
 
         <div className="twy-grid">
           <div className="twy-stat"><div className="twy-n">€0</div><div className="twy-l">{tr(<>Комісія з покупців —<br />ніколи</>, <>Commission charged<br />to buyers, ever</>)}</div></div>
-          <div className="twy-stat"><div className="twy-n">5</div><div className="twy-l">{tr(<>Ринки — UA, NL,<br />BE, DE, PL</>, <>Markets — NL,<br />BE, DE, PL</>)}</div></div>
+          <div className="twy-stat"><div className="twy-n">2</div><div className="twy-l">{tr(<>Ринки —<br />PL, UA</>, <>Markets —<br />PL, UA</>)}</div></div>
           <div className="twy-stat"><div className="twy-n">94%</div><div className="twy-l">{tr(<>Середня впевненість<br />у доборі</>, <>Average match<br />confidence score</>)}</div></div>
           <div className="twy-stat"><div className="twy-n">5</div><div className="twy-l">{tr(<>Підтримуваних<br />мов</>, <>Languages<br />supported</>)}</div></div>
         </div>
@@ -52,8 +52,8 @@ export default function TrustSection({ lang = "EN" }) {
           <div className="twy-author">
             <div className="twy-av">M</div>
             <div>
-              <div className="twy-nm">Michiel van der Berg</div>
-              <div className="twy-loc">{tr("Амстердам, Нідерланди", "Amsterdam, Netherlands")}</div>
+              <div className="twy-nm">Marek Kowalski</div>
+              <div className="twy-loc">{tr("Варшава, Польща", "Warsaw, Poland")}</div>
             </div>
           </div>
         </div>

@@ -65,7 +65,7 @@ export default function MarketTools({ lang = "EN" }) {
           </span>
           <span className="fmc-feat-text">
             <span className="fmc-feat-title">{tr("Живі ринки", "Live Markets")}</span>
-            <span className="fmc-feat-sub">{tr("Оголошення UA · NL · BE · DE · PL", "NL · BE · DE · PL listings")}</span>
+            <span className="fmc-feat-sub">{tr("Оголошення PL · UA", "PL · UA listings")}</span>
           </span>
           <svg className="fmc-feat-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
         </button>

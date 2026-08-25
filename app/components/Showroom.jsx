@@ -7,13 +7,11 @@ import { mkTr } from "./i18nHelper";
 // production-tuned settings (commerce tone mapping, neutral environment,
 // soft contact shadow). The library is imported lazily when the section
 // scrolls into view. Side indicator dots animate the camera between the
-// four market poses; model-viewer interpolates the orbit natively.
+// market poses; model-viewer interpolates the orbit natively.
 
 const POSES = [
-  { az: 272, pol: 78, r: 4.2, name: "Netherlands" },
-  { az: 218, pol: 74, r: 4.0, name: "Belgium" },
-  { az: 178, pol: 70, r: 3.8, name: "Germany" },
   { az: 338, pol: 76, r: 3.8, name: "Poland" },
+  { az: 272, pol: 78, r: 4.2, name: "Ukraine" },
 ];
 
 export default function Showroom({ lang = "EN" }) {
@@ -168,7 +166,7 @@ export default function Showroom({ lang = "EN" }) {
               </div>
               <div>
                 <div className="shr-feat-t">{tr("Позиція ціни на ринку", "Market price position")}</div>
-                <div className="shr-feat-d">{tr("Побачте, це вигідна пропозиція чи націнка — одразу на всіх ринках.", "See whether a listing is a deal or a markup — across all four markets at once.")}</div>
+                <div className="shr-feat-d">{tr("Побачте, це вигідна пропозиція чи націнка — у Польщі та Україні.", "See whether a listing is a deal or a markup — across Poland and Ukraine at once.")}</div>
               </div>
             </div>
           </div>

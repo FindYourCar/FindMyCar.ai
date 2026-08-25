@@ -85,7 +85,7 @@ export default function HowItWorksSection({ lang = "EN" }) {
               <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
             </div>
             <div className="hiw-t">{tr("Перегляд живих пропозицій", "Browse live offers")}</div>
-            <p className="hiw-b">{tr("Живі оголошення від дилерів і приватних продавців по Європі — відфільтровані під ваш добір, відсортовані за вигодою, з порівнянням цін між ринками.", "See live listings from dealers and private sellers across NL, BE, DE and PL — filtered to your match, sorted by value, with cross-market price comparison.")}</p>
+            <p className="hiw-b">{tr("Живі оголошення від дилерів і приватних продавців у Польщі та Україні — відфільтровані під ваш добір і відсортовані за вигодою.", "See live listings from dealers and private sellers across Poland and Ukraine — filtered to your match and sorted by value.")}</p>
             <div className="hiw-ex">
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "12.5px" }}>

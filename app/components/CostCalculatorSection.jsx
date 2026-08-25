@@ -9,19 +9,25 @@ import { mkTr } from "./i18nHelper";
 const UK_SIZE = { Small: "Малий", Compact: "Компакт", "Mid-Range": "Середній", Premium: "Преміум" };
 const UK_FUEL = { Petrol: "Бензин", Diesel: "Дизель", Electric: "Електро", Hybrid: "Гібрид" };
 const UK_AGE = { New: "Нове", "Nearly New": "Майже нове", Used: "Вживане", Old: "Старе" };
-const UK_COUNTRY = { NL: "Нідерланди", DE: "Німеччина", BE: "Бельгія", PL: "Польща" };
+const UK_COUNTRY = { PL: "Польща", UA: "Україна" };
 
 // Inline "True cost of ownership" calculator — the single Cost Calculator in
-// the app (replaces both the old standalone page-view and the modal). Pill
-// toggles only (no dropdowns), real 4-market logic from lib/ownership.js, and
-// a results panel that slides down when Calculate is pressed.
+// the app. Pill toggles only (no dropdowns), real market logic from
+// lib/ownership.js, and a results panel that slides down when Calculate is
+// pressed. Visible markets: Poland and Ukraine.
 
-const COUNTRY_NAMES = { NL: "Netherlands", DE: "Germany", BE: "Belgium", PL: "Poland" };
-const COUNTRY_FLAGS = { NL: "🇳🇱", DE: "🇩🇪", BE: "🇧🇪", PL: "🇵🇱" };
+const VISIBLE_MARKETS = ["PL", "UA"];
+const COUNTRY_NAMES = { PL: "Poland", UA: "Ukraine" };
+const COUNTRY_FLAGS = { PL: "🇵🇱", UA: "🇺🇦" };
 const SIZES = ["Small", "Compact", "Mid-Range", "Premium"];
 const FUELS = ["Petrol", "Diesel", "Electric", "Hybrid"];
 const AGES = ["New", "Nearly New", "Used", "Old"];
-const PLN_PER_EUR = 4.35;
+// Local-currency display. Rates are approximate, for display only; all
+// ownership maths runs in EUR internally (see lib/ownership.js).
+const CURRENCY = {
+  PL: { code: "PLN", symbol: "zł", perEur: 4.35, locale: "pl-PL", placeholder: "110000" },
+  UA: { code: "UAH", symbol: "₴", perEur: 45, locale: "uk-UA", placeholder: "900000" },
+};
 
 function OptGroup({ label, options, value, onChange, render }) {
   return (
@@ -46,7 +52,7 @@ function OptGroup({ label, options, value, onChange, render }) {
 export default function CostCalculatorSection({ lang = "EN" }) {
   const tr = mkTr(lang);
   const uk = lang === "UK";
-  const [country, setCountry] = React.useState("NL");
+  const [country, setCountry] = React.useState("PL");
   const [size, setSize] = React.useState("Compact");
   const [fuel, setFuel] = React.useState("Petrol");
   const [age, setAge] = React.useState("Nearly New");
@@ -55,12 +61,10 @@ export default function CostCalculatorSection({ lang = "EN" }) {
   const [results, setResults] = React.useState(null);
   const [error, setError] = React.useState("");
 
-  const isPLN = country === "PL";
-  const currency = isPLN ? "zł" : "€";
+  const cur = CURRENCY[country] || CURRENCY.PL;
+  const currency = cur.symbol;
   const fmt = (eur) =>
-    isPLN
-      ? Math.round(eur * PLN_PER_EUR).toLocaleString("pl-PL") + " zł"
-      : "€" + Math.round(eur).toLocaleString("en-US");
+    Math.round(eur * cur.perEur).toLocaleString(cur.locale) + " " + cur.symbol;
 
   const calculate = () => {
     setError("");
@@ -68,7 +72,7 @@ export default function CostCalculatorSection({ lang = "EN" }) {
     const kmNum = parseFloat(km);
     if (isNaN(priceNum) || priceNum <= 0) { setError(tr("Введіть коректну ціну купівлі.", "Enter a valid purchase price.")); setResults(null); return; }
     if (isNaN(kmNum) || kmNum <= 0) { setError(tr("Введіть коректний річний пробіг у км.", "Enter a valid yearly kilometre total.")); setResults(null); return; }
-    const priceInEur = isPLN ? priceNum / PLN_PER_EUR : priceNum;
+    const priceInEur = priceNum / cur.perEur;
     setResults(calculateOwnership({ country, size, fuel, price: priceInEur, age, km: kmNum }));
   };
 
@@ -79,7 +83,7 @@ export default function CostCalculatorSection({ lang = "EN" }) {
     if (!results) return;
     const priceNum = parseFloat(price), kmNum = parseFloat(km);
     if (isNaN(priceNum) || priceNum <= 0 || isNaN(kmNum) || kmNum <= 0) return;
-    const priceInEur = isPLN ? priceNum / PLN_PER_EUR : priceNum;
+    const priceInEur = priceNum / cur.perEur;
     setResults(calculateOwnership({ country, size, fuel, price: priceInEur, age, km: kmNum }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [country, size, fuel, age]);
@@ -138,25 +142,25 @@ export default function CostCalculatorSection({ lang = "EN" }) {
           <div className="calc-eyebrow"><i />{tr("Калькулятор витрат", "Cost Calculator")}</div>
           <h2 className="calc-h">{tr(<>Справжня вартість <em>володіння.</em></>, <>True cost of <em>ownership.</em></>)}</h2>
           <p className="calc-sub">
-            {tr("Дізнайтеся, скільки авто справді коштує вам на рік — паливо, дорожній податок, обслуговування та амортизація — по Нідерландах, Бельгії, Німеччині та Польщі. Усі цифри базуються на офіційних даних станом на квітень 2026.",
-                "See what a car actually costs you per year — fuel, road tax, maintenance and depreciation — across the Netherlands, Belgium, Germany and Poland. All figures based on official April 2026 data.")}
+            {tr("Дізнайтеся, скільки авто справді коштує вам на рік — паливо, дорожній податок, обслуговування та амортизація — у Польщі та Україні. Усі цифри — прозорі оцінки на основі типових ринкових даних.",
+                "See what a car actually costs you per year — fuel, road tax, maintenance and depreciation — across Poland and Ukraine. All figures are transparent estimates based on typical market data.")}
           </p>
         </div>
 
         <div className="calc-card">
           <div className="calc-grid">
-            <OptGroup label={tr("Країна", "Country")} options={["NL", "BE", "DE", "PL"]} value={country}
+            <OptGroup label={tr("Країна", "Country")} options={VISIBLE_MARKETS} value={country}
               onChange={(c) => { setCountry(c); }} render={(c) => `${COUNTRY_FLAGS[c]} ${uk ? UK_COUNTRY[c] : COUNTRY_NAMES[c]}`} />
             <OptGroup label={tr("Розмір авто", "Car size")} options={SIZES} value={size} onChange={setSize} render={(o) => uk ? UK_SIZE[o] : o} />
             <OptGroup label={tr("Тип палива", "Fuel type")} options={FUELS} value={fuel} onChange={setFuel} render={(o) => uk ? UK_FUEL[o] : o} />
             <OptGroup label={tr("Вік авто", "Car age")} options={AGES} value={age} onChange={setAge} render={(o) => uk ? UK_AGE[o] : o} />
 
             <div className="calc-group">
-              <span className="calc-label">{tr("Ціна купівлі", "Purchase price")} ({isPLN ? "PLN" : "EUR"})</span>
+              <span className="calc-label">{tr("Ціна купівлі", "Purchase price")} ({cur.code})</span>
               <div className="calc-input-wrap">
                 <span className="calc-affix">{currency}</span>
                 <input type="number" inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value)}
-                  placeholder={isPLN ? "110000" : "24000"} onKeyDown={(e) => e.key === "Enter" && calculate()} />
+                  placeholder={cur.placeholder} onKeyDown={(e) => e.key === "Enter" && calculate()} />
               </div>
             </div>
 
@@ -200,8 +204,8 @@ export default function CostCalculatorSection({ lang = "EN" }) {
                 </div>
                 <div className="calc-note">
                   {tr(
-                    `Повна вартість володіння також включає амортизацію (${fmt(results.depreciation.yearly)}/рік) — загалом близько ${fmt(results.total.monthly)}/місяць. Усі цифри — оцінки на основі офіційних джерел NL · BE · DE · PL.`,
-                    `Total cost of ownership also includes depreciation (${fmt(results.depreciation.yearly)}/yr) — about ${fmt(results.total.monthly)}/month overall. All figures are estimates based on official NL · BE · DE · PL data sources.`)}
+                    `Повна вартість володіння також включає амортизацію (${fmt(results.depreciation.yearly)}/рік) — загалом близько ${fmt(results.total.monthly)}/місяць. Усі цифри — оцінки на основі типових ринкових даних Польщі та України.`,
+                    `Total cost of ownership also includes depreciation (${fmt(results.depreciation.yearly)}/yr) — about ${fmt(results.total.monthly)}/month overall. All figures are estimates based on typical Poland and Ukraine market data.`)}
                   {CALC_DATA.officialLinks[country] && (
                     <> {tr("Джерело:", "Source:")} <a href={CALC_DATA.officialLinks[country]} target="_blank" rel="noopener noreferrer">{tr("офіційний податковий орган", "official tax authority")}</a>.</>
                   )}

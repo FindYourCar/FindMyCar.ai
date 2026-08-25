@@ -203,13 +203,13 @@ export default function CinematicIntro({ onDone, lang = "EN" }) {
           </svg>
           <span className="fmc-gate-logo-w">Find<em>My</em>Car</span>
         </div>
-        <div className="fmc-gate-mkts"><b>UA</b>·<b>NL</b>·<b>DE</b>·<b>PL</b><span>—</span><span>{tr("Європа + Україна", "4 live markets")}</span></div>
+        <div className="fmc-gate-mkts"><b>PL</b>·<b>UA</b><span>—</span><span>{tr("2 живі ринки", "2 live markets")}</span></div>
       </div>
 
       <div className="fmc-gate-content">
         <div className="fmc-gate-badge"><span className="fmc-gate-pulse" aria-hidden="true" /> {tr("AI-радник з авто · без комісії", "AI car advisor · zero commission")}</div>
         <h1 className="fmc-gate-title">{tr(<>Європейський авторинок,<br /><em>зрозумілий для вас.</em></>, <>Europe&rsquo;s car market,<br /><em>decoded for you.</em></>)}</h1>
-        <p className="fmc-gate-sub">{tr("FindMyCar — незалежний AI-радник, що шукає живі оголошення по Європі та Україні й відповідає перед вами, а не перед дилерами.", "FindMyCar is an independent AI advisor that searches live listings across the Netherlands, Belgium, Germany and Poland — and answers to you, not to dealers.")}</p>
+        <p className="fmc-gate-sub">{tr("FindMyCar — незалежний AI-радник, що шукає живі оголошення в Польщі та Україні й відповідає перед вами, а не перед дилерами.", "FindMyCar is an independent AI advisor that searches live listings across Poland and Ukraine — and answers to you, not to dealers.")}</p>
         <div className="fmc-gate-row">
           <button className="fmc-gate-cta" type="button" onClick={explore} autoFocus>
             {tr("Відкрити FindMyCar", "Explore FindMyCar")}
