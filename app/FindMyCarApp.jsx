@@ -794,6 +794,8 @@ const COUNTRIES = {
   DE: { code: "DE", name: "Germany", flag: "🇩🇪", currency: "EUR" },
   PL: { code: "PL", name: "Poland", flag: "🇵🇱", currency: "PLN" },
 };
+// Ukrainian display names for the country pills (codes/logic stay unchanged).
+const COUNTRY_NAMES_UK = { NL: "Нідерланди", BE: "Бельгія", DE: "Німеччина", PL: "Польща" };
 
 /* ============================================================
    MARKET CHAPTERS — immersive per-country sections
@@ -3055,6 +3057,7 @@ useEffect(() => {
       <TourMode />
       {!introDone && (
         <CinematicIntro
+          lang={language}
           onDone={({ instant } = {}) => {
             setIntroDone(true);
             if (!instant) {
@@ -4128,7 +4131,7 @@ try {
             {Object.values(COUNTRIES).map(c => (
               <button key={c.code} onClick={() => setCountry(c.code)}
                 className={`pill px-3 py-1.5 rounded-full text-xs flex items-center gap-1.5 ${country === c.code ? "pill-active" : ""}`}>
-                <span>{c.flag}</span> {c.name}
+                <span>{c.flag}</span> {language === "UK" ? COUNTRY_NAMES_UK[c.code] : c.name}
               </button>
             ))}
             <span className="mx-2 text-muted">·</span>

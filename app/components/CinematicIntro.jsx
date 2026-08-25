@@ -27,7 +27,9 @@ const SPEED_LINES = Array.from({ length: 30 }, (_, i) => ({
   h: 1 + ((i * 13) % 24) / 10,
 }));
 
-export default function CinematicIntro({ onDone }) {
+export default function CinematicIntro({ onDone, lang = "EN" }) {
+  const uk = lang === "UK";
+  const tr = (u, e) => (uk ? u : e);
   const [phase, setPhase] = React.useState("idle"); // idle | accel | gone
   // Fixed index for SSR; randomized after mount so server and client markup match
   const [vidIdx, setVidIdx] = React.useState(0);
@@ -201,24 +203,24 @@ export default function CinematicIntro({ onDone }) {
           </svg>
           <span className="fmc-gate-logo-w">Find<em>My</em>Car</span>
         </div>
-        <div className="fmc-gate-mkts"><b>NL</b>·<b>BE</b>·<b>DE</b>·<b>PL</b><span>—</span><span>4 live markets</span></div>
+        <div className="fmc-gate-mkts"><b>UA</b>·<b>NL</b>·<b>DE</b>·<b>PL</b><span>—</span><span>{tr("Європа + Україна", "4 live markets")}</span></div>
       </div>
 
       <div className="fmc-gate-content">
-        <div className="fmc-gate-badge"><span className="fmc-gate-pulse" aria-hidden="true" /> AI car advisor · zero commission</div>
-        <h1 className="fmc-gate-title">Europe&rsquo;s car market,<br /><em>decoded for you.</em></h1>
-        <p className="fmc-gate-sub">FindMyCar is an independent AI advisor that searches live listings across the Netherlands, Belgium, Germany and Poland — and answers to you, not to dealers.</p>
+        <div className="fmc-gate-badge"><span className="fmc-gate-pulse" aria-hidden="true" /> {tr("AI-радник з авто · без комісії", "AI car advisor · zero commission")}</div>
+        <h1 className="fmc-gate-title">{tr(<>Європейський авторинок,<br /><em>зрозумілий для вас.</em></>, <>Europe&rsquo;s car market,<br /><em>decoded for you.</em></>)}</h1>
+        <p className="fmc-gate-sub">{tr("FindMyCar — незалежний AI-радник, що шукає живі оголошення по Європі та Україні й відповідає перед вами, а не перед дилерами.", "FindMyCar is an independent AI advisor that searches live listings across the Netherlands, Belgium, Germany and Poland — and answers to you, not to dealers.")}</p>
         <div className="fmc-gate-row">
           <button className="fmc-gate-cta" type="button" onClick={explore} autoFocus>
-            Explore FindMyCar
+            {tr("Відкрити FindMyCar", "Explore FindMyCar")}
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
           </button>
-          <div className="fmc-gate-hint"><i aria-hidden="true" /> Click to accelerate</div>
+          <div className="fmc-gate-hint"><i aria-hidden="true" /> {tr("Натисніть, щоб прискоритись", "Click to accelerate")}</div>
         </div>
       </div>
 
       <div className="fmc-gate-cue" aria-hidden="true">
-        <span>Enter</span>
+        <span>{tr("Увійти", "Enter")}</span>
         <div className="fmc-gate-cue-line" />
       </div>
     </div>
