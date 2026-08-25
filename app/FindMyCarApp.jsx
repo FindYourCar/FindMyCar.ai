@@ -3955,6 +3955,20 @@ function NavBtn({ children, onClick }) {
    HOME (chat-driven)
    ============================================================ */
 
+// True on phone-width viewports. Used to turn the chat into a full-screen,
+// native-feeling conversation on mobile.
+function useIsMobile() {
+  const [isMobile, setIsMobile] = React.useState(false);
+  React.useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  return isMobile;
+}
+
 function Home({ messages, sendMessage, isTyping, startFreshChat, country, setCountry, openCar, shortlist, compareList, toggleShortlist, toggleCompare, language, setShowLanguagePicker, chatSessions, setShowHistory, showListings = false, visibleListings = [], listingsLoading = false, listingsError = "", t }) {
   // DEBUG: confirm this component is the one rendering on your page
   React.useEffect(() => {
@@ -3963,9 +3977,23 @@ function Home({ messages, sendMessage, isTyping, startFreshChat, country, setCou
   const [input, setInput] = React.useState("");
   const [openFaq, setOpenFaq] = React.useState(0);
   const scrollRef = React.useRef(null);
+  const isMobile = useIsMobile();
+  // On phones the chat opens as a full-screen conversation once the user starts
+  // interacting; the back arrow closes it back to the page.
+  const [mobileChatOpen, setMobileChatOpen] = React.useState(false);
 
   // Expanding chat: grows bigger once the user sends their first message
   const hasChatStarted = messages.some(m => m.role === "user");
+  const chatFullscreen = isMobile && mobileChatOpen;
+
+  // Lock background scroll while the mobile chat is full-screen.
+  React.useEffect(() => {
+    if (chatFullscreen) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [chatFullscreen]);
 
   // ── Rotating hero video background ─────────────────────────
   const HERO_VIDEOS = [
@@ -4058,11 +4086,13 @@ try {
 
   const onSend = () => {
     if (!input.trim()) return;
+    if (isMobile) setMobileChatOpen(true);
     sendMessage(input);
     setInput("");
   };
 
   const onChip = (text) => {
+    if (isMobile) setMobileChatOpen(true);
     sendMessage(text);
   };
 
@@ -4254,17 +4284,26 @@ try {
             </button>
           </div>
 
-          {/* CHAT MODULE — grows wider and taller after first message */}
-          <div className={`card-static rounded-3xl overflow-hidden fade-up transition-all duration-700 ${hasChatStarted ? "mt-6" : "mt-8"}`}
-            style={{
+          {/* CHAT MODULE — grows wider and taller after first message; on phones
+              it becomes a full-screen, native-feeling conversation. */}
+          <div className={chatFullscreen
+              ? "fixed inset-0 z-[60] flex flex-col"
+              : `card-static rounded-3xl overflow-hidden fade-up transition-all duration-700 ${hasChatStarted ? "mt-6" : "mt-8"}`}
+            style={chatFullscreen ? { height: "100dvh", background: "#0a0908" } : {
               animationDelay: ".3s",
               boxShadow: "0 30px 80px rgba(0,0,0,0.6), 0 0 100px rgba(251,191,36,0.06)",
               transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
             }}>
 
             {/* Chat header */}
-            <div className="flex items-center justify-between gap-3 px-5 py-4" style={{ borderBottom: "1px solid var(--border)", background: "rgba(251,191,36,0.03)" }}>
-              <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between gap-3 px-5 py-4 shrink-0" style={{ borderBottom: "1px solid var(--border)", background: "rgba(251,191,36,0.03)" }}>
+              <div className="flex items-center gap-3 min-w-0">
+                {chatFullscreen && (
+                  <button onClick={() => setMobileChatOpen(false)} aria-label="Назад"
+                    className="flex items-center justify-center w-9 h-9 -ml-1 rounded-full btn-ghost shrink-0">
+                    <ArrowLeft className="w-5 h-5" />
+                  </button>
+                )}
                 <div className="relative">
                   <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, #fbbf24, #92400e)", boxShadow: "0 0 16px rgba(251,191,36,0.5)" }}>
                     <Sparkles className="w-4 h-4 text-stone-950" />
@@ -4294,10 +4333,11 @@ try {
               </div>
             </div>
 
-            {/* Messages — grows taller once the chat is active */}
+            {/* Messages — grows taller once the chat is active; fills the screen
+                in the mobile full-screen mode. */}
             <div ref={scrollRef}
-              className="px-5 py-5 space-y-4 overflow-y-auto transition-all duration-700"
-              style={{
+              className={`px-5 py-5 space-y-4 overflow-y-auto ${chatFullscreen ? "flex-1 min-h-0" : "transition-all duration-700"}`}
+              style={chatFullscreen ? undefined : {
                 minHeight: hasChatStarted ? 560 : 380,
                 maxHeight: hasChatStarted ? "72vh" : 560,
                 transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
@@ -4324,7 +4364,7 @@ try {
             </div>
 
             {/* Input */}
-            <div className="px-4 py-3" style={{ borderTop: "1px solid var(--border)", background: "rgba(10,9,8,0.5)" }}>
+            <div className={`px-4 py-3 ${chatFullscreen ? "shrink-0" : ""}`} style={{ borderTop: "1px solid var(--border)", background: "rgba(10,9,8,0.5)", paddingBottom: chatFullscreen ? "calc(env(safe-area-inset-bottom) + 12px)" : undefined }}>
               <div className="flex items-end gap-2">
                 <div className="flex-1 rounded-2xl flex items-end gap-2 px-4 py-2" style={{ background: "rgba(245,241,234,0.04)", border: "1px solid var(--border)" }}>
                   <textarea
