@@ -4,16 +4,24 @@
 // first that works — and on a rate-limit / server error we retry briefly, then
 // fall through to the next (lighter) model, so a live demo rarely drops to the
 // dumb local fallback. Order: quality first, progressively faster/cheaper.
+// Fast, high-throughput models FIRST: on the free tier the big models rate-limit
+// (429) and time out under real back-to-back usage, which dropped the chat to the
+// local fallback. gpt-oss-20b is quick and capable enough for this structured
+// task, with 8b-instant (very high limits) as the ultra-reliable backup; the
+// heavier models remain only as later fallbacks.
 const GROQ_MODELS = [
-  "llama-3.3-70b-versatile",
-  "openai/gpt-oss-120b",
   "openai/gpt-oss-20b",
+  "llama-3.1-8b-instant",
+  "openai/gpt-oss-120b",
   "moonshotai/kimi-k2-instruct",
   "qwen/qwen3-32b",
-  "llama-3.1-8b-instant",
 ];
 let cachedGroqModel = null;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Allow the serverless function more time than the 10s default so a slow model
+// response is not killed mid-generation (which also looked like a failure).
+export const maxDuration = 30;
 
 async function groqComplete({ messages, temperature = 0.7, response_format }) {
   const ordered = cachedGroqModel

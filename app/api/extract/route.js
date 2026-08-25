@@ -1,13 +1,15 @@
-// Keep in sync with app/api/chat/route.js — Groq retires model IDs, so we try a
-// list and remember the first that works instead of hardcoding one dead model.
+// Intent extraction is a light classification task, so use the fast, high-limit
+// 8b model first — it keeps this call cheap and quick and leaves free-tier rate
+// headroom for the heavier chat call that runs in parallel on every message.
 const GROQ_MODELS = [
-  "llama-3.3-70b-versatile",
-  "openai/gpt-oss-120b",
+  "llama-3.1-8b-instant",
+  "openai/gpt-oss-20b",
   "moonshotai/kimi-k2-instruct",
   "qwen/qwen3-32b",
-  "llama-3.1-8b-instant",
 ];
 let cachedGroqModel = null;
+
+export const maxDuration = 30;
 
 async function groqComplete(payload) {
   const ordered = cachedGroqModel

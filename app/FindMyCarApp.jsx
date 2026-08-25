@@ -977,9 +977,10 @@ async function hybridChatSend(messages) {
   const payload = JSON.stringify({ messages: messages
     .filter(m => m && typeof m.content === "string" && m.content.trim())
     .map(m => ({ role: m.role, content: m.content })) });
-  // Try the API up to twice (a transient rate-limit on the free tier can 500
-  // once) before dropping to the local reply, so the chat rarely loses context.
-  for (let attempt = 0; attempt < 2; attempt++) {
+  // Try the API up to three times (a transient free-tier rate-limit can 500 a
+  // couple of times) with growing backoff before dropping to the local reply,
+  // so the chat rarely loses context.
+  for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -998,7 +999,7 @@ async function hybridChatSend(messages) {
         chips: Array.isArray(data?.chips) ? data.chips : [],
       };
     } catch {
-      if (attempt === 0) { await new Promise(r => setTimeout(r, 700)); continue; }
+      if (attempt < 2) { await new Promise(r => setTimeout(r, 600 * (attempt + 1))); continue; }
     }
   }
   const last = messages[messages.length - 1];
