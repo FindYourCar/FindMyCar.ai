@@ -4350,11 +4350,12 @@ try {
 
       {/* QUICK TOOLS — Cost Calculator + VIN Checker modals (real logic) and a
           jump to live markets; sits above the markets grid */}
-      <div className="mb-14 mt-4"><MarketTools /></div>
+      <div className="mb-14 mt-4"><MarketTools lang={language} /></div>
 
       {/* MARKETS — concept bento grid; cards open the detail overlay,
           CTAs feed the real advisor chat */}
       <MarketsBento
+        lang={language}
         onSearchMarket={(prompt) => {
           sendMessage(prompt);
           document.getElementById("home-top")?.scrollIntoView({ behavior: "smooth" });
@@ -4362,16 +4363,16 @@ try {
       />
 
       {/* COST CALCULATOR — single inline section, real 4-market logic */}
-      <CostCalculatorSection />
+      <CostCalculatorSection lang={language} />
 
       {/* HOW IT WORKS — concept process section (anchor id "home-how" preserved) */}
-      <HowItWorksSection />
+      <HowItWorksSection lang={language} />
 
       {/* 3D SHOWROOM — interactive BMW X7 */}
-      <Showroom />
+      <Showroom lang={language} />
 
       {/* WHY FINDMYCAR — trust stats + testimonial */}
-      <TrustSection />
+      <TrustSection lang={language} />
 
       {/* FAQ on home */}
       <section id="home-faq" className="relative py-16 scroll-mt-24" style={{ borderTop: "1px solid var(--border)" }}>

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { mkTr } from "./i18nHelper";
 
 // "The Digital Showroom" — BMW X7 rendered with <model-viewer> using the
 // production-tuned settings (commerce tone mapping, neutral environment,
@@ -15,7 +16,8 @@ const POSES = [
   { az: 338, pol: 76, r: 3.8, name: "Poland" },
 ];
 
-export default function Showroom() {
+export default function Showroom({ lang = "EN" }) {
+  const tr = mkTr(lang);
   const stageRef = React.useRef(null);
   const mvRef = React.useRef(null);
   const [ready, setReady] = React.useState(false);   // model-viewer lib loaded
@@ -131,15 +133,15 @@ export default function Showroom() {
 
       <div className="shr-in">
         <div className="shr-copy">
-          <div className="shr-eyebrow"><span className="shr-dot" /> The Digital Showroom</div>
-          <h2 className="shr-title">Know the car.<br /><em>Before you ever see it.</em></h2>
-          <p>Every recommendation comes with the full picture — verified history, true spec, and where the price sits in the market. The advisor studies each car the way you&rsquo;d want to: from every angle.</p>
-          <p>Take this one for a spin. Drag it around — it&rsquo;s rendered live in your browser.</p>
+          <div className="shr-eyebrow"><span className="shr-dot" /> {tr("Цифровий шоурум", "The Digital Showroom")}</div>
+          <h2 className="shr-title">{tr(<>Знайте авто.<br /><em>Ще до того, як побачите його.</em></>, <>Know the car.<br /><em>Before you ever see it.</em></>)}</h2>
+          <p>{tr("Кожна порада — з повною картиною: перевірена історія, реальна комплектація і те, де ціна стоїть на ринку. Радник вивчає кожне авто так, як ви б хотіли: з усіх боків.", "Every recommendation comes with the full picture — verified history, true spec, and where the price sits in the market. The advisor studies each car the way you’d want to: from every angle.")}</p>
+          <p>{tr("Спробуйте це авто. Покрутіть його — воно рендериться наживо у вашому браузері.", "Take this one for a spin. Drag it around — it’s rendered live in your browser.")}</p>
           <div className="shr-chips">
             <span className="shr-chip"><b>BMW</b> X7 M60i</span>
-            <span className="shr-chip">4.4L V8 · 530 hp</span>
+            <span className="shr-chip">4.4L V8 · 530 {tr("к.с.", "hp")}</span>
             <span className="shr-chip">xDrive AWD</span>
-            <span className="shr-chip">7 seats</span>
+            <span className="shr-chip">{tr("7 місць", "7 seats")}</span>
           </div>
           <div className="shr-feats">
             <div className="shr-feat">
@@ -147,8 +149,8 @@ export default function Showroom() {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path d="M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18M3 12h18" /></svg>
               </div>
               <div>
-                <div className="shr-feat-t">360° knowledge, zero guesswork</div>
-                <div className="shr-feat-d">Spec sheets, trim levels and known weak points — surfaced before you commit to a viewing.</div>
+                <div className="shr-feat-t">{tr("360° знань, жодних здогадок", "360° knowledge, zero guesswork")}</div>
+                <div className="shr-feat-d">{tr("Характеристики, комплектації та відомі слабкі місця — ще до того, як ви поїдете на огляд.", "Spec sheets, trim levels and known weak points — surfaced before you commit to a viewing.")}</div>
               </div>
             </div>
             <div className="shr-feat">
@@ -156,8 +158,8 @@ export default function Showroom() {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 12l2 2 4-5" /><path d="M12 3l7 4v5c0 4.5-3 8-7 9-4-1-7-4.5-7-9V7l7-4z" /></svg>
               </div>
               <div>
-                <div className="shr-feat-t">VIN-checked history</div>
-                <div className="shr-feat-d">Mileage, damage and stolen-vehicle checks across European registries.</div>
+                <div className="shr-feat-t">{tr("Історія за VIN", "VIN-checked history")}</div>
+                <div className="shr-feat-d">{tr("Перевірка пробігу, пошкоджень і викрадення в європейських реєстрах.", "Mileage, damage and stolen-vehicle checks across European registries.")}</div>
               </div>
             </div>
             <div className="shr-feat">
@@ -165,8 +167,8 @@ export default function Showroom() {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 17l5-5 4 4 8-8" /><path d="M14 7h7v7" /></svg>
               </div>
               <div>
-                <div className="shr-feat-t">Market price position</div>
-                <div className="shr-feat-d">See whether a listing is a deal or a markup — across all four markets at once.</div>
+                <div className="shr-feat-t">{tr("Позиція ціни на ринку", "Market price position")}</div>
+                <div className="shr-feat-d">{tr("Побачте, це вигідна пропозиція чи націнка — одразу на всіх ринках.", "See whether a listing is a deal or a markup — across all four markets at once.")}</div>
               </div>
             </div>
           </div>
@@ -221,17 +223,17 @@ export default function Showroom() {
 
           <div className="shr-badge" aria-hidden="true">
             <div className="shr-badge-t">BMW X7 M60i</div>
-            <div className="shr-badge-s">Live 3D · in-browser</div>
+            <div className="shr-badge-s">{tr("Живе 3D · у браузері", "Live 3D · in-browser")}</div>
           </div>
 
           <div className={`shr-hint ${hintHidden ? "hide" : ""}`} aria-hidden="true">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 11V6a2 2 0 0 0-4 0v5M14 10V4a2 2 0 0 0-4 0v6M10 10.5V6a2 2 0 0 0-4 0v8" /><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" /></svg>
-            Drag to rotate
+            {tr("Тягніть, щоб обертати", "Drag to rotate")}
           </div>
 
           <div className={`shr-load ${loaded ? "done" : ""}`}>
             <div className="shr-ring" aria-hidden="true" />
-            <div className="shr-load-txt">Loading model · <b>{pct}%</b></div>
+            <div className="shr-load-txt">{tr("Завантаження моделі", "Loading model")} · <b>{pct}%</b></div>
           </div>
         </div>
       </div>

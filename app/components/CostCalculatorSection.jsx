@@ -2,6 +2,14 @@
 
 import React from "react";
 import { CALC_DATA, calculateOwnership } from "@/lib/ownership";
+import { mkTr } from "./i18nHelper";
+
+// Display-only Ukrainian labels for the option values (the values themselves
+// stay English because they are keys into the ownership calculation logic).
+const UK_SIZE = { Small: "Малий", Compact: "Компакт", "Mid-Range": "Середній", Premium: "Преміум" };
+const UK_FUEL = { Petrol: "Бензин", Diesel: "Дизель", Electric: "Електро", Hybrid: "Гібрид" };
+const UK_AGE = { New: "Нове", "Nearly New": "Майже нове", Used: "Вживане", Old: "Старе" };
+const UK_COUNTRY = { NL: "Нідерланди", DE: "Німеччина", BE: "Бельгія", PL: "Польща" };
 
 // Inline "True cost of ownership" calculator — the single Cost Calculator in
 // the app (replaces both the old standalone page-view and the modal). Pill
@@ -35,7 +43,9 @@ function OptGroup({ label, options, value, onChange, render }) {
   );
 }
 
-export default function CostCalculatorSection() {
+export default function CostCalculatorSection({ lang = "EN" }) {
+  const tr = mkTr(lang);
+  const uk = lang === "UK";
   const [country, setCountry] = React.useState("NL");
   const [size, setSize] = React.useState("Compact");
   const [fuel, setFuel] = React.useState("Petrol");
@@ -56,8 +66,8 @@ export default function CostCalculatorSection() {
     setError("");
     const priceNum = parseFloat(price);
     const kmNum = parseFloat(km);
-    if (isNaN(priceNum) || priceNum <= 0) { setError("Enter a valid purchase price."); setResults(null); return; }
-    if (isNaN(kmNum) || kmNum <= 0) { setError("Enter a valid yearly kilometre total."); setResults(null); return; }
+    if (isNaN(priceNum) || priceNum <= 0) { setError(tr("Введіть коректну ціну купівлі.", "Enter a valid purchase price.")); setResults(null); return; }
+    if (isNaN(kmNum) || kmNum <= 0) { setError(tr("Введіть коректний річний пробіг у км.", "Enter a valid yearly kilometre total.")); setResults(null); return; }
     const priceInEur = isPLN ? priceNum / PLN_PER_EUR : priceNum;
     setResults(calculateOwnership({ country, size, fuel, price: priceInEur, age, km: kmNum }));
   };
@@ -125,24 +135,24 @@ export default function CostCalculatorSection() {
 
       <div className="calc-wrap">
         <div className="calc-head">
-          <div className="calc-eyebrow"><i />Cost Calculator</div>
-          <h2 className="calc-h">True cost of <em>ownership.</em></h2>
+          <div className="calc-eyebrow"><i />{tr("Калькулятор витрат", "Cost Calculator")}</div>
+          <h2 className="calc-h">{tr(<>Справжня вартість <em>володіння.</em></>, <>True cost of <em>ownership.</em></>)}</h2>
           <p className="calc-sub">
-            See what a car actually costs you per year — fuel, road tax, maintenance and depreciation —
-            across the Netherlands, Belgium, Germany and Poland. All figures based on official April 2026 data.
+            {tr("Дізнайтеся, скільки авто справді коштує вам на рік — паливо, дорожній податок, обслуговування та амортизація — по Нідерландах, Бельгії, Німеччині та Польщі. Усі цифри базуються на офіційних даних станом на квітень 2026.",
+                "See what a car actually costs you per year — fuel, road tax, maintenance and depreciation — across the Netherlands, Belgium, Germany and Poland. All figures based on official April 2026 data.")}
           </p>
         </div>
 
         <div className="calc-card">
           <div className="calc-grid">
-            <OptGroup label="Country" options={["NL", "BE", "DE", "PL"]} value={country}
-              onChange={(c) => { setCountry(c); }} render={(c) => `${COUNTRY_FLAGS[c]} ${COUNTRY_NAMES[c]}`} />
-            <OptGroup label="Car size" options={SIZES} value={size} onChange={setSize} />
-            <OptGroup label="Fuel type" options={FUELS} value={fuel} onChange={setFuel} />
-            <OptGroup label="Car age" options={AGES} value={age} onChange={setAge} />
+            <OptGroup label={tr("Країна", "Country")} options={["NL", "BE", "DE", "PL"]} value={country}
+              onChange={(c) => { setCountry(c); }} render={(c) => `${COUNTRY_FLAGS[c]} ${uk ? UK_COUNTRY[c] : COUNTRY_NAMES[c]}`} />
+            <OptGroup label={tr("Розмір авто", "Car size")} options={SIZES} value={size} onChange={setSize} render={(o) => uk ? UK_SIZE[o] : o} />
+            <OptGroup label={tr("Тип палива", "Fuel type")} options={FUELS} value={fuel} onChange={setFuel} render={(o) => uk ? UK_FUEL[o] : o} />
+            <OptGroup label={tr("Вік авто", "Car age")} options={AGES} value={age} onChange={setAge} render={(o) => uk ? UK_AGE[o] : o} />
 
             <div className="calc-group">
-              <span className="calc-label">Purchase price ({isPLN ? "PLN" : "EUR"})</span>
+              <span className="calc-label">{tr("Ціна купівлі", "Purchase price")} ({isPLN ? "PLN" : "EUR"})</span>
               <div className="calc-input-wrap">
                 <span className="calc-affix">{currency}</span>
                 <input type="number" inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value)}
@@ -151,7 +161,7 @@ export default function CostCalculatorSection() {
             </div>
 
             <div className="calc-group">
-              <span className="calc-label">Yearly kilometres</span>
+              <span className="calc-label">{tr("Річний пробіг", "Yearly kilometres")}</span>
               <div className="calc-input-wrap">
                 <input type="number" inputMode="numeric" value={km} onChange={(e) => setKm(e.target.value)}
                   placeholder="15000" onKeyDown={(e) => e.key === "Enter" && calculate()} style={{ paddingLeft: 13 }} />
@@ -163,8 +173,8 @@ export default function CostCalculatorSection() {
           {error && <div className="calc-error">{error}</div>}
 
           <div className="calc-actions">
-            <button type="button" className="calc-btn-go" onClick={calculate}>Calculate</button>
-            <button type="button" className="calc-btn-reset" onClick={reset}>Reset</button>
+            <button type="button" className="calc-btn-go" onClick={calculate}>{tr("Розрахувати", "Calculate")}</button>
+            <button type="button" className="calc-btn-reset" onClick={reset}>{tr("Скинути", "Reset")}</button>
           </div>
 
           <div className={`calc-results ${results ? "open" : ""}`} aria-hidden={!results}>
@@ -173,26 +183,27 @@ export default function CostCalculatorSection() {
                 <div className="calc-results-grid">
                   <div className="calc-stat">
                     <div className="calc-stat-n">{fmt(results.fuel.yearly)}</div>
-                    <div className="calc-stat-l">Annual fuel cost</div>
+                    <div className="calc-stat-l">{tr("Паливо на рік", "Annual fuel cost")}</div>
                   </div>
                   <div className="calc-stat">
                     <div className="calc-stat-n">{fmt(results.roadTax.yearly)}</div>
-                    <div className="calc-stat-l">Road tax / year</div>
+                    <div className="calc-stat-l">{tr("Дорожній податок / рік", "Road tax / year")}</div>
                   </div>
                   <div className="calc-stat">
                     <div className="calc-stat-n">{fmt(results.maintenance.yearly)}</div>
-                    <div className="calc-stat-l">Maintenance est.</div>
+                    <div className="calc-stat-l">{tr("Обслуговування (оцінка)", "Maintenance est.")}</div>
                   </div>
                   <div className="calc-stat total">
                     <div className="calc-stat-n">{fmt(results.total.yearly)}</div>
-                    <div className="calc-stat-l">Total cost / year</div>
+                    <div className="calc-stat-l">{tr("Разом на рік", "Total cost / year")}</div>
                   </div>
                 </div>
                 <div className="calc-note">
-                  Total cost of ownership also includes depreciation ({fmt(results.depreciation.yearly)}/yr) — about {fmt(results.total.monthly)}/month overall.
-                  All figures are estimates based on official NL · BE · DE · PL data sources.
+                  {tr(
+                    `Повна вартість володіння також включає амортизацію (${fmt(results.depreciation.yearly)}/рік) — загалом близько ${fmt(results.total.monthly)}/місяць. Усі цифри — оцінки на основі офіційних джерел NL · BE · DE · PL.`,
+                    `Total cost of ownership also includes depreciation (${fmt(results.depreciation.yearly)}/yr) — about ${fmt(results.total.monthly)}/month overall. All figures are estimates based on official NL · BE · DE · PL data sources.`)}
                   {CALC_DATA.officialLinks[country] && (
-                    <> Source: <a href={CALC_DATA.officialLinks[country]} target="_blank" rel="noopener noreferrer">official tax authority</a>.</>
+                    <> {tr("Джерело:", "Source:")} <a href={CALC_DATA.officialLinks[country]} target="_blank" rel="noopener noreferrer">{tr("офіційний податковий орган", "official tax authority")}</a>.</>
                   )}
                 </div>
               </>

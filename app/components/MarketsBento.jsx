@@ -1,6 +1,16 @@
 "use client";
 
 import React from "react";
+import { mkTr } from "./i18nHelper";
+
+// Ukrainian copy for the visible card fronts + market names (the deep overlay
+// data stays in English for now — it only opens on click and is data-heavy).
+const MARKET_UK = {
+  nl: { name: "Нідерланди", eyebrow: "Нідерланди · Живий ринок", title: <>Ринок Нідерландів.<br /><em>Компактний, електричний, розумний.</em></>, stat: "24% частка EV · 21 тис. оголошень" },
+  de: { name: "Німеччина", eyebrow: "Німеччина · Автобанний клас", title: <>Потужні авто.<br /><em>Там, де їм місце.</em></>, stat: "18 тис. потужних авто · Перевага походження" },
+  be: { name: "Бельгія", eyebrow: "Бельгія · Транскордонний розум", title: <>У Бельгії ховаються<br /><em>найвигідніші пропозиції.</em></>, stat: "Антверпен у середньому на €1 600 дешевше за Брюссель" },
+  pl: { name: "Польща", eyebrow: "Польща · Розумна вигода", title: <>Валютна перевага.<br /><em>Реальна економія.</em></>, stat: "Структурна знижка 15–20% проти Західної ЄС" },
+};
 
 // "Where do you want to find your car?" — bento grid of the four markets,
 // ported from the concept artifact. Clicking a card opens the market detail
@@ -64,7 +74,9 @@ const MARKET_DATA = {
 
 const ORDER = ["nl", "de", "be", "pl"];
 
-export default function MarketsBento({ onSearchMarket }) {
+export default function MarketsBento({ onSearchMarket, lang = "EN" }) {
+  const tr = mkTr(lang);
+  const uk = lang === "UK";
   const [openKey, setOpenKey] = React.useState(null);
   const market = openKey ? MARKET_DATA[openKey] : null;
 
@@ -82,7 +94,9 @@ export default function MarketsBento({ onSearchMarket }) {
 
   const search = (key) => {
     setOpenKey(null);
-    onSearchMarket?.(`Show me cars in the ${MARKET_DATA[key].name} market`);
+    onSearchMarket?.(uk
+      ? `Покажи авто на ринку: ${MARKET_UK[key].name}`
+      : `Show me cars in the ${MARKET_DATA[key].name} market`);
   };
 
   return (
@@ -155,14 +169,15 @@ export default function MarketsBento({ onSearchMarket }) {
       `}</style>
 
       <div>
-        <div className="fmcb-eyebrow"><span className="fmcb-dot" /> 4 Active Markets</div>
-        <h2 className="fmcb-title">Where do you want to find your <em>car?</em></h2>
-        <p className="fmcb-sub">AI searches live listings across all four markets simultaneously.</p>
+        <div className="fmcb-eyebrow"><span className="fmcb-dot" /> {tr("Активні ринки", "4 Active Markets")}</div>
+        <h2 className="fmcb-title">{tr(<>Де ви хочете знайти своє <em>авто?</em></>, <>Where do you want to find your <em>car?</em></>)}</h2>
+        <p className="fmcb-sub">{tr("AI шукає живі оголошення на всіх ринках одночасно.", "AI searches live listings across all four markets simultaneously.")}</p>
       </div>
 
       <div className="bento-grid">
         {ORDER.map((key) => {
           const m = MARKET_DATA[key];
+          const front = uk ? MARKET_UK[key] : { eyebrow: m.cardEyebrow, title: m.cardTitle, stat: m.cardStat };
           return (
             <div
               key={key}
@@ -176,18 +191,18 @@ export default function MarketsBento({ onSearchMarket }) {
             >
               <div className="bento-icon" aria-hidden="true">{m.flag}</div>
               <div className="bento-arrow" aria-hidden="true">↗</div>
-              <div className="bento-explore" aria-hidden="true">Explore ↗</div>
+              <div className="bento-explore" aria-hidden="true">{tr("Огляд ↗", "Explore ↗")}</div>
               <div className="bento-body">
-                <div className="bento-eyebrow">{m.cardEyebrow}</div>
-                <h3 className="bento-title">{m.cardTitle}</h3>
-                <div className="bento-stat">{m.cardStat}</div>
+                <div className="bento-eyebrow">{front.eyebrow}</div>
+                <h3 className="bento-title">{front.title}</h3>
+                <div className="bento-stat">{front.stat}</div>
               </div>
               <button
                 className="bento-cta"
                 type="button"
                 onClick={(e) => { e.stopPropagation(); search(key); }}
               >
-                Search {key.toUpperCase()} market →
+                {tr(`Ринок ${key.toUpperCase()} →`, `Search ${key.toUpperCase()} market →`)}
               </button>
             </div>
           );
@@ -201,10 +216,10 @@ export default function MarketsBento({ onSearchMarket }) {
               <div className="mo-hero-overlay" />
               <div className="mo-hero-content">
                 <div className="mo-flag" aria-hidden="true">{market.flag}</div>
-                <h2 className="mo-title" id="mo-title">{market.title}</h2>
+                <h2 className="mo-title" id="mo-title">{uk ? `Ринок: ${MARKET_UK[openKey].name}` : market.title}</h2>
                 <p className="mo-subtitle">{market.subtitle}</p>
               </div>
-              <button className="mo-close" onClick={() => setOpenKey(null)} aria-label="Close">
+              <button className="mo-close" onClick={() => setOpenKey(null)} aria-label={tr("Закрити", "Close")}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12" /></svg>
               </button>
             </div>
@@ -215,10 +230,10 @@ export default function MarketsBento({ onSearchMarket }) {
                 ))}
               </div>
               <div className="mo-insight-box">
-                <div className="mo-insight-label"><span className="mo-pulse" /> AI Market Insight</div>
+                <div className="mo-insight-label"><span className="mo-pulse" /> {tr("AI-аналітика ринку", "AI Market Insight")}</div>
                 <p>{market.insight}</p>
               </div>
-              <div className="mo-section-title">Most Popular Right Now</div>
+              <div className="mo-section-title">{tr("Найпопулярніші зараз", "Most Popular Right Now")}</div>
               <div className="mo-cars-grid">
                 {market.cars.map(([nm, tag, pr], i) => (
                   <div className="mo-car" key={i}>
@@ -227,13 +242,13 @@ export default function MarketsBento({ onSearchMarket }) {
                   </div>
                 ))}
               </div>
-              <div className="mo-section-title">Price Landscape</div>
+              <div className="mo-section-title">{tr("Цінова картина", "Price Landscape")}</div>
               <div className="mo-price-table">
                 {market.prices.map(([k, v], i) => (
                   <div className="mo-price-row" key={i}><b>{k}</b><span className="val">{v}</span></div>
                 ))}
               </div>
-              <div className="mo-section-title">Buying Tips for This Market</div>
+              <div className="mo-section-title">{tr("Поради щодо купівлі на цьому ринку", "Buying Tips for This Market")}</div>
               <div className="mo-tips">
                 {market.tips.map((tip, i) => (
                   <div className="mo-tip" key={i}>
@@ -244,7 +259,7 @@ export default function MarketsBento({ onSearchMarket }) {
               </div>
               <div className="mo-cta">
                 <button className="mo-cta-btn" type="button" onClick={() => search(openKey)}>
-                  Search this market
+                  {tr("Шукати на цьому ринку", "Search this market")}
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
                 </button>
               </div>

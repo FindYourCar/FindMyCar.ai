@@ -1,10 +1,12 @@
 "use client";
 
 import React from "react";
+import { mkTr } from "./i18nHelper";
 
 // "Built differently, on purpose." — why-FindMyCar stats + testimonial,
 // ported from the concept artifact.
-export default function TrustSection() {
+export default function TrustSection({ lang = "EN" }) {
+  const tr = mkTr(lang);
   return (
     <section id="home-why" className="scroll-mt-24" style={{ padding: "96px 24px", background: "linear-gradient(180deg,transparent,rgba(18,16,14,0.4))", borderTop: "1px solid var(--border)" }}>
       <style>{`
@@ -32,26 +34,26 @@ export default function TrustSection() {
 
       <div className="twy-inner">
         <div className="twy-head">
-          <div className="twy-eyebrow"><span className="twy-dot" /> Why FindMyCar</div>
-          <h2 className="twy-title">Built differently, <em>on purpose.</em></h2>
-          <p className="twy-sub">No placement fees. No sponsored slots. No &ldquo;featured&rdquo; dealers. The AI ranks for fit — never for who paid the most to be seen.</p>
+          <div className="twy-eyebrow"><span className="twy-dot" /> {tr("Чому FindMyCar", "Why FindMyCar")}</div>
+          <h2 className="twy-title">{tr("Інші — ", "Built differently, ")}<em>{tr("свідомо.", "on purpose.")}</em></h2>
+          <p className="twy-sub">{tr("Жодної плати за розміщення. Жодних спонсорованих місць. Жодних «рекомендованих» дилерів. AI ранжує за відповідністю — ніколи за тим, хто більше заплатив.", "No placement fees. No sponsored slots. No “featured” dealers. The AI ranks for fit — never for who paid the most to be seen.")}</p>
         </div>
 
         <div className="twy-grid">
-          <div className="twy-stat"><div className="twy-n">€0</div><div className="twy-l">Commission charged<br />to buyers, ever</div></div>
-          <div className="twy-stat"><div className="twy-n">4</div><div className="twy-l">Markets — NL,<br />BE, DE, PL</div></div>
-          <div className="twy-stat"><div className="twy-n">94%</div><div className="twy-l">Average match<br />confidence score</div></div>
-          <div className="twy-stat"><div className="twy-n">4</div><div className="twy-l">Languages<br />supported</div></div>
+          <div className="twy-stat"><div className="twy-n">€0</div><div className="twy-l">{tr(<>Комісія з покупців —<br />ніколи</>, <>Commission charged<br />to buyers, ever</>)}</div></div>
+          <div className="twy-stat"><div className="twy-n">5</div><div className="twy-l">{tr(<>Ринки — UA, NL,<br />BE, DE, PL</>, <>Markets — NL,<br />BE, DE, PL</>)}</div></div>
+          <div className="twy-stat"><div className="twy-n">94%</div><div className="twy-l">{tr(<>Середня впевненість<br />у доборі</>, <>Average match<br />confidence score</>)}</div></div>
+          <div className="twy-stat"><div className="twy-n">5</div><div className="twy-l">{tr(<>Підтримуваних<br />мов</>, <>Languages<br />supported</>)}</div></div>
         </div>
 
         <div className="twy-quote">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="#fbbf24" opacity="0.35" aria-hidden="true"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z" /><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z" /></svg>
-          <p>&ldquo;I described what I needed in three sentences. Twenty minutes later I had five real cars to look at — all within budget, all explained. No filters. No overwhelm.&rdquo;</p>
+          <p>{tr("«Я описав, що мені потрібно, у трьох реченнях. За двадцять хвилин мав п'ять реальних авто на вибір — усі в межах бюджету, усі з поясненнями. Без фільтрів. Без перевантаження.»", "“I described what I needed in three sentences. Twenty minutes later I had five real cars to look at — all within budget, all explained. No filters. No overwhelm.”")}</p>
           <div className="twy-author">
             <div className="twy-av">M</div>
             <div>
               <div className="twy-nm">Michiel van der Berg</div>
-              <div className="twy-loc">Amsterdam, Netherlands</div>
+              <div className="twy-loc">{tr("Амстердам, Нідерланди", "Amsterdam, Netherlands")}</div>
             </div>
           </div>
         </div>
