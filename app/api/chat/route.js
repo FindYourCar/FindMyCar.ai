@@ -75,13 +75,10 @@ export async function POST(req) {
     const languageJustSwitched = Boolean(body.languageJustSwitched);
     const activeMarket = body.activeMarket === "UA" ? "Ukraine"
       : body.activeMarket === "PL" ? "Poland" : null;
-    // Currency: only the Poland market uses złoty. Ukraine (and any Ukrainian /
-    // non-Polish user, or unset market) gets euros — never PLN. This fixes a
-    // Ukrainian-speaking user seeing prices quoted in Polish złoty.
-    const usesZloty = body.activeMarket === "PL" && activeLanguage === "PL";
-    const currencyLine = usesZloty
-      ? " Quote all approximate prices in Polish złoty (zł / PLN)."
-      : " Quote all approximate prices in euros (€) with the € sign — NEVER in Polish złoty (zł/PLN) or any other currency.";
+    // Currency: always euros. It is understood in both Poland and Ukraine, and it
+    // avoids the model quoting wrong złoty amounts (it doesn't convert reliably)
+    // and — the reported bug — a Ukrainian-speaking user seeing prices in PLN.
+    const currencyLine = " Quote all approximate prices in euros (€) with the € sign — NEVER in Polish złoty (zł/PLN), hryvnia, or any other currency.";
 
     const languageLine = languageJustSwitched
       ? `LANGUAGE: The user just switched to ${languageName}. Open your reply with ONE short, warm confirmation that you'll continue in ${languageName}, then immediately keep helping — all in ${languageName}. Do this confirmation only this once; never announce your language ability again.`
