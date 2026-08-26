@@ -2846,7 +2846,14 @@ useEffect(() => {
     if (switched) {
       setLanguage(switched);
       setLanguageConfirmed(false); // allow exactly one confirmation of the new language
+      // Keep the market in step with the language so currency matches: Ukrainian
+      // → Ukraine (euros), Polish → Poland (złoty).
+      if (switched === "UK") setCountry("UA");
+      else if (switched === "PL") setCountry("PL");
     }
+    // Ukrainian UI should default to the Ukraine market (euros, not złoty), even
+    // if the market pill was never touched.
+    const marketForRequest = (activeLanguage === "UK" && country === "PL") ? "UA" : country;
 
     // Intent gating: prefer the LLM's structured judgment — it classifies intent
     // AND resolves references like "yes please" / "give me listings" using the
@@ -2878,7 +2885,7 @@ useEffect(() => {
           activeLanguage,
           // Confirm a switch at most once per new language, then never again.
           languageJustSwitched: languageJustSwitched && !languageConfirmed,
-          activeMarket: country,
+          activeMarket: marketForRequest,
         }),
       ]);
       // We've now delivered (at most) one confirmation of the new language.
@@ -3792,7 +3799,7 @@ useEffect(() => {
         setCountry={(c) => { setCountry(c); setShowCountryPicker(false); }}
         onClose={() => setShowCountryPicker(false)} />}
       {showLanguagePicker && <LanguagePicker language={language}
-        setLanguage={(l) => { setLanguage(l); setShowLanguagePicker(false); }}
+        setLanguage={(l) => { setLanguage(l); if (l === "UK") setCountry("UA"); else if (l === "PL") setCountry("PL"); setShowLanguagePicker(false); }}
         onClose={() => setShowLanguagePicker(false)} />}
       {showHistory && <ChatHistoryModal sessions={chatSessions}
         onRestore={restoreSession} onDelete={deleteSession}
