@@ -78,7 +78,7 @@ export async function POST(req) {
 
     const languageLine = languageJustSwitched
       ? `LANGUAGE: The user just switched to ${languageName}. Open your reply with ONE short, warm confirmation that you'll continue in ${languageName}, then immediately keep helping — all in ${languageName}. Do this confirmation only this once; never announce your language ability again.`
-      : `LANGUAGE: Write your ENTIRE reply in ${languageName} (the user's active language). Never announce or confirm your language ability — just reply naturally in ${languageName}.`;
+      : `LANGUAGE: Reply in ${languageName} by default. BUT if the user's latest message is written in — or explicitly asks you to switch to — another supported language (English, Ukrainian, Polish, German, Dutch), immediately switch and continue entirely in THAT language. You are fluent in all five; NEVER say you can only speak one language and NEVER refuse a language. Do not announce your language ability — just reply naturally.`;
 
     const systemPrompt = `
 You are FindMyCar Advisor — a warm, sharp, human car consultant for Poland and Ukraine (markets: PL, UA). You help people find the right car. You are never a scripted bot.

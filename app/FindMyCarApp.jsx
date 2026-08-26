@@ -1034,15 +1034,31 @@ const LANGUAGES = {
 // "in <language>" request, or ≥3 words that resolve to a language) AND it differs
 // from the current one. Short/ambiguous messages (a name, a brand, "ok") → null,
 // so the interface never flips on an accidental word.
+// Explicit "switch to <language>" requests. These win even when the message
+// itself is written in another language — e.g. "English?", "Ні, англійською",
+// "по-англійськи", "speak english", "switch to polish".
+const LANG_REQUEST = [
+  [/\b(english|angielsk|englisch|engels)\b|англ[іи]йськ|англ[іи]йски|по[-\s]?англ|на\s*англ/i, "EN"],
+  [/\b(ukrainian|ukrainisch|oekraïens)\b|українськ|українською|по[-\s]?україн|на\s*україн/i, "UK"],
+  [/\b(polski|polsku|polish|polnisch|pools)\b|польськ|польською|по[-\s]?польськ|на\s*польськ/i, "PL"],
+  [/\b(deutsch|german|duits)\b|німецьк|німецькою|по[-\s]?німецьк|на\s*німецьк/i, "DE"],
+  [/\b(nederlands|dutch|niederländisch)\b|нідерландськ|голландськ|по[-\s]?голландськ/i, "NL"],
+];
+
 function detectUiLanguageSwitch(text, current) {
   const raw = (text || "").trim();
   if (!raw) return null;
   const low = raw.toLowerCase();
+  // 1) Explicit request to switch language (works regardless of the message's
+  //    own language, so "English?" or the "Ні, англійською" chip both work).
+  for (const [re, lang] of LANG_REQUEST) {
+    if (re.test(low) && LANGUAGES[lang]) return lang !== current ? lang : null;
+  }
+  // 2) Otherwise, infer from the language the message is actually written in.
   const words = raw.split(/\s+/).filter(Boolean).length;
   const distinctive =
-    /[іїєґ]/i.test(raw) || /[Ѐ-ӿ]/.test(raw) || /[ąćęłńóśźż]/i.test(raw) || /[äöüß]/i.test(raw) ||
-    /\b(in english|po polsku|auf deutsch|in het nederlands|englisch|deutsch|nederlands|polski|polsku|ukrainian|українською|українськ|po ukrain)\b/.test(low);
-  if (!distinctive && words < 3) return null; // too short / ambiguous
+    /[іїєґ]/i.test(raw) || /[Ѐ-ӿ]/.test(raw) || /[ąćęłńóśźż]/i.test(raw) || /[äöüß]/i.test(raw);
+  if (!distinctive && words < 3) return null; // short/ambiguous (could be a car name)
   const d = detectLanguage(raw, null);
   if (!d || !LANGUAGES[d]) return null;       // only supported UI languages
   return d !== current ? d : null;
@@ -3230,6 +3246,9 @@ useEffect(() => {
         /* Animations */
         @keyframes fadeUp { from { opacity: 0; transform: translateY(16px);} to { opacity: 1; transform: none; } }
         .fade-up { animation: fadeUp .7s cubic-bezier(.2,.8,.2,1) both; }
+        /* Smooth entrance for the mobile full-screen chat (cheap: opacity+transform). */
+        @keyframes fmcChatRise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+        .fmc-chat-rise { animation: fmcChatRise .3s cubic-bezier(.22,1,.36,1) both; will-change: transform, opacity; }
 
         /* Gentle vertical float loop for social-proof pills in hero */
         @keyframes floatPill {
@@ -4311,7 +4330,7 @@ try {
           {(() => {
           const chatPanel = (
           <div className={chatFullscreen
-              ? "fixed inset-0 z-[60] flex flex-col"
+              ? "fixed inset-0 z-[60] flex flex-col fmc-chat-rise"
               : `card-static rounded-3xl overflow-hidden fade-up transition-all duration-700 ${hasChatStarted ? "mt-6" : "mt-8"}`}
             style={chatFullscreen ? { height: "100dvh", background: "#0a0908" } : {
               animationDelay: ".3s",
