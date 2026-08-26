@@ -4109,6 +4109,18 @@ try {
         className="relative overflow-hidden dot-grid scroll-mt-24"
         style={{ backgroundColor: "#0a0a0a" }}
       >
+        {/* Mobile background: soft amber radial glows baked into ONE paint — no
+            video, no blur filter, so it adds warm depth with essentially zero
+            runtime cost (fixes the "empty" feel after disabling the video). */}
+        {isMobile && (
+          <div aria-hidden="true" className="pointer-events-none" style={{
+            position: "absolute", inset: 0, zIndex: 0,
+            background:
+              "radial-gradient(90% 55% at 50% -8%, rgba(251,191,36,0.16), transparent 60%)," +
+              "radial-gradient(70% 45% at 6% 22%, rgba(217,119,6,0.10), transparent 62%)," +
+              "radial-gradient(60% 45% at 98% 68%, rgba(251,191,36,0.08), transparent 60%)",
+          }} />
+        )}
         {/* ── Rotating video background — dual-layer crossfade ──
              ALL styles are INLINE so this works regardless of whether
              the <style> block's CSS classes are loaded by Next.js. */}
@@ -4178,6 +4190,7 @@ try {
         )}
 
         {/* ── Dark overlay on top of video (z-1) ────────────────── */}
+        {/* Lighter on mobile (no video to darken) so the amber glows show. */}
         <div
           aria-hidden="true"
           style={{
@@ -4186,7 +4199,7 @@ try {
             left: 0,
             width: "100%",
             height: "100%",
-            background: "rgba(0, 0, 0, 0.78)",
+            background: isMobile ? "rgba(0, 0, 0, 0.35)" : "rgba(0, 0, 0, 0.78)",
             zIndex: 1,
             pointerEvents: "none",
           }}
