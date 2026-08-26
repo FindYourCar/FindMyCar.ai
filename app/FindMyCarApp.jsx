@@ -2426,6 +2426,23 @@ function bydReasons(c, a) {
   return r.slice(0, 4);
 }
 
+// Persisted preferences key + a synchronous reader so the very first client
+// render already uses the saved language/market — otherwise the UI paints in the
+// default (English) and only flips after an effect runs, which flashed English
+// on the intro for ~1s before switching to Ukrainian.
+const FMC_CHAT_KEY = "fmc.chat.v1";
+const FMC_CHAT_TTL = 10 * 24 * 60 * 60 * 1000; // 10 days
+function readSavedPrefs() {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(FMC_CHAT_KEY);
+    if (!raw) return {};
+    const saved = JSON.parse(raw);
+    if (saved && typeof saved.savedAt === "number" && Date.now() - saved.savedAt < FMC_CHAT_TTL) return saved;
+  } catch { /* corrupt/unavailable storage */ }
+  return {};
+}
+
 export default function App() {
   // DEBUG: confirm this App component is rendering
   React.useEffect(() => {
@@ -2441,8 +2458,8 @@ export default function App() {
   const [listingMaxPrice, setListingMaxPrice] = useState(null);
   const [listingQuery, setListingQuery] = useState("");
   const [view, setView] = useState("home");
-  const [country, setCountry] = useState(DEFAULT_MARKET);
-  const [language, setLanguage] = useState("EN");
+  const [country, setCountry] = useState(() => readSavedPrefs().country || DEFAULT_MARKET);
+  const [language, setLanguage] = useState(() => readSavedPrefs().language || "EN");
   // True once we've confirmed a language switch to the user, so the advisor never
   // repeats "I can speak X". Persists for the session.
   const [languageConfirmed, setLanguageConfirmed] = useState(false);
@@ -2662,8 +2679,6 @@ useEffect(() => {
   // ── Conversation persistence (10-day TTL) ──────────────────────────────────
   // The advisor "remembers the conversation for 10 days": persist the chat to
   // localStorage and restore it on load, expiring after 10 days.
-  const FMC_CHAT_KEY = "fmc.chat.v1";
-  const FMC_CHAT_TTL = 10 * 24 * 60 * 60 * 1000; // 10 days in ms
   const chatHydrated = React.useRef(false);
 
   React.useEffect(() => {
