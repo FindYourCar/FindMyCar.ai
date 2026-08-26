@@ -2431,10 +2431,6 @@ const FMC_CHAT_KEY = "fmc.chat.v1";
 const FMC_CHAT_TTL = 10 * 24 * 60 * 60 * 1000; // 10 days
 
 export default function App() {
-  // DEBUG: confirm this App component is rendering
-  React.useEffect(() => {
-    console.log("[FindMyCar] 🚗 App component MOUNTED from FindMyCarApp.jsx — this is the real homepage component");
-  }, []);
   const [listings, setListings] = useState([]);
   const [listingsLoading, setListingsLoading] = useState(false);
   const [listingsError, setListingsError] = useState("");
@@ -2476,7 +2472,10 @@ const normalizeExternalListing = (raw) => {
   };
 };
 const fetchExternalListings = async () => {
-  const liveUrl = process.env.NEXT_PUBLIC_LISTINGS_URL || "/api/live-listings";
+  // Default to the real, existing endpoint. NEXT_PUBLIC_LISTINGS_URL can point at
+  // an external live feed later; until then this avoids a 404 on every load
+  // (the old default "/api/live-listings" route does not exist).
+  const liveUrl = process.env.NEXT_PUBLIC_LISTINGS_URL || "/api/listings";
   const res = await fetch(liveUrl);
   if (!res.ok) {
     throw new Error("Live listings fetch failed");
@@ -4013,10 +4012,6 @@ function useIsMobile() {
 }
 
 function Home({ messages, sendMessage, isTyping, startFreshChat, country, setCountry, openCar, shortlist, compareList, toggleShortlist, toggleCompare, language, setShowLanguagePicker, chatSessions, setShowHistory, showListings = false, visibleListings = [], listingsLoading = false, listingsError = "", t }) {
-  // DEBUG: confirm this component is the one rendering on your page
-  React.useEffect(() => {
-    console.log("[FindMyCar] 🏠 Home component MOUNTED from FindMyCarApp.jsx — hero video system should be visible");
-  }, []);
   const [input, setInput] = React.useState("");
   const [openFaq, setOpenFaq] = React.useState(0);
   const scrollRef = React.useRef(null);
@@ -4093,12 +4088,8 @@ try {
     } catch {}
   }, [activeLayer, activeVidIdx, videoEnabled, videoError, isMobile]);
 
-  // Video error handler — log the exact path that failed
-  const handleVideoError = React.useCallback((e) => {
-    const src = e?.target?.src || e?.target?.currentSrc || "unknown";
-    console.error("[FindMyCar] ❌ Hero video FAILED to load:", src);
-    console.error("[FindMyCar] Check that files exist in /public/media/Hero/ with EXACT names: Hero-01.mp4, Hero-02.mp4, Hero-03.mp4, Hero-04.mp4, Hero-05.mp4");
-    console.error("[FindMyCar] File paths are case-sensitive on Linux/Vercel. Verify casing matches exactly.");
+  // Video error handler — fall back to the static background if a clip fails.
+  const handleVideoError = React.useCallback(() => {
     setVideoError(true);
   }, []);
 
@@ -4107,13 +4098,6 @@ try {
     setActiveLayer(prev => prev === "A" ? "B" : "A");
     setActiveVidIdx(next);
   }, [activeVidIdx]);
-
-  // Log active video on every swap
-  React.useEffect(() => {
-    if (videoEnabled && !videoError) {
-      console.log("[FindMyCar] 🎬 Active hero video:", HERO_VIDEOS[activeVidIdx], "| Layer:", activeLayer);
-    }
-  }, [activeVidIdx, activeLayer, videoEnabled, videoError]);
 
   React.useEffect(() => {
     if (scrollRef.current) {
@@ -4187,7 +4171,6 @@ try {
               aria-hidden="true"
               onEnded={handleVideoEnded}
               onError={handleVideoError}
-              onLoadedData={() => console.log("[FindMyCar] ✅ Video A loaded:", HERO_VIDEOS[activeLayer === "A" ? activeVidIdx : standbyVidIdx])}
               style={{
                 position: "absolute",
                 top: 0,
@@ -4212,7 +4195,6 @@ try {
               aria-hidden="true"
               onEnded={handleVideoEnded}
               onError={handleVideoError}
-              onLoadedData={() => console.log("[FindMyCar] ✅ Video B loaded:", HERO_VIDEOS[activeLayer === "B" ? activeVidIdx : standbyVidIdx])}
               style={{
                 position: "absolute",
                 top: 0,
