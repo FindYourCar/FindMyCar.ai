@@ -49,10 +49,21 @@ function OptGroup({ label, options, value, onChange, render }) {
   );
 }
 
+// Which market (currency) each UI language maps to. Ukrainian → Ukraine (₴),
+// everything else → Poland (zł) — the two live markets.
+const LANG_TO_MARKET = { UK: "UA", PL: "PL" };
+
 export default function CostCalculatorSection({ lang = "EN" }) {
   const tr = mkTr(lang);
   const uk = lang === "UK";
-  const [country, setCountry] = React.useState("PL");
+  const [country, setCountry] = React.useState(LANG_TO_MARKET[lang] || "PL");
+
+  // Currency follows the UI language: switching language switches the market
+  // (and therefore the currency/labels) here too.
+  React.useEffect(() => {
+    const m = LANG_TO_MARKET[lang];
+    if (m) setCountry(m);
+  }, [lang]);
   const [size, setSize] = React.useState("Compact");
   const [fuel, setFuel] = React.useState("Petrol");
   const [age, setAge] = React.useState("Nearly New");
