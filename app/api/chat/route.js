@@ -1,64 +1,33 @@
-// Only models this Groq account actually has access to. Fast, high-throughput
-// models FIRST: on the free tier the big models rate-limit (429) and time out
-// under back-to-back usage. gpt-oss-20b is quick and capable enough for this
-// structured task, with 8b-instant (very high limits) as the reliable backup and
-// gpt-oss-120b as a last resort. (qwen/kimi were removed — this account 403s on
-// them, which produced confusing "model not found" errors under load.)
-const GROQ_MODELS = [
-  "llama-3.1-8b-instant",
-  "openai/gpt-oss-20b",
-  "openai/gpt-oss-120b",
-];
-let cachedGroqModel = null;
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// The advisor runs on the Claude API (Anthropic). Haiku 4.5 is the sweet spot
+// for this per-message chat: fast, low cost, strong instruction-following, and
+// good at Ukrainian/Polish — plenty for the short structured JSON reply we need.
+// Swap to "claude-sonnet-5" or "claude-opus-5" here for more capability.
+import Anthropic from "@anthropic-ai/sdk";
 
-// Allow the serverless function more time than the 10s default so a slow model
-// response is not killed mid-generation (which also looked like a failure).
+const MODEL = "claude-haiku-4-5";
+// Reads ANTHROPIC_API_KEY from the environment (set in .env.local and on Vercel).
+const anthropic = new Anthropic();
+
+// Allow the serverless function more time than the 10s default so a slow
+// generation is not killed mid-response.
 export const maxDuration = 30;
 
-async function groqComplete({ messages, temperature = 0.7, response_format }) {
-  const ordered = cachedGroqModel
-    ? [cachedGroqModel, ...GROQ_MODELS.filter((m) => m !== cachedGroqModel)]
-    : GROQ_MODELS;
-  let lastError = null;
-  for (const model of ordered) {
-    const payload = { model, temperature, messages };
-    if (response_format) payload.response_format = response_format;
-    // A free-tier rate-limit (429) clears within a second or two, so retry the
-    // SAME model with growing backoff before giving up on it — falling straight
-    // through the whole list just burns every model's quota at once.
-    for (let attempt = 0; attempt < 3; attempt++) {
-      let res, data;
-      try {
-        res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-          },
-          body: JSON.stringify(payload),
-        });
-        data = await res.json();
-      } catch (e) {
-        lastError = { error: { message: String(e?.message || e) } };
-        await sleep(400 * (attempt + 1));
-        continue; // network blip → retry this model
-      }
-      if (res.ok) {
-        cachedGroqModel = model;
-        return { ok: true, data };
-      }
-      lastError = data;
-      const msg = data?.error?.message || "";
-      // Rate limit or server error: wait (longer each time) and retry this model.
-      if (res.status === 429 || res.status >= 500) { await sleep(700 * (attempt + 1)); continue; }
-      // Model unavailable → skip straight to the next model.
-      if (/model|decommission|does not exist|not found|access/i.test(msg)) break;
-      // Any other 4xx (bad request, auth): no point trying more models.
-      return { ok: false, error: lastError };
-    }
-  }
-  return { ok: false, error: lastError };
+// Single Claude call. System prompt goes in the dedicated `system` field (not in
+// the messages array, unlike the OpenAI/Groq shape). The SDK retries transient
+// 429/5xx/network errors itself, so no hand-rolled retry loop is needed.
+async function claudeComplete({ system, messages, maxTokens = 2048, temperature = 0.7 }) {
+  const res = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: maxTokens,
+    temperature,
+    system,
+    messages,
+  });
+  return (res.content || [])
+    .filter((b) => b.type === "text")
+    .map((b) => b.text)
+    .join("")
+    .trim();
 }
 
 const LANGUAGE_NAMES = { EN: "English", PL: "Polish", UK: "Ukrainian", DE: "German", NL: "Dutch" };
@@ -116,27 +85,30 @@ Car = { "name": string, "type": string (body+fuel), "price": string (approx, wit
 Everything (reply, chips, badges, why, specs labels) must be in the user's language.
 `;
 
-    const result = await groqComplete({
-      temperature: 0.7,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: systemPrompt },
-        ...messages,
-      ],
-    });
-
-    if (!result.ok) {
-      return new Response(
-        JSON.stringify({ error: result.error }),
-        {
-          status: 500,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
+    // Anthropic requires the first message to be a `user` turn and every entry to
+    // carry non-empty string content, so normalise and drop any leading assistant
+    // messages (e.g. the client's welcome bubble).
+    const convo = messages
+      .filter((m) => m && typeof m.content === "string" && m.content.trim())
+      .map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content }));
+    while (convo.length && convo[0].role !== "user") convo.shift();
+    if (!convo.length) {
+      return new Response(JSON.stringify({ error: "No user message" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
-    const raw =
-      result.data?.choices?.[0]?.message?.content || "";
+    let raw;
+    try {
+      raw = await claudeComplete({ system: systemPrompt, messages: convo });
+    } catch (error) {
+      // Surface as 500 so the client falls back to its local response bank.
+      return new Response(
+        JSON.stringify({ error: error?.message || "Claude request failed" }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
 
     // Strip markdown just in case a model wraps prose despite JSON mode.
     const stripMd = (s) => (s || "")

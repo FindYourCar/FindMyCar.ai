@@ -1,38 +1,29 @@
-// Intent extraction is a light classification task, so use the fast, high-limit
-// 8b model first — it keeps this call cheap and quick and leaves free-tier rate
-// headroom for the heavier chat call that runs in parallel on every message.
-const GROQ_MODELS = [
-  "llama-3.1-8b-instant",
-  "openai/gpt-oss-20b",
-];
-let cachedGroqModel = null;
+// Intent extraction is a light classification task — Claude Haiku 4.5 is fast and
+// cheap and returns clean JSON, so it fits this per-message call well. Runs on the
+// Claude API (Anthropic), same provider/key as the advisor.
+import Anthropic from "@anthropic-ai/sdk";
+
+const MODEL = "claude-haiku-4-5";
+const anthropic = new Anthropic(); // reads ANTHROPIC_API_KEY from the environment
 
 export const maxDuration = 30;
 
-async function groqComplete(payload) {
-  const ordered = cachedGroqModel
-    ? [cachedGroqModel, ...GROQ_MODELS.filter((m) => m !== cachedGroqModel)]
-    : GROQ_MODELS;
-  let lastStatus = 0;
-  for (const model of ordered) {
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-      },
-      body: JSON.stringify({ ...payload, model }),
-    });
-    if (res.ok) {
-      cachedGroqModel = model;
-      return res.json();
-    }
-    lastStatus = res.status;
-    const data = await res.json().catch(() => ({}));
-    const msg = data?.error?.message || "";
-    if (!/model|decommission|does not exist|not found|access/i.test(msg)) break;
-  }
-  throw new Error(`Groq ${lastStatus}`);
+// Single Claude call. `system` holds the classification instructions; `messages`
+// is the (optional) recent conversation plus the latest user message. The SDK
+// retries transient errors itself.
+async function claudeComplete({ system, messages, maxTokens = 300, temperature = 0 }) {
+  const res = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: maxTokens,
+    temperature,
+    system,
+    messages,
+  });
+  return (res.content || [])
+    .filter((b) => b.type === "text")
+    .map((b) => b.text)
+    .join("")
+    .trim();
 }
 
 export async function POST(req) {
@@ -53,13 +44,7 @@ export async function POST(req) {
           }))
       : [];
 
-    const data = await groqComplete({
-      temperature: 0,
-      max_tokens: 300,
-      messages: [
-          {
-            role: "system",
-            content: `You classify a car shopper's LATEST message and extract search intent. Output ONLY valid JSON — no prose, no markdown fences, nothing else.
+    const systemPrompt = `You classify a car shopper's LATEST message and extract search intent. Output ONLY valid JSON — no prose, no markdown fences, nothing else.
 
 Schema:
 {
@@ -72,7 +57,7 @@ Schema:
   "budget_max": number | null,
   "mileage_max": number | null,
   "year_min": number | null,
-  "country": "NL" | "BE" | "DE" | "PL" | null,
+  "country": "PL" | "UA" | null,
   "confidence": number
 }
 
@@ -91,14 +76,15 @@ EXTRACTION rules:
 - make: canonical brand name only (e.g. "Mercedes-Benz", "BMW", "Volkswagen", "Alfa Romeo", "Lexus", "Opel"). Always "Mercedes-Benz" with a hyphen, never a space.
 - model: the model FAMILY plus a genuine performance variant when named (e.g. "Golf GTI", "Golf R", "A4"), but NO body words (Avant, Touring, Variant, Estate, Sportback), NO plain engine badges (320d, c220d), NO filter words. Examples: "3 Series" (not "320d Touring"), "C-Class", "Giulia", "MX-5", "RAV4".
 - budget_max / mileage_max / year_min: plain numbers only, never strings. A 4-digit year is a year, never a budget.
-- confidence: 0.0 = vague/no make, 0.5 = make known, 0.8 = make + model, 1.0 = fully specific.`,
-          },
-        ...contextMsgs,
-        { role: "user", content: `Classify and extract intent from this latest message: "${query}"` },
-      ],
-    });
+- confidence: 0.0 = vague/no make, 0.5 = make known, 0.8 = make + model, 1.0 = fully specific.`;
 
-    const content = data?.choices?.[0]?.message?.content || "";
+    // Anthropic requires the first message to be `user`, so drop any leading
+    // assistant context turns before appending the latest user message.
+    const convo = [...contextMsgs];
+    while (convo.length && convo[0].role !== "user") convo.shift();
+    convo.push({ role: "user", content: `Classify and extract intent from this latest message: "${query}"` });
+
+    const content = await claudeComplete({ system: systemPrompt, messages: convo });
     // Extract the JSON object even if the model wrapped it in prose
     const match = content.match(/\{[\s\S]*\}/);
     if (!match) throw new Error("No JSON in LLM response");
